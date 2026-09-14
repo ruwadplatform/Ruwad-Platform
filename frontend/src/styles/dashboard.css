@@ -1,0 +1,212 @@
+/* ============ HERO BANNER ============
+   Same brand-blue family as the header (--ruwad-green — value is blue,
+   name kept for the same reason noted in variables.css), not a separate
+   palette — this is the exact continuation the header hands off to,
+   used by both the public landing hero and the dashboard's own ecosystem
+   hero banner (same .eco-hero class, one fix covers both). Sits right
+   under the personal greeting now (js/dashboard.js), not down in the
+   shared ecosystem section, so its heading is an h2 — the greeting above
+   it already owns the page's one h1. */
+.eco-hero{
+  position:relative;border-radius:var(--radius-lg);overflow:hidden;min-height:220px;
+  /* Same "Saudi Arabia's global network" photo the public landing hero
+     uses (js/auth.js's .eco-hero-full-img, assets/images/saudi-global-
+     network.jpg) — a semi-transparent version of the brand navy/blue
+     gradient sits on top as a scrim (same role the landing hero's own
+     .eco-hero-full-scrim plays) so the photo reads through softly
+     instead of hiding behind a flat opaque gradient, while the white
+     heading/body text over it stays legible. */
+  background:
+    linear-gradient(105deg, rgba(26,32,68,.85) 0%, rgba(5,6,18,.80) 55%, rgba(5,6,18,.92) 100%),
+    radial-gradient(circle at 80% 20%, rgba(255,255,255,.12), transparent 55%),
+    url('../assets/images/saudi-global-network.jpg') center 35% / cover no-repeat;
+  color:#fff;display:flex;align-items:stretch;
+}
+.eco-hero-in{display:flex;width:100%;padding:26px 28px}
+.eco-hero-main{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.eco-hero-main .eyebrow{color:var(--ruwad-header-muted)}
+.eco-hero-main h2{font-size:var(--fs-24);font-weight:700;max-width:34ch;line-height:1.28}
+.eco-hero-main p{font-size:var(--fs-13);color:var(--ruwad-header-muted);max-width:52ch;margin-top:2px}
+/* the hero's Explore-Ecosystem CTA needs a white fill for contrast now
+   that the background is green instead of navy — .btn-primary elsewhere
+   in the app is untouched, this only overrides it inside the hero */
+.eco-hero-cta .btn-primary{background:#fff;color:var(--ruwad-green)}
+.eco-hero-cta .btn-primary:hover{background:#F0F5F2}
+.eco-hero-cta .btn:not(.btn-primary){border:1px solid rgba(255,255,255,.3)}
+.eco-hero-cta{display:flex;gap:12px;margin-top:14px}
+.eco-hero-side{
+  width:230px;flex:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);
+  border-radius:var(--radius-md);padding:16px;display:flex;flex-direction:column;justify-content:space-between;backdrop-filter:blur(2px);
+}
+.eco-hero-side .rep-badge{font-size:var(--fs-10);font-weight:700;letter-spacing:.06em;color:var(--gold)}
+.eco-hero-side h4{font-size:var(--fs-14);margin:8px 0 14px;line-height:1.3}
+@media(max-width:1024px){.eco-hero-in{flex-direction:column;gap:18px}.eco-hero-side{width:100%}}
+
+/* the "operated by..." credit reads as a signature, not a label — a
+   script face needs normal case (all-caps breaks a cursive font's
+   connecting strokes), so it overrides the eyebrow's own uppercase */
+.eyebrow-script{
+  font-family:'Dancing Script',cursive;
+  text-transform:none;letter-spacing:0;
+  font-size:var(--fs-16);font-weight:600;
+}
+/* RUWĀD standing on its own gets bumped up from the eyebrow's base
+   10.5px — otherwise it reads smaller than the cursive credit next to it */
+.eyebrow-brand{font-size:var(--fs-14);font-weight:800;letter-spacing:.04em}
+/* CTA buttons get a small hover lift + shadow instead of just a flat
+   color swap, so the hero's primary actions feel more inviting */
+.eco-hero-cta .btn{transition:transform .15s ease,box-shadow .15s ease,background .15s ease}
+.eco-hero-cta .btn:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(0,0,0,.12)}
+
+/* ---- landing hero: full-bleed photo with the text overlaid on top ----
+   One real photograph (Saudi Arabia's global network, lit gold on a
+   night-earth view) instead of a plain background — the text sits over
+   it, so everything here needs to work against a dark, busy image
+   rather than the app's usual light surfaces. */
+.eco-hero-full{position:relative;overflow:hidden;min-height:500px;display:flex;align-items:center}
+.eco-hero-full-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 35%;z-index:0}
+/* left-to-right scrim, darkest where the text sits, fading out toward
+   the right so the photo's own network lines stay visible there */
+.eco-hero-full-scrim{
+  position:absolute;inset:0;z-index:1;
+  background:linear-gradient(90deg, rgba(var(--color-navy-950-rgb),.88) 0%, rgba(var(--color-navy-950-rgb),.62) 42%, rgba(var(--color-navy-950-rgb),.24) 70%, rgba(var(--color-navy-950-rgb),.04) 100%);
+}
+/* max-width/horizontal padding intentionally match the landing page's
+   stats-row container exactly (.content-in, inline max-width:1400px,
+   base padding:32px 32px 60px in layout.css) — same centering formula,
+   same breakpoints below — so the hero content's left edge and the
+   first stats card's left edge always land on the same X position
+   instead of two independently-centered containers drifting apart. */
+.eco-hero-full-in{position:relative;z-index:2;max-width:1400px;margin:0 auto;width:100%;display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:60px 32px}
+@media(max-width:1024px){.eco-hero-full-in{padding-left:24px;padding-right:24px}}
+@media(max-width:760px){.eco-hero-full-in{padding-left:16px;padding-right:16px}}
+.eco-hero-full-eyebrow{display:inline-flex;align-items:center;gap:7px;padding:5px 12px 5px 10px;border-radius:var(--radius-pill);background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff}
+.eco-hero-full-eyebrow .eyebrow-script{color:rgba(255,255,255,.85)}
+.eco-hero-full-eyebrow::before{content:"";width:6px;height:6px;border-radius:var(--radius-pill);background:var(--gold);flex:none;box-shadow:0 0 0 0 rgba(201,162,39,.7);animation:heroPulseGold 2.2s ease-out infinite}
+@keyframes heroPulseGold{
+  0%{box-shadow:0 0 0 0 rgba(201,162,39,.6)}
+  70%{box-shadow:0 0 0 6px rgba(201,162,39,0)}
+  100%{box-shadow:0 0 0 0 rgba(201,162,39,0)}
+}
+.eco-hero-full-h1{font-size:var(--fs-34);max-width:22ch;margin-top:10px;color:#fff;line-height:1.2}
+.eco-hero-full-ar{color:rgba(255,255,255,.88);font-size:var(--fs-16);margin-top:10px}
+.eco-hero-full-p{max-width:56ch;margin-top:2px;color:rgba(255,255,255,.8)}
+.eco-hero-full .eco-hero-cta .btn-primary{background:var(--gold);color:var(--green)}
+.eco-hero-full .eco-hero-cta .btn-primary:hover{filter:brightness(.94)}
+.eco-hero-full .eco-hero-cta .btn:not(.btn-primary){background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff}
+.eco-hero-full .eco-hero-cta .btn:not(.btn-primary):hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.75)}
+@media(max-width:1024px){
+  .eco-hero-full{min-height:420px}
+  .eco-hero-full-h1{font-size:var(--fs-26)}
+  .eco-hero-full-scrim{background:rgba(var(--color-navy-950-rgb),.72)}
+}
+
+/* .insight-row (generic N-column grid) is still used by js/analytics.js
+   for its chart panels — kept. The old persona-switcher tabs and
+   .insight-card/.featured-card styling that used to sit inside it on the
+   dashboard were removed with the dashboard redesign below. */
+.insight-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px}
+
+/* ============ DASHBOARD REDESIGN ============
+   Personal activity tiles, the Ecosystem Snapshot strip, the Discover
+   grid and the 3-column intelligence area — everything specific to
+   js/dashboard.js's renderDashboard(). Scoped under .dashboard-page
+   where a class could otherwise leak (kpi/panel already scoped
+   separately above for the blue-border rule). */
+.activity-card{cursor:pointer;transition:border-color .15s ease}
+.activity-card:hover{border-color:var(--info)}
+.activity-card .ac-icon{width:26px;height:26px;border-radius:var(--radius-icon);background:var(--info-tint);color:var(--info);display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.activity-card .ac-link{display:flex;align-items:center;gap:4px;font-size:var(--fs-11);font-weight:600;color:var(--info);margin-top:10px}
+
+/* ============ PERSONA SWITCHER ============ */
+.persona-row{display:flex;gap:8px;margin:18px 0;overflow-x:auto}
+.persona-btn{
+  padding:8px 16px;border-radius:var(--radius-pill);border:1px solid rgba(37,99,166,.4);background:#fff;
+  font-size:var(--fs-12);font-weight:600;color:var(--muted);white-space:nowrap;cursor:pointer;
+}
+.persona-btn.active{background:var(--navy-900);border-color:var(--navy-900);color:#fff}
+
+/* ============ INSIGHT CARDS ============
+   .insight-card border color is overridden blue via the shared
+   ".dashboard-page .insight-card" rule in components.css — the green
+   hover below still wins on :hover (same specificity, later in the
+   cascade since dashboard.css loads after components.css). */
+.insight-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:16px;display:flex;flex-direction:column;gap:8px}
+.insight-card:hover{border-color:var(--green)}
+.insight-card .ic-icon{width:32px;height:32px;border-radius:var(--radius-icon);background:var(--green-tint);color:var(--green-dark);display:flex;align-items:center;justify-content:center}
+.insight-card h4{font-size:var(--fs-13)}
+.insight-card p{font-size:var(--fs-11);color:var(--muted);flex:1}
+.insight-card .ic-arrow{font-size:var(--fs-12);font-weight:700;color:var(--green-dark);display:flex;align-items:center;gap:4px}
+
+/* ============ FEATURED PROFILES ============ */
+.featured-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;margin-bottom:26px}
+.featured-card{
+  flex:none;width:132px;background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);
+  padding:14px 12px;text-align:center;cursor:pointer;
+}
+.featured-card:hover{border-color:var(--green)}
+.featured-card .flogo{width:44px;height:44px;border-radius:var(--radius-md);background:var(--navy-800);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-13);margin:0 auto 10px}
+.featured-card b{font-size:var(--fs-12);display:block;line-height:1.3}
+.featured-card span{font-size:var(--fs-10);color:var(--muted)}
+
+/* ============ 3-COL INTELLIGENCE GRID ============
+   ~20/60/20 split (Events | Investments+Recommendations | News). DOM
+   order doesn't matter — each column's visual position (and, stacked on
+   mobile, its reading order) is set entirely by `order`, so the center
+   column's real content always lands right after the persona/Featured
+   Profiles sections on mobile, ahead of Events/News. */
+.intel-grid{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,3fr) minmax(220px,1fr);gap:16px;align-items:start}
+.intel-events{order:1}
+.intel-center{order:2;display:flex;flex-direction:column;gap:16px}
+.intel-news{order:3}
+@media(max-width:1024px){
+  .intel-grid{grid-template-columns:1fr}
+  .intel-center{order:1}
+  .intel-events{order:2}
+  .intel-news{order:3}
+}
+/* Recommended Startups/Investors always show exactly 3 cards — the
+   shared .entity-grid's own repeat(auto-fill,minmax(300px,1fr)) is meant
+   for directory pages at full page width, so at the intel-grid's ~60%
+   center-column width it only ever fits 2 per row and wraps the 3rd onto
+   an otherwise-empty row. Force exactly 3 equal columns here instead
+   (scoped to this class, not .entity-grid itself, so directory pages
+   elsewhere keep their own auto-fill behavior). */
+/* .entity-grid.dash-rec-grid (not just .dash-rec-grid) — directories.css
+   loads after dashboard.css, so a same-specificity .dash-rec-grid rule
+   would lose the cascade tie to .entity-grid's own grid-template-columns
+   and never actually apply. The compound selector outranks it instead of
+   depending on file order. */
+.entity-grid.dash-rec-grid{grid-template-columns:repeat(3,1fr)}
+@media(max-width:1024px){.entity-grid.dash-rec-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:760px){.entity-grid.dash-rec-grid{grid-template-columns:1fr}}
+
+/* events */
+.event-item{padding:12px 0;border-bottom:1px solid var(--border)}
+.event-item:last-child{border-bottom:none}
+.event-item .ev-cat{font-size:var(--fs-10);font-weight:700;color:var(--green-dark);text-transform:uppercase;letter-spacing:.04em}
+.event-item h5{font-size:var(--fs-13);margin:4px 0 3px}
+.event-item .ev-meta{font-size:var(--fs-11);color:var(--muted);display:flex;gap:6px;flex-wrap:wrap}
+.event-item .ev-link{font-size:var(--fs-11);font-weight:700;color:var(--green-dark);margin-top:6px;display:inline-block}
+
+/* stacked bar */
+.stack-bar{display:flex;height:22px;border-radius:5px;overflow:hidden;margin:14px 0 10px}
+.stack-bar span{height:100%}
+.stack-legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:var(--fs-11);margin-bottom:6px}
+.stack-legend i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:6px;vertical-align:middle}
+
+.trend-total{display:flex;align-items:baseline;gap:8px;margin:18px 0 12px}
+.trend-total b{font-family:var(--font-mono);font-size:var(--fs-20)}
+.trend-total span{font-size:var(--fs-12);color:var(--muted)}
+.trend-companies{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.trend-co{border:1px solid rgba(37,99,166,.4);border-radius:var(--radius-card);padding:10px;text-align:center}
+.trend-co .tlogo{width:30px;height:30px;border-radius:var(--radius-card);background:var(--green-tint);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-11);margin:0 auto 6px}
+.trend-co b{font-size:var(--fs-11);display:block}
+.trend-co span{font-size:var(--fs-10);color:var(--muted)}
+
+/* news */
+.news-item{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)}
+.news-item:last-child{border-bottom:none}
+.news-item .n-date{font-size:var(--fs-10);color:var(--faint);font-weight:700;white-space:nowrap;width:44px;flex:none;padding-top:1px}
+.news-item h5{font-size:var(--fs-12);line-height:1.4;font-weight:600}
+.news-item .n-src{font-size:var(--fs-11);color:var(--muted);margin-top:4px}

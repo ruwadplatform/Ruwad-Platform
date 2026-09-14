@@ -1,0 +1,181 @@
+/* ============ ECOSYSTEM DIRECTORY LANDING ============ */
+.eco-metric-row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:18px 0 26px}
+.eco-metric{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:16px;text-align:center}
+.eco-metric b{display:block;font-family:var(--font-mono);font-size:var(--fs-20)}
+.eco-metric span{font-size:var(--fs-11);color:var(--muted)}
+@media(max-width:1024px){.eco-metric-row{grid-template-columns:repeat(2,1fr)}}
+
+.category-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+@media(max-width:1024px){.category-grid{grid-template-columns:repeat(2,1fr)}}
+.category-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:20px;text-align:left}
+.category-card:hover{border-color:var(--green)}
+.category-card .cc-icon{width:36px;height:36px;border-radius:var(--radius-md);background:var(--navy-900);color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.category-card b{font-size:var(--fs-13);display:block}
+.category-card span{font-size:var(--fs-11);color:var(--muted)}
+
+/* ============ ECOSYSTEM PAGE (#/ecosystem) BLUE BORDER ============
+   Same rgba(37,99,166,.4) border used across profile pages/dashboard/
+   workspace pages, scoped to .ecosystem-page (js/ecosystem.js) since
+   .eco-metric/.category-card/.panel/.hub-card are all shared with the
+   public landing page and the Hubs directory, which stay plain gray.
+   Icon badges switch from the plain navy-900/white square to the same
+   light-blue-tint/blue-icon treatment used everywhere else this pass
+   touched (dashboard's .ac-icon/.ss-icon/.discovery-card .ic-icon). */
+.ecosystem-page .eco-metric,
+.ecosystem-page .category-card,
+.ecosystem-page .panel,
+.ecosystem-page .hub-card{border-color:rgba(37,99,166,.4)}
+.ecosystem-page .category-card .cc-icon{background:var(--info-tint);color:var(--info)}
+
+/* ============ SECTOR INTELLIGENCE PAGE (#/sector/:slug) BLUE BORDER ==
+   Same treatment for js/sector.js's drill-down page — .eco-metric-row
+   stat tiles it reuses from the Ecosystem page, its .panel section cards
+   (Top Startups/Active Investors/etc.), and each entity row's divider,
+   which used to be a hardcoded inline border-bottom (not a class, so it
+   couldn't be targeted here) and is now a real .sector-row class. */
+.sector-page .eco-metric,
+.sector-page .panel{border-color:rgba(37,99,166,.4)}
+.sector-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);cursor:pointer}
+.sector-row:last-child{border-bottom:none}
+.sector-page .sector-row{border-bottom-color:rgba(37,99,166,.4)}
+
+/* ============ EXPLORE/DISCOVER/INTELLIGENCE DIRECTORY PAGES BLUE BORDER
+   ============
+   Startups, Investors, Hubs & Enablers, Multinationals, Research &
+   Academia (directory list pages — not their profile pages, already
+   handled separately), Screener, Opportunities Marketplace, Reports,
+   BI Dashboards/Analytics and News & Events. Every class touched here
+   (.toolbar-search, .select, .panel, .data-table tbody tr, .entity-card,
+   .entity-card-foot, .hub-card-pro, .hub-card-foot, .report-card,
+   .category-card, .kpi, .chip-select button, .chip-filter,
+   .news-list-item) is shared with other pages, wizards or the whole
+   app-wide form-field system, so every rule is compounded with its own
+   page wrapper class (added to that page's render function) rather than
+   left bare — same reasoning as every other page this pass touched. */
+.startups-page .toolbar-search, .startups-page .select, .startups-page .panel, .startups-page .entity-card,
+.investors-page .toolbar-search, .investors-page .select, .investors-page .panel, .investors-page .entity-card,
+.hubs-page .toolbar-search, .hubs-page .select, .hubs-page .panel, .hubs-page .hub-card-pro,
+.multinationals-page .toolbar-search, .multinationals-page .select, .multinationals-page .panel, .multinationals-page .entity-card,
+.research-directory-page .toolbar-search, .research-directory-page .select, .research-directory-page .panel, .research-directory-page .hub-card-pro,
+.screener-page .toolbar-search, .screener-page .panel,
+.opportunities-page .toolbar-search, .opportunities-page .select, .opportunities-page .panel,
+.reports-page .report-card,
+.analytics-page .category-card, .analytics-page .kpi, .analytics-page .panel,
+.news-page .panel, .news-page .entity-card, .news-page .report-card
+{border-color:rgba(37,99,166,.4)}
+
+/* Reports' category chips and Screener's entity-type chips restyled to
+   match the Dashboard's persona-switcher pills (js/dashboard.js's
+   .persona-btn/.persona-btn.active) — same pill shape, same solid-navy
+   selected state — instead of their previous .chip-select/.chip-filter
+   look. Idle state uses the same blue border as every other unselected
+   card/field this pass touched, not the plain gray .persona-btn started
+   with. Scoped to these two pages only; both base classes are shared
+   with wizards/screener/landscape/dataroom elsewhere and must keep their
+   own original appearance there. */
+.reports-page .chip-select button,
+.screener-page .chip-filter{
+  padding:8px 16px;border-radius:var(--radius-pill);border:1px solid rgba(37,99,166,.4);background:#fff;
+  font-size:var(--fs-12);font-weight:600;color:var(--muted);white-space:nowrap;cursor:pointer;
+}
+.reports-page .chip-select button.active,
+.screener-page .chip-filter.active{background:var(--navy-900);border-color:var(--navy-900);color:#fff}
+
+.startups-page .entity-card-foot,
+.investors-page .entity-card-foot,
+.multinationals-page .entity-card-foot,
+.news-page .entity-card-foot{border-top-color:rgba(37,99,166,.4)}
+
+.hubs-page .hub-card-foot,
+.research-directory-page .hub-card-foot{border-top-color:rgba(37,99,166,.4)}
+
+.startups-page .data-table tbody tr,
+.investors-page .data-table tbody tr,
+.hubs-page .data-table tbody tr,
+.multinationals-page .data-table tbody tr,
+.research-directory-page .data-table tbody tr,
+.screener-page .data-table tbody tr,
+.opportunities-page .data-table tbody tr{border-bottom-color:rgba(37,99,166,.4)}
+
+.news-page .news-list-item{border-bottom-color:rgba(37,99,166,.4)}
+
+.analytics-page .category-card .cc-icon{background:var(--info-tint);color:var(--info)}
+
+.landing-page .eco-metric,
+.landing-page .entity-card,
+.landing-page .report-card,
+.landing-page .panel{border-color:rgba(37,99,166,.4)}
+.landing-page .entity-card-foot{border-top-color:rgba(37,99,166,.4)}
+.landing-page .news-list-item{border-bottom-color:rgba(37,99,166,.4)}
+
+/* ============ GRID VIEW CARDS (startups/investors) ============ */
+/* 260px let a card's own content (e.g. a nested .kv-grid label/value
+   pair) get squeezed narrower than a single word like "Genomics" could
+   fit without breaking — see profiles.css's .kv-grid container-query
+   fix for the layout-level defense; this raises the floor so it's rarely
+   needed at all. */
+.entity-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
+.entity-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:20px;display:flex;flex-direction:column;gap:12px}
+.entity-card:hover{border-color:var(--green);box-shadow:var(--shadow-sm)}
+.entity-card-top{display:flex;align-items:flex-start;gap:10px}
+.entity-card .elogo{width:38px;height:38px;border-radius:var(--radius-icon);flex:none}
+.entity-card-top .etitle{flex:1;min-width:0}
+.entity-card-top .etitle b{font-size:var(--fs-13);display:block;margin-bottom:3px}
+.entity-card-top .etitle span{font-size:var(--fs-11);color:var(--muted)}
+.entity-card .edesc{font-size:var(--fs-12);color:var(--muted);flex:1}
+.entity-card .emeta{display:flex;gap:6px;flex-wrap:wrap}
+.entity-card-foot{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border)}
+.wl-item{display:flex;flex-direction:column;gap:8px}
+.wl-stage{display:flex;align-items:center;gap:8px;padding:0 2px}
+.wl-stage label{font-size:var(--fs-11);color:var(--muted);white-space:nowrap}
+.ss-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border)}
+.ss-row:last-child{border-bottom:none}
+.entity-card .escore{font-family:var(--font-mono);font-weight:700;font-size:var(--fs-13);color:var(--green-dark)}
+.save-star{background:none;border:none;color:var(--faint);width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:var(--radius-card)}
+.save-star.saved{color:var(--gold-ink)}
+.save-star:hover{background:var(--bg)}
+
+/* ============ HUBS / MULTINATIONAL cards ============ */
+.hub-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:20px;display:flex;flex-direction:column;gap:10px}
+.hub-card .htype{font-size:var(--fs-10);font-weight:700;color:var(--green-dark);text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.hub-card h4{font-size:var(--fs-14);margin-top:4px;margin-bottom:2px}
+.hub-card .horg{font-size:var(--fs-11);color:var(--muted);margin-bottom:4px}
+.hub-card .hmeta{display:flex;gap:14px;font-size:var(--fs-11);color:var(--muted);flex-wrap:wrap}
+.hub-card .hdeadline{font-size:var(--fs-11);color:var(--warn);font-weight:600}
+
+/* ---- hub-card-pro: Hubs & Enablers / Research & Academia directory cards ----
+   A richer sibling of .hub-card above (which stays as-is for the plain
+   ecosystem-organizations grid) — equal-height cards with a footer row
+   pinned to the bottom via flex so status/deadline always align across
+   a row regardless of description length. */
+.hub-card-grid{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.hub-card-pro{
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);
+  padding:18px;display:flex;flex-direction:column;gap:6px;cursor:pointer;height:100%;
+  transition:border-color .15s ease,box-shadow .15s ease;
+}
+.hub-card-pro:hover{border-color:var(--green);box-shadow:var(--shadow-sm)}
+.hub-card-pro .htype{font-size:var(--fs-10);font-weight:700;color:var(--green-dark);text-transform:uppercase;letter-spacing:.04em}
+.hub-card-pro h4{font-size:var(--fs-14);margin:2px 0}
+.hub-card-pro .horg{font-size:var(--fs-11);color:var(--muted);margin-bottom:2px}
+.hub-card-desc{flex:1;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:0}
+.hub-card-pro .hmeta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.hub-card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:6px;padding-top:10px;border-top:1px solid var(--border)}
+.hub-card-app{text-align:right;display:flex;flex-direction:column;gap:2px}
+
+/* ============ REPORTS ============ */
+.report-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);overflow:hidden}
+.report-card .rthumb{height:96px;background:linear-gradient(135deg,var(--navy-900),var(--green-dark));position:relative}
+.report-card .rthumb .rtag{position:absolute;bottom:10px;left:12px;color:#fff;font-size:var(--fs-10);font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:rgba(255,255,255,.14);padding:3px 8px;border-radius:var(--radius-xs)}
+.report-card .rbody{padding:18px 20px}
+.report-card h4{font-size:var(--fs-13);line-height:1.35;margin-bottom:8px}
+.report-card .rmeta{font-size:var(--fs-11);color:var(--muted);margin-top:6px}
+
+/* ============ NEWS/EVENTS PAGE ============ */
+.news-list-item{display:flex;gap:14px;padding:16px 18px;border-bottom:1px solid var(--border)}
+.news-list-item:last-child{border-bottom:none}
+.news-list-item .nthumb{width:64px;height:64px;border-radius:var(--radius-card);background:linear-gradient(135deg,var(--navy-800),var(--green));flex:none}
+.news-list-item h4{font-size:var(--fs-13)}
+.news-list-item .nmeta{font-size:var(--fs-11);color:var(--muted);margin-top:4px}
+
+.events-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}

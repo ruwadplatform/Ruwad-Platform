@@ -1,0 +1,14 @@
+# Root-level workspace artifacts (npm workspaces hoist some deps here)
+/node_modules
+npm-debug.log*
+
+# Editor/OS
+.DS_Store
+*.pem
+.vscode/
+.idea/
+
+# Each app also has its own .gitignore (frontend/.gitignore,
+# backend/.gitignore) covering its build output, node_modules, .env, and
+# the local embedded-postgres data directory (backend/.pgdata) — those
+# apply independently and are not duplicated here.

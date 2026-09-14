@@ -1,0 +1,42 @@
+/* ==========================================================================
+   RUWĀD — public/authenticated access gating UI
+   ========================================================================== */
+
+/* ---- locked teaser (used inside profile tabs) ---- */
+.locked-teaser{background:var(--bg-2);border:1px dashed var(--border-strong);border-radius:var(--radius-card);padding:20px}
+.lt-preview{font-size:var(--fs-13);font-weight:600;margin-bottom:12px}
+.lt-bars{display:flex;flex-direction:column;gap:8px;filter:blur(3.5px);opacity:.55;user-select:none;pointer-events:none}
+.lt-bar{height:11px;border-radius:4px;background:linear-gradient(90deg,var(--border-strong),var(--border))}
+
+/* ---- directory unlock banner (bottom of a capped list) ---- */
+.directory-gate{
+  text-align:center;padding:44px 24px;border-radius:var(--radius-lg);
+  background:linear-gradient(180deg,var(--green-tint),var(--bg-2));border:1px solid var(--border);margin-top:24px;
+}
+.dg-icon{width:52px;height:52px;border-radius:var(--radius-pill);background:var(--green-tint);color:var(--green-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.directory-gate h3{font-size:var(--fs-19);margin-bottom:8px}
+.directory-gate p{max-width:52ch;margin:0 auto}
+.dg-actions{display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap}
+
+/* ---- advanced-filter gate (inside the filter drawer) ---- */
+.filter-gate{background:var(--green-tint);border:1px solid var(--green);border-radius:var(--radius-card);padding:14px;margin-top:6px}
+.filter-gate p{margin-bottom:10px}
+
+/* ---- auth-gate modal benefit list ---- */
+.gate-benefits{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:9px}
+.gate-benefits li{display:flex;align-items:center;gap:9px;font-size:var(--fs-12);color:var(--text)}
+.gate-benefits li svg{color:var(--green-dark);flex:none}
+
+/* ---- global search "view all" row (guest-capped results) ---- */
+.hdr-suggest .hs-viewall{color:var(--green-dark);font-weight:600;justify-content:center}
+.contact-lock{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--green-dark);font-weight:600;font-size:var(--fs-12)}
+
+/* ---- score teaser ---- */
+.score-teaser{text-align:center;padding:8px 4px}
+.score-teaser .st-big{font-size:var(--fs-38);font-weight:700;font-family:var(--font-mono);color:var(--navy-900)}
+.score-teaser .st-sub{font-size:var(--fs-12);color:var(--muted);margin:4px 0 14px}
+
+@media(max-width:760px){
+  .dg-actions{flex-direction:column}
+  .dg-actions .btn{width:100%}
+}

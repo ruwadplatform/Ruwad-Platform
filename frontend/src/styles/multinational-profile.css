@@ -1,0 +1,79 @@
+/* ==========================================================================
+   RUWĀD — Multinational profile Overview dashboard (#/multinational/:id)
+   Scoped entirely under .mnc-profile / .mnc-overview so this redesign
+   never leaks into the Startup/Investor/Hub/Research profile shell —
+   those keep the plain var(--border) card/header styling and the shared
+   .profile-head/.profile-tabs-wrap spacing everywhere else. Governed
+   breakpoints only (see responsive.css's own header comment): 1024px
+   desktop->tablet, 760px tablet->mobile.
+   ========================================================================== */
+
+/* Subtle navy border + tighter, denser header/tabs spacing than the
+   shared entity-page defaults (18px/24px) — approved reference target
+   for this page specifically is a more compact 140-160px header. */
+.mnc-profile .profile-head,
+.mnc-profile .profile-tabs-wrap{border-color:rgba(37,99,166,.4)}
+.mnc-profile .profile-head{padding:20px;margin-bottom:16px}
+.mnc-profile .plogo{width:72px;height:72px}
+.mnc-profile .profile-head-main .profile-meta{margin-top:8px}
+.mnc-profile .profile-head-main .provenance-strip{margin-top:8px}
+/* .profile-actions (flex:none, from components.css) sizes itself to fit
+   all 4 real action buttons — Website/Save/Contact/Request Data Room
+   Access — on one row before ever wrapping, which at ordinary laptop
+   widths (~1200-1300px) starves .profile-head-main down to ~440px and
+   forces its meta/provenance rows to wrap onto 2-3 lines each, ballooning
+   the header. Capping the actions column's width makes it wrap to two
+   rows of two buttons instead, keeping the text column wide enough to
+   stay on one line each — matches this page's own "keep the header
+   compact" brief better than an unbounded action row does. */
+.mnc-profile .profile-actions{max-width:300px;justify-content:flex-end}
+
+/* Dedicated Overview grid — deliberately NOT the shared .profile-body
+   (Startup/Investor's Overview grid), which stacks to one column at
+   max-width:1024px (responsive.css). That threshold is too eager for
+   this page's own 78/22 two-column brief, so Multinational's Overview
+   gets its own class with its own breakpoint instead of inheriting
+   Startup/Investor's. Right column is a fixed-ish 300-340px rail, not
+   a percentage, so it never balloons on very wide screens. */
+.mnc-overview-grid{max-width:1280px;margin-left:auto;margin-right:auto;display:grid;grid-template-columns:minmax(0,4fr) minmax(300px,340px);gap:16px;align-items:start}
+@media(max-width:1000px){.mnc-overview-grid{grid-template-columns:1fr}}
+
+.mnc-metric-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:12px}
+.mnc-metric-card{
+  background:#fff;border:1px solid rgba(37,99,166,.4);border-radius:var(--radius-card);
+  padding:18px 20px;min-height:112px;display:flex;flex-direction:column;justify-content:center;
+}
+.mnc-metric-card .mm-label{font-size:var(--fs-12);color:var(--muted);font-weight:600;display:flex;align-items:center;gap:5px}
+.mnc-metric-card .mm-label svg{cursor:help}
+.mnc-metric-card .mm-value{font-family:var(--font-mono);font-size:var(--fs-24);font-weight:700;margin-top:6px;display:flex;align-items:baseline;gap:4px;color:var(--text)}
+.mnc-metric-card .mm-value .mm-max{font-size:var(--fs-13);font-weight:500;color:var(--muted);font-family:var(--font-ui)}
+.mnc-metric-card .mm-sub{font-size:var(--fs-12);color:var(--muted);margin-top:3px}
+.mnc-metric-card .badge{margin-top:8px;align-self:flex-start}
+
+.mnc-card{
+  background:#fff;border:1px solid rgba(37,99,166,.4);border-radius:var(--radius-card);
+  padding:20px;margin-bottom:12px;
+}
+.mnc-card:last-child{margin-bottom:0}
+.mnc-card h3{font-size:var(--fs-16);font-weight:600;margin-bottom:12px}
+.mnc-card .db-text{max-width:100%;line-height:1.5}
+
+/* Company Details now renders as stat-mini cards (profiles.css), same
+   as every other entity profile's field list — no dedicated 2-column
+   divider layout needed here any more. */
+
+.mnc-chips{display:flex;flex-wrap:wrap;gap:8px}
+
+/* Ruwād Score Breakdown (right rail) now reuses Startup's shared
+   .score-card/.score-ring/.subscore-* classes (profiles.css) via
+   scoreCard() in profiles.js — no Multinational-specific score styling
+   needed here any more. */
+
+@media(max-width:1024px){
+  .mnc-metric-row{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:760px){
+  .mnc-metric-row{grid-template-columns:1fr}
+  .mnc-card{padding:16px}
+  .mnc-profile .plogo{width:64px;height:64px}
+}

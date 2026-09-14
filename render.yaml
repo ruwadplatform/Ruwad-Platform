@@ -1,0 +1,53 @@
+databases:
+  - name: ruwad-postgres
+    plan: free
+    region: oregon
+    postgresMajorVersion: 16
+
+services:
+  - type: web
+    name: ruwad-backend
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run deploy:start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ruwad-postgres
+          property: connectionString
+      - key: DATABASE_SSL
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: PORT
+        value: "4000"
+      # Set this to the deployed frontend's real origin (comma-separated if
+      # more than one) after the frontend is deployed — Render's Blueprint
+      # sync can't know it in advance since it's a separate service.
+      - key: FRONTEND_URL
+        value: https://your-frontend.onrender.com
+
+  - type: web
+    name: ruwad-frontend
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Set this to the deployed backend's real origin + /api after the
+      # backend is deployed — baked in at build time for Next.js, so the
+      # frontend needs a redeploy whenever this changes.
+      - key: NEXT_PUBLIC_API_URL
+        value: https://ruwad-backend.onrender.com/api

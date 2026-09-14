@@ -1,0 +1,64 @@
+/* ==========================================================================
+   RUWĀD — Settings page (#/settings)
+   One continuous scrolling page, no tabs/sidebar. Scoped under
+   .settings-page so nothing here can affect any other page. Governed
+   breakpoints only (see responsive.css's own header comment): 1024px
+   desktop->tablet, 760px tablet->mobile, 480px small phone.
+   ========================================================================== */
+
+.settings-page{max-width:1050px;margin:0 auto}
+
+.settings-section{margin-bottom:44px}
+.settings-section:last-child{margin-bottom:0}
+.settings-section-head{margin-bottom:18px}
+.settings-section-head h2{font-size:var(--fs-18);font-weight:600;line-height:1.3}
+.settings-section-head p{font-size:var(--fs-13);line-height:1.5;color:var(--muted);margin-top:5px}
+
+/* ---- rows shared by Account / Notifications / Preferences ---- */
+.settings-row{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:16px 0}
+.settings-row:first-child{padding-top:0}
+.settings-row:last-child{padding-bottom:0}
+.settings-row + .settings-row{border-top:1px solid var(--border)}
+.settings-row-main{flex:1;min-width:0}
+.settings-row-main b{font-size:var(--fs-14);color:var(--text);display:block;margin-bottom:4px;font-weight:600}
+.settings-row-main p{font-size:var(--fs-13);color:var(--muted);margin:0;line-height:1.5}
+.settings-row-action{flex:none;display:flex;align-items:center;gap:10px;padding-top:1px}
+.settings-row-value{font-size:var(--fs-13);color:var(--text);font-family:var(--font-mono)}
+.settings-static-value{font-size:var(--fs-13);color:var(--muted);text-align:right;white-space:nowrap}
+
+.settings-group-label{font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;padding-top:28px;padding-bottom:4px}
+.settings-group-label:first-child{padding-top:0}
+
+/* ---- Preferences: control rows (select-backed, not just text) ---- */
+.settings-control-row{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:16px 0}
+.settings-control-row:first-child{padding-top:0}
+.settings-control-row:last-child{padding-bottom:0}
+.settings-control-row + .settings-control-row{border-top:1px solid var(--border)}
+.settings-control-row label{font-size:var(--fs-13);color:var(--text);font-weight:600}
+.settings-control-row select{width:200px}
+.settings-subsection-divider{border:none;border-top:1px solid var(--border);margin:8px 0}
+
+/* ---- billing ---- */
+.settings-current-plan{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.settings-current-plan-name{font-size:var(--fs-16);font-weight:700;color:var(--text)}
+.settings-current-plan-price{font-size:var(--fs-13);color:var(--muted);margin-top:2px}
+.settings-current-plan-desc{font-size:var(--fs-13);line-height:1.5;color:var(--muted);margin-top:6px;max-width:520px}
+
+.settings-plans-heading{font-size:var(--fs-13);font-weight:700;color:var(--text);margin:28px 0 14px}
+.settings-plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.settings-plan-grid{grid-template-columns:1fr}}
+.settings-plan-card{
+  border:1px solid var(--border);border-radius:var(--radius-card);padding:20px;
+  display:flex;flex-direction:column;gap:8px;position:relative;background:#fff;
+}
+.settings-plan-card .spc-badge{position:absolute;top:16px;right:16px}
+.settings-plan-name{font-size:var(--fs-14);font-weight:700;color:var(--text)}
+.settings-plan-price{font-size:var(--fs-20);font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.settings-plan-price small{font-size:var(--fs-12);font-weight:500;color:var(--muted)}
+.settings-plan-desc{font-size:var(--fs-12);color:var(--muted);line-height:1.5;flex:1}
+
+@media(max-width:760px){
+  .settings-row,.settings-control-row{flex-wrap:wrap}
+  .settings-row-action{width:100%;justify-content:flex-start}
+  .settings-control-row select{width:100%}
+}

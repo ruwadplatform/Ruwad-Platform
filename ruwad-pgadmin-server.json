@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Ruwad Platform",
+      "Group": "Servers",
+      "Host": "127.0.0.1",
+      "Port": 55432,
+      "MaintenanceDB": "ruwad",
+      "Username": "postgres",
+      "SSLMode": "prefer",
+      "Timeout": 10,
+      "PassFile": ""
+    }
+  }
+}

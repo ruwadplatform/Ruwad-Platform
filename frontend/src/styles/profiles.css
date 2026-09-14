@@ -1,0 +1,186 @@
+/* ============ PROFILE HEADER ============ */
+/* Entity detail pages read better in a tighter column than a directory
+   table does — narrower than the app's general --content-max (1400px)
+   without needing a dedicated JS wrapper class, since every entity
+   profile already renders through these two elements. */
+.profile-head,.profile-tabs-wrap,.profile-body{max-width:1280px;margin-left:auto;margin-right:auto}
+.profile-head{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:24px;display:flex;gap:20px;align-items:flex-start;margin-bottom:18px}
+.profile-head .plogo{width:64px;height:64px;border-radius:var(--radius-lg);flex:none;background:var(--navy-900);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-20)}
+.profile-head-main{flex:1;min-width:0}
+.profile-head-main h1{font-size:var(--fs-20);line-height:1.3}
+.profile-head-main .ptagline{font-size:var(--fs-13);line-height:1.5;color:var(--muted);margin-top:5px}
+.profile-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:var(--fs-13);line-height:1.45;color:var(--muted)}
+.profile-meta span{display:flex;align-items:center;gap:6px}
+.profile-actions{display:flex;gap:10px;flex-wrap:wrap;flex:none}
+
+/* Entity profile pages (Startup/Investor/Hub & Enabler/Research &
+   Academia/Multinational — each wraps its whole renderXProfile() output
+   in .entity-profile-page) use a subtle Ruwād blue/navy border instead
+   of the app-wide neutral gray on their header, tab rectangle, and every
+   card-shaped element inside a tab body — not just .panel, but every
+   other bordered "card" class a tab body can render (stat tiles, KPI
+   tiles, team member cards, the undisclosed-investor fallback card,
+   data-room document tiles). Each of these classes stays plain gray
+   everywhere else in the app (dashboard, directories, forms, wizards,
+   admin) — this only touches it when nested inside an entity profile
+   page. */
+.entity-profile-page .profile-head,
+.entity-profile-page .profile-tabs-wrap,
+.entity-profile-page .panel,
+.entity-profile-page .stat-mini,
+.entity-profile-page .kpi,
+.entity-profile-page .team-card,
+.entity-profile-page .entity-card,
+.entity-profile-page .doc-card{border-color:rgba(37,99,166,.4)}
+
+/* Report detail page (.report-page, set on ReportDetailPage's root) gets
+   the same treatment as entity profile pages above — .report-hero and
+   .report-sources are this page's own card-shaped elements standing in
+   for .profile-head/.doc-card; .panel/.kpi/.insight-card/.entity-card are
+   shared with the rest of the app and stay plain gray everywhere else. */
+.report-page .report-hero,
+.report-page .report-sources,
+.report-page .panel,
+.report-page .kpi,
+.report-page .insight-card,
+.report-page .entity-card{border-color:rgba(37,99,166,.4)}
+
+/* ---- data provenance strip (Section 19 — Last updated / sources / confidence) */
+.provenance-strip{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;font-size:var(--fs-12);line-height:1.45;color:var(--faint)}
+.provenance-strip span:first-child{display:flex;align-items:center;gap:6px}
+.provenance-sep{color:var(--border-strong)}
+.provenance-strip .badge{padding:3px 8px}
+
+/* One shared rectangular nav shell for every entity type (Startup,
+   Investor, Hub, Research, Multinational) — a fully independent card,
+   detached from .profile-head above it (18px gap, via .profile-head's own
+   margin-bottom) and from the active tab's content below it (20-24px gap,
+   via the mt-20/mt-24 utility each render function puts on its own tab-
+   body container — the wrap itself never contains the tab body, so a
+   card/panel in the content can never end up touching the tab rectangle). */
+.profile-tabs-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:8px 12px}
+.profile-tabs-wrap .tabs{margin-bottom:0}
+.profile-body{margin-top:0;display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start}
+@media(max-width:1024px){.profile-body{grid-template-columns:1fr}}
+
+.stat-mini-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat-mini{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:12px 14px}
+.stat-mini .sm-label{font-size:var(--fs-11);color:var(--muted);font-weight:600}
+.stat-mini .sm-val{font-family:var(--font-mono);font-size:var(--fs-16);font-weight:700;margin-top:2px}
+/* Same specificity issue as .kpi .k-val in components.css: this 2-class
+   compound selector beats a bare 1-class .fs-13/.fs-15 utility regardless
+   of source order, so the Typography Consistency Audit's size fix on the
+   ~80 .sm-val call sites was silently not applying. These 3-class
+   overrides beat it correctly. */
+.stat-mini .sm-val.fs-13{font-size:var(--fs-13)}
+.stat-mini .sm-val.fs-15{font-size:var(--fs-15)}
+
+/* Short-fact label/value rows — fixed narrow label column so values start
+   close to their labels instead of halfway across the screen (the old
+   1fr/1fr split). Long-form text (Problem, Solution, clinical notes...)
+   never belongs in here — see .detail-block below. */
+.kv-grid{display:grid;grid-template-columns:190px minmax(0,1fr);column-gap:32px;row-gap:20px;font-size:var(--fs-13)}
+.kv-grid dt{color:var(--muted);font-size:var(--fs-12);font-weight:600;text-transform:uppercase;letter-spacing:.03em;line-height:1.4;padding-top:2px}
+.kv-grid dd{margin:0;font-weight:600;line-height:1.5;overflow-wrap:break-word;word-break:normal}
+@media(max-width:1024px){.kv-grid{grid-template-columns:160px minmax(0,1fr);column-gap:24px}}
+@media(max-width:760px){
+  .kv-grid{grid-template-columns:1fr;row-gap:4px}
+  .kv-grid dd{margin-bottom:14px}
+}
+/* .kv-grid's fixed label column only ever budgeted for a wide panel — the
+   same markup also gets dropped into small grid cards (e.g. a Portfolio
+   or Fund mini-card inside .entity-grid, ~300px wide after grid gap and
+   card padding), where 180px of label + 32px of gap left almost nothing
+   for the value and forced ordinary words ("Genomics", "Riyadh") to
+   fragment letter-by-letter. A container query reacts to the CARD's own
+   rendered width (the media queries above only ever saw viewport width,
+   so they never fired for a narrow card on an otherwise-wide screen) and
+   switches to the stacked "LABEL / value" layout the design calls for in
+   tight spaces — scoped with :has() so only panels that actually contain
+   a .kv-grid pay the inline-size containment cost. */
+.panel:has(.kv-grid){container-type:inline-size}
+@container (max-width:300px){
+  .kv-grid{grid-template-columns:1fr;row-gap:4px;column-gap:0}
+  .kv-grid dt{padding-top:6px}
+  .kv-grid dd{margin-bottom:10px}
+}
+
+/* Compare modal — two-value variant of .kv-grid */
+.cmp-grid{grid-template-columns:150px 1fr 1fr;column-gap:16px;row-gap:12px}
+.cmp-grid dd{font-weight:600}
+.cmp-head{display:grid;grid-template-columns:150px 1fr 1fr;column-gap:16px;font-size:var(--fs-12)}
+.cmp-head b{font-size:var(--fs-12)}
+@media(max-width:760px){
+  .cmp-grid,.cmp-head{grid-template-columns:110px 1fr 1fr;column-gap:10px}
+}
+
+/* Stacked label-above-paragraph block for long-form text fields —
+   readable line length instead of being squeezed into a value column.
+   margin-bottom is this block's own "gap before the next section" (32px,
+   matching this pass's section-spacing target) — the next block's own
+   .db-label sits right at that gap's far edge, never touching a divider
+   or the previous block's text. */
+.detail-block{margin-bottom:32px}
+.detail-block:last-child{margin-bottom:0}
+.detail-block .db-label{font-size:var(--fs-12);font-weight:700;text-transform:uppercase;letter-spacing:.04em;line-height:1.4;color:var(--muted);margin-bottom:12px}
+.detail-block .db-text{font-size:var(--fs-14);line-height:1.6;max-width:820px;color:var(--text)}
+
+/* ============ RUWAD SCORE CARD ============ */
+.score-card{display:flex;gap:18px;align-items:center}
+.score-card .sc-sub{flex:1}
+
+/* ============ FUNDING TIMELINE ============ */
+.funding-timeline{position:relative;padding-left:20px}
+.funding-timeline::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border)}
+.ft-item{position:relative;padding-bottom:20px}
+.ft-item::before{content:"";position:absolute;left:-20px;top:3px;width:11px;height:11px;border-radius:var(--radius-pill);background:var(--green);border:2px solid #fff;box-shadow:0 0 0 1px var(--border)}
+.ft-item .ft-top{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px}
+.ft-item .ft-round{font-weight:700;font-size:var(--fs-13)}
+.ft-item .ft-amt{font-family:var(--font-mono);font-weight:700;color:var(--green-dark)}
+.ft-item .ft-meta{font-size:var(--fs-11);color:var(--muted);margin-top:2px}
+
+/* funding round table already uses .data-table */
+
+/* ============ TEAM ============ */
+/* auto-fit + a capped max width so 2-3 team members don't stretch into
+   oversized cards on a wide screen, while still filling the row when
+   there are many */
+.team-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,260px));gap:20px}
+.team-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:16px;text-align:center}
+.team-card .tavatar{width:52px;height:52px;border-radius:var(--radius-pill);background:var(--navy-900);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;margin:0 auto 10px}
+.team-card b{font-size:var(--fs-13);display:block}
+.team-card .trole{font-size:var(--fs-11);color:var(--muted);margin:2px 0 8px}
+.team-card .tbio{font-size:var(--fs-11);color:var(--muted);text-align:left}
+
+/* ============ TRACTION METRICS ============ */
+.traction-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+
+/* ============ SPARKLINE ============ */
+.sparkline{flex:none}
+.spark-baseline{stroke:var(--border);stroke-width:1}
+.spark-area{fill:var(--green-tint);stroke:none}
+.spark-line{fill:none;stroke:var(--green);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.spark-dot{fill:var(--green)}
+
+/* ============ REPORT DETAIL (visual intelligence redesign) ============
+   Replaces the old .report-reader sidebar-nav + narrow .report-doc reading
+   column — the page is now full-width, no in-page tab navigation, sections
+   flow top-to-bottom instead. */
+.report-hero{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:26px 28px;margin-bottom:20px;position:relative;overflow:hidden}
+.report-hero::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--navy-900),var(--green-dark))}
+.report-hero-top{display:flex;gap:18px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap}
+.report-hero-icon{width:52px;height:52px;border-radius:var(--radius-lg);background:var(--navy-900);color:#fff;display:flex;align-items:center;justify-content:center;flex:none}
+.report-hero-main h1{font-size:var(--fs-24);line-height:1.3;margin:8px 0 8px}
+.report-hero-desc{font-size:var(--fs-14);line-height:var(--line-height-relaxed);color:var(--muted);max-width:760px;margin:0}
+.report-hero-actions{display:flex;gap:8px;flex:none}
+@media(max-width:760px){
+  .report-hero{padding:20px}
+  .report-hero-actions{width:100%}
+  .report-hero-actions .btn{flex:1}
+}
+
+.report-sources{border:1px solid var(--border);border-radius:var(--radius-card);padding:16px 20px;background:#fff}
+.report-sources summary{list-style:none;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.report-sources summary::-webkit-details-marker{display:none}
+.report-sources[open] summary svg{transform:rotate(180deg)}
+.report-sources-body{margin-top:14px;padding-top:14px;border-top:1px solid var(--border)}

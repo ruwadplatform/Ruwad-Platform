@@ -1,0 +1,65 @@
+/* ==========================================================================
+   RUWĀD — governed breakpoint scale (platform audit Priority #18)
+   Three breakpoints, used everywhere a media query is needed — no feature
+   should introduce its own arbitrary max-width value:
+     1024px  — desktop -> tablet (nav collapses to the sidebar drawer)
+     760px   — tablet -> mobile (multi-column layouts stack to one column)
+     480px   — mobile -> small phone (final density/spacing pass)
+   Previously the codebase used 14 different values across 8 files (1280,
+   1180, 1080, 1024, 1000, 900, 860, 760, 720, 700, 640, 520, 420) for what
+   were, in every case, one of these same three intents — each has been
+   snapped to its nearest canonical value below and in every other CSS
+   file's media queries.
+   ========================================================================== */
+@media(max-width:1024px){
+  .insight-row{grid-template-columns:repeat(2,1fr)}
+  .category-grid{grid-template-columns:repeat(2,1fr)}
+  .kpi-row{grid-template-columns:repeat(3,1fr)}
+  /* An entity profile with several action buttons (Startup: Save/Follow/
+     Request Introduction/Request Data Room Access/Compare/Share — 6 of
+     them) was only stacking below 760px. Between 760-1024px .profile-head
+     stayed a row, and since .profile-actions computes its own intrinsic
+     width from ALL its buttons (flex-wrap only affects how ITS children
+     wrap, not its own contribution to the .profile-head row), it could
+     out-muscle .profile-head-main's flex:1 down to a few px wide —
+     squeezing the entity name/location/category down to almost nothing
+     well before the layout looked "mobile". Stacking a tier earlier, at
+     the existing tablet breakpoint, is the real fix — matches this
+     file's own "Tablet: Reduce multi-column layouts" governance instead
+     of adding a new one-off breakpoint. */
+  .profile-head{flex-direction:column}
+  .profile-actions{width:100%}
+}
+@media(max-width:760px){
+  .grid-2,.grid-3{grid-template-columns:1fr}
+  .insight-row{grid-template-columns:1fr}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .eco-metric-row{grid-template-columns:repeat(2,1fr)}
+  .stat-mini-row{grid-template-columns:1fr}
+  /* flex:1 (grow, basis 0) on 3-6 buttons whose labels can't wrap
+     (.btn has white-space:nowrap) doesn't reliably move a button to a
+     new line when it doesn't fit — flexbox resolves that as silent
+     overflow/clipping instead, which is exactly what cut off "Contact"
+     and "Apply / View Program" on a Hub profile's action row. Sizing
+     each button to ~half the row gets 2-per-row wrapping for short
+     labels, but a genuinely long one ("Request Data Room Access",
+     "Request Warm Introduction") still can't fit 143px of nowrap text —
+     so mobile also lets the LABEL wrap to a second line inside the
+     button (growing its height) rather than spilling text past its own
+     edge, which is the one case width alone can never fix. */
+  .profile-actions .btn{
+    flex:1 1 calc(50% - 4px);
+    white-space:normal;height:auto;min-height:36px;
+    line-height:1.3;padding-top:8px;padding-bottom:8px;text-align:center;
+  }
+  .form-main{padding:18px}
+  .form-sticky-actions{padding:12px 18px;flex-wrap:wrap;gap:8px}
+  .donut-wrap{flex-direction:column;align-items:flex-start}
+  .report-doc{padding:20px}
+  .data-table{min-width:720px}
+}
+@media(max-width:480px){
+  .persona-row{flex-wrap:nowrap}
+  .entity-grid{grid-template-columns:1fr}
+  .featured-card{width:112px}
+}

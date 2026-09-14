@@ -1,0 +1,17 @@
+/* ==========================================================================
+   RUWĀD — Ecosystem Relationship Map
+   ========================================================================== */
+.landscape-wrap{position:relative;background:var(--bg-2);border:1px solid rgba(37,99,166,.4);border-radius:var(--radius-card)}
+.landscape-edges{position:absolute;top:0;left:0;pointer-events:none}
+.landscape-edge{stroke:var(--muted);stroke-width:1;transition:opacity .15s ease}
+.landscape-node{
+  position:absolute;border-radius:var(--radius-pill);border:2px solid rgba(37,99,166,.55);box-shadow:0 1px 3px rgba(0,0,0,.18);
+  transform:translate(-50%,-50%);cursor:pointer;padding:0;transition:opacity .15s ease,transform .1s ease;
+}
+.landscape-node:hover{transform:translate(-50%,-50%) scale(1.25);z-index:2}
+.landscape-node.investor{border-radius:var(--radius-card)}
+.landscape-node.hub{border-radius:2px}
+.landscape-legend-dot{width:12px;height:12px;border-radius:var(--radius-pill);display:inline-block;border:2px solid #fff;box-shadow:0 0 0 1px var(--border)}
+.landscape-legend-dot.investor{background:#10142F;border-radius:3px}
+.landscape-legend-dot.startup{background:var(--green)}
+.landscape-legend-dot.hub{background:var(--gold-ink);border-radius:2px}

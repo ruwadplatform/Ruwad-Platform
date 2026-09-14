@@ -1,0 +1,55 @@
+/* ==========================================================================
+   RUWĀD — Data Room / NDA workflow styling
+   Reuses existing tokens/components (panel, kv-grid, doc-card, badge,
+   data-table, tabs) — only net-new patterns get their own rules here.
+   ========================================================================== */
+
+/* ---- locked / empty Data Room states ---- */
+.dr-locked-state{text-align:center;padding:48px 24px}
+.dr-lock-icon{
+  width:44px;height:44px;border-radius:var(--radius-pill);margin:0 auto;
+  background:var(--bg-2);color:var(--muted);
+  display:flex;align-items:center;justify-content:center;
+}
+.dr-granted-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+
+/* ---- confidential document card (Documents tab) ---- */
+.doc-card{cursor:default}
+.doc-card[onclick]{cursor:pointer;transition:border-color .15s ease}
+.doc-card[onclick]:hover{border-color:var(--green)}
+.doc-card-locked .doc-icon{background:var(--warn-tint);color:var(--warn)}
+.doc-card-locked .doc-status{color:var(--warn)}
+
+/* ---- filter chips (Data Room management: Access Requests) ---- */
+.chip-filter{
+  padding:6px 14px;border-radius:var(--radius-pill);border:1px solid var(--border);
+  background:#fff;font-size:var(--fs-12);font-weight:600;color:var(--muted);cursor:pointer;
+}
+.chip-filter.active{background:var(--green-tint);border-color:var(--green);color:var(--green-dark)}
+
+/* ---- NDA sign page ---- */
+.nda-sign-grid{display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start}
+@media(max-width:1024px){.nda-sign-grid{grid-template-columns:1fr}}
+.nda-doc-preview{
+  display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;
+  padding:36px 20px;border:1px dashed var(--border-strong);border-radius:var(--radius-card);
+  color:var(--muted);
+}
+.nda-doc-preview b{color:var(--text);font-size:var(--fs-13)}
+.nda-audit-trail{display:flex;flex-direction:column;gap:14px}
+.nda-audit-row{display:flex;gap:10px;align-items:flex-start;font-size:var(--fs-12)}
+.nda-audit-dot{width:8px;height:8px;border-radius:var(--radius-pill);background:var(--green);flex:none;margin-top:5px}
+
+/* ---- signature capture ---- */
+.sig-preview-type{
+  display:none;align-items:center;justify-content:center;min-height:64px;
+  border:1px solid var(--border);border-radius:var(--radius-card);margin-top:8px;background:var(--bg-2);
+}
+.sig-script{font-family:'Dancing Script',cursive;font-size:var(--fs-28);color:var(--text)}
+.sig-pad{
+  width:100%;border:1px solid var(--border-strong);border-radius:var(--radius-card);
+  background:#fff;margin-top:8px;touch-action:none;cursor:crosshair;
+}
+
+/* ---- data room document grid (granted state) already reuses
+   .upload-tile-row/.doc-card from profiles.css — no overrides needed. */

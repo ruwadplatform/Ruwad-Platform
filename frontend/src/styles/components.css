@@ -1,0 +1,374 @@
+/* ============ BUTTONS ============ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  height:36px;padding:0 16px;border-radius:var(--radius-input);font-weight:600;font-size:var(--fs-13);
+  border:1px solid transparent;white-space:nowrap;
+}
+.btn svg{width:14px;height:14px}
+.btn-primary{background:var(--green);color:#fff}
+.btn-primary:hover{background:var(--green-dark)}
+.btn-gold{background:var(--gold);color:#3A2E05}
+.btn-gold:hover{filter:brightness(.94)}
+.btn-outline{background:#fff;border-color:var(--green);color:var(--green)}
+.btn-outline:hover{background:var(--green-tint)}
+.btn-ghost{background:none;border-color:transparent;color:var(--muted)}
+.btn-ghost:hover{background:var(--bg);color:var(--text)}
+.btn-danger-ghost{background:none;color:var(--crit)}
+.btn-danger-ghost:hover{background:var(--crit-tint)}
+.btn-sm{height:30px;padding:0 12px;font-size:var(--fs-12);gap:6px}
+.btn-lg{height:40px;padding:0 20px;font-size:var(--fs-14)}
+.btn-block{width:100%}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn-navy{background:var(--navy-900);color:#fff}
+.btn-navy:hover{background:var(--navy-800)}
+.icon-btn{width:32px;height:32px;border-radius:var(--radius-card);border:1px solid var(--border-strong);background:#fff;display:flex;align-items:center;justify-content:center;color:var(--muted);flex:none}
+.icon-btn:hover{background:var(--bg);color:var(--text)}
+
+/* ============ CARDS / PANELS ============ */
+.panel{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-sm)}
+.panel-pad{padding:20px 22px}
+/* Page-header-with-action pattern (title+subtitle on the left, a primary
+   button on the right) — previously used across the app with no shared
+   rule at all, so every page hand-rolled its own inline flex/gap/margin
+   and drifted (missing flex-wrap, inconsistent title size, inconsistent
+   spacing below). Inline styles on individual usages still win per
+   property, so this only fills in whatever a page didn't already set. */
+.section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}
+.section-head h2{font-size:var(--fs-24);font-weight:700;line-height:1.3}
+.section-head p{color:var(--muted);font-size:var(--fs-13);line-height:1.5;margin-top:5px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 22px;border-bottom:1px solid var(--border)}
+.panel-head h3{font-size:var(--fs-16);font-weight:600}
+/* Same .X .Y compound-selector-beats-bare-utility issue as .kpi .k-val
+   above — a denser .panel-head (border:none, tighter padding, used for
+   "Featured Profiles" / a search-results group header) wanting a smaller
+   fs-14 title needs this 3-class override to actually win. */
+.panel-head h3.fs-14{font-size:var(--fs-14)}
+.panel-head .sub{font-size:var(--fs-13);color:var(--muted);margin-top:3px;font-weight:400}
+
+/* ============ KPI ============ */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:20px}
+.kpi{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:16px 18px}
+.kpi .k-label{font-size:var(--fs-11);color:var(--muted);font-weight:600}
+.kpi .k-val{font-family:var(--font-mono);font-size:var(--fs-22);font-weight:700;margin-top:4px;letter-spacing:-.01em}
+/* .kpi .k-val above is a 2-class compound selector (specificity 0,2,0) —
+   a bare 1-class .fs-16 utility on the same element loses to it regardless
+   of source order, so denser KPI rows (Dashboard's ecosystem snapshot,
+   every profile page's Traction/stat tab) silently kept rendering at the
+   22px default. This 3-class override beats it correctly. */
+.kpi .k-val.fs-16{font-size:var(--fs-16)}
+/* Every card-shaped element on the Dashboard (renderDashboard() wraps its
+   whole output in .dashboard-page) gets the same Ruwād blue border entity
+   profile pages use: the personal summary row, the "Build your startup
+   profile" panel, Ecosystem Snapshot and its KPI tiles, the Recommended
+   startups/investors cards (.entity-card — shared with plain-gray
+   directory listings elsewhere, so this only turns blue here, scoped
+   under .dashboard-page), the persona insight cards, Featured Profiles
+   tiles, and the Upcoming Events/Healthcare ecosystem investments/Latest
+   Healthcare News panels. Placed before dashboard.css's own
+   .featured-card:hover rule in the cascade so hovering still correctly
+   overrides to green. */
+.dashboard-page .kpi,
+.dashboard-page .panel,
+.dashboard-page .entity-card,
+.dashboard-page .insight-card,
+.dashboard-page .featured-card{border-color:rgba(37,99,166,.4)}
+/* .entity-card-foot's divider (the rule above the score/portfolio-count
+   row) is its own border-top, separate from the card's own border set
+   above — same blue, same .dashboard-page scoping so directory pages
+   elsewhere keep the plain gray divider. */
+.dashboard-page .entity-card-foot{border-top-color:rgba(37,99,166,.4)}
+
+/* ============ WORKSPACE PAGES BLUE BORDER ============
+   Same treatment, same page-wrapper-scoping pattern, extended to My
+   Organizations, Watchlist, Saved Searches, Introduction Requests, My
+   NDAs and Settings — each render function now wraps its whole output in
+   a page class (.my-orgs-page / .watchlist-page / .saved-searches-page /
+   .introductions-page / .my-ndas-page; .settings-page already existed).
+   Every selector below is compounded with that page class rather than
+   used bare, so it outranks the shared un-scoped rule (.panel,
+   .entity-card, .data-table tbody tr, .entity-card:hover, etc. are all
+   used — and meant to stay plain gray — on plenty of pages outside this
+   list) regardless of which CSS file loads first. */
+.my-orgs-page .toolbar-search,
+.my-orgs-page .select,
+.my-orgs-page .panel,
+.watchlist-page .panel,
+.watchlist-page .entity-card,
+.watchlist-page .hub-card,
+.watchlist-page .report-card,
+.saved-searches-page .panel,
+.introductions-page .panel,
+.my-ndas-page .panel,
+.settings-page .panel,
+.settings-page .settings-plan-card{border-color:rgba(37,99,166,.4)}
+
+.watchlist-page .entity-card-foot{border-top-color:rgba(37,99,166,.4)}
+
+.my-orgs-page .data-table tbody tr,
+.introductions-page .data-table tbody tr,
+.my-ndas-page .data-table tbody tr{border-bottom-color:rgba(37,99,166,.4)}
+
+/* Hovering any saved Startup/Investor/Hub/Report card on Watchlist turns
+   the whole card's border black instead of the app-wide green
+   (.entity-card:hover in directories.css) — scoped to this page only. */
+.watchlist-page .entity-card:hover,
+.watchlist-page .hub-card:hover,
+.watchlist-page .report-card:hover{border-color:var(--navy-900)}
+
+/* Saved Searches' per-row divider used to be a hardcoded inline style
+   (border-bottom:1px solid var(--border)), not a class, so it couldn't
+   be targeted here at all — js/watchlist.js now gives each row a real
+   .ss-row class instead (layout rules for it live in directories.css
+   next to the similar .wl-item/.wl-stage rows). */
+.saved-searches-page .ss-row{border-bottom-color:rgba(37,99,166,.4)}
+
+.kpi .k-delta{font-size:var(--fs-11);margin-top:4px;font-weight:600}
+.kpi .k-delta.up{color:var(--good)}
+.kpi .k-delta.down{color:var(--crit)}
+
+/* ============ BADGES / CHIPS / STATUS ============ */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-11);font-weight:700;padding:3px 8px;border-radius:var(--radius-pill);letter-spacing:.01em;white-space:nowrap}
+.badge::before{content:"";width:5px;height:5px;border-radius:var(--radius-pill);background:currentColor}
+.badge-good{background:var(--good-tint);color:var(--good)}
+.badge-warn{background:var(--warn-tint);color:var(--warn)}
+.badge-crit{background:var(--crit-tint);color:var(--crit)}
+.badge-info{background:var(--info-tint);color:var(--info)}
+.badge-neutral{background:var(--bg-2);color:var(--muted)}
+.badge-gold{background:var(--gold-tint);color:var(--gold-ink)}
+.badge-danger-muted{background:#FBEFEA;color:#9A4A2E}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-12);font-weight:500;padding:5px 9px;border-radius:var(--radius-card);background:var(--bg-2);border:1px solid var(--border);color:var(--text)}
+.chip.selectable{cursor:pointer}
+.chip.selectable.active{background:var(--green-tint);border-color:var(--green);color:var(--green-dark);font-weight:600}
+.chip .x{opacity:.6}
+.tag{font-size:var(--fs-11);color:var(--muted);background:var(--bg-2);padding:3px 8px;border-radius:var(--radius-xs)}
+
+/* ============ TABS ============ */
+.tabs{display:flex;gap:6px;border-bottom:1px solid var(--border);overflow-x:auto;margin-bottom:22px}
+.tabs button{
+  padding:12px 16px;font-size:var(--fs-14);font-weight:500;color:var(--muted);border:none;background:none;
+  border-bottom:2px solid transparent;white-space:nowrap;
+  /* .content-in *{min-width:0} (base.css) resets every flex item's
+     content-based minimum size to 0 so grid/flex tracks elsewhere can
+     shrink freely — but that reset also lets these tabs collapse far
+     below their label's natural width when there isn't room for all of
+     them, instead of the intended behavior: `.tabs` already scrolls
+     (overflow-x:auto), so each tab should keep its own content width and
+     let the row scroll, not shrink and spill text over its neighbors. */
+  flex:none;
+}
+.tabs button:hover{color:var(--text)}
+.tabs button.active{color:var(--green-dark);font-weight:600;border-bottom-color:var(--green)}
+.tabs.sticky{position:sticky;top:var(--header-h);background:#fff;z-index:10}
+
+.seg-tabs{display:inline-flex;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-md);padding:3px;gap:2px}
+.seg-tabs button{padding:7px 14px;font-size:var(--fs-12);font-weight:600;border-radius:var(--radius-card);border:none;background:none;color:var(--muted)}
+.seg-tabs button.active{background:#fff;color:var(--text);box-shadow:var(--shadow-sm)}
+
+/* ============ TABLE ============ */
+.data-table{width:100%;border-collapse:collapse;font-size:var(--fs-13);line-height:1.4}
+.data-table thead th{
+  text-align:left;font-size:var(--fs-12);font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;
+  padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg-2);white-space:nowrap;
+}
+.data-table tbody tr{border-bottom:1px solid var(--border);cursor:pointer}
+.data-table tbody tr:hover{background:var(--bg-2)}
+.data-table td{padding:12px 16px;vertical-align:middle}
+.data-table .cell-company{display:flex;align-items:center;gap:10px}
+.data-table .row-logo{width:32px;height:32px;border-radius:var(--radius-card);background:var(--green-tint);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-11);flex:none}
+.data-table .cell-main{font-weight:600}
+.data-table .cell-sub{font-size:var(--fs-12);line-height:1.4;color:var(--muted);margin-top:3px}
+.data-table .score{font-family:var(--font-mono);font-weight:700}
+
+/* ============ FILTER BAR / TOOLBAR ============ */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.toolbar-search{flex:1;min-width:200px;display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border-strong);border-radius:var(--radius-input);padding:0 12px;height:38px}
+.toolbar-search input{flex:1;border:none;outline:none;background:none;font-size:var(--fs-13)}
+.toolbar-search svg{color:var(--faint)}
+
+/* ============ FILTER DRAWER ============ */
+.filter-overlay{position:fixed;inset:0;background:rgba(9,12,28,.4);display:none;z-index:150;justify-content:flex-end}
+.filter-overlay.open{display:flex}
+.filter-drawer{width:min(360px,92vw);background:#fff;height:100%;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.filter-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff}
+.filter-drawer-body{padding:6px 18px 18px}
+.filter-group{padding:14px 0;border-bottom:1px solid var(--border)}
+.filter-group summary{list-style:none;display:flex;align-items:center;justify-content:space-between;font-size:var(--fs-13);font-weight:700;cursor:pointer}
+.filter-group summary::-webkit-details-marker{display:none}
+.filter-group[open] summary svg{transform:rotate(180deg)}
+.filter-opts{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.filter-opts label{display:flex;align-items:center;gap:8px;font-size:var(--fs-12);color:var(--text)}
+.filter-range{display:flex;align-items:center;gap:8px}
+.filter-drawer-foot{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--border);padding:12px 18px;display:flex;gap:10px}
+
+/* ============ FORM CONTROLS ============ */
+.field{margin-bottom:18px}
+.field label{display:flex;align-items:center;gap:6px;font-size:var(--fs-12);font-weight:600;margin-bottom:6px}
+.field .req{color:var(--crit);font-size:var(--fs-11);font-weight:700}
+.field .hint{font-size:var(--fs-11);color:var(--muted);margin-top:5px}
+.char-counter{font-size:var(--fs-11);color:var(--muted);text-align:right;margin-top:4px;font-variant-numeric:tabular-nums}
+.char-counter-warn{color:var(--warn);font-weight:700}
+.char-counter-focus-only{display:none}
+.field:focus-within .char-counter-focus-only{display:block}
+.field .err{font-size:var(--fs-11);color:var(--crit);margin-top:5px;display:none;align-items:center;gap:5px}
+.field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--crit);background:var(--crit-tint)}
+.field.invalid .err{display:flex}
+.input,.select,.textarea{
+  width:100%;border:1px solid var(--border-strong);border-radius:var(--radius-input);
+  padding:10px 12px;font-size:var(--fs-13);background:#fff;color:var(--text);
+  font-family:var(--font-ui);
+}
+/* Chromium renders a <select>'s own popup list from the browser's native
+   UA stylesheet, not this file's cascade, unless every <option> gets its
+   own explicit color/background/font — left unset, Windows Chrome shows
+   option text in its accent blue instead of the app's text color, so
+   every dropdown (Country, filters, etc.) reads in a different, unrelated
+   font color from the rest of the app. Setting it here, once, on the
+   bare `option` element (not `.select option`, since the popup list
+   isn't a descendant of .select in the accessibility/rendering tree
+   Chromium uses for it) is what actually reaches it. */
+option{color:var(--text);background:#fff;font-family:var(--font-ui);font-size:var(--fs-13)}
+option:checked{background:var(--bg-2);color:var(--text)}
+.input:focus,.select:focus,.textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px var(--green-tint)}
+/* Every submission wizard (Startup/Investor/Hub/Research/Multinational/
+   Organization) shares this one .form-shell wrapper class already — its
+   field borders go blue at rest, same as the rest of the app; :focus
+   above still wins (higher specificity from the pseudo-class) so typing
+   still shows the green focus ring. */
+.form-shell .input,
+.form-shell .select,
+.form-shell .textarea,
+.auth-card-form .input,
+.auth-card-form .select,
+.auth-card-form .textarea{border-color:rgba(37,99,166,.4)}
+.textarea{resize:vertical;min-height:100px;font-family:inherit;line-height:1.5}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 20px}
+.field-full{grid-column:1/-1}
+
+.chip-select{display:flex;flex-wrap:wrap;gap:8px}
+.chip-select button{padding:7px 12px;border-radius:var(--radius-pill);border:1px solid var(--border-strong);background:#fff;font-size:var(--fs-12);font-weight:500}
+.chip-select button.active{background:var(--green-tint);border-color:var(--green);color:var(--green-dark);font-weight:700}
+
+.toggle{position:relative;width:38px;height:22px;border-radius:var(--radius-pill);background:var(--border-strong);border:none;flex:none}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:var(--radius-pill);background:#fff;transition:transform .18s;box-shadow:var(--shadow-sm)}
+.toggle.on{background:var(--green)}
+.toggle.on::after{transform:translateX(16px)}
+
+.upload-box{
+  border:1.5px dashed var(--border-strong);border-radius:var(--radius-card);padding:20px;text-align:center;
+  color:var(--muted);font-size:var(--fs-12);background:var(--bg-2);cursor:pointer;
+}
+.upload-box:hover{border-color:var(--green)}
+.upload-box.has-file{border-style:solid;border-color:var(--green);background:var(--green-tint);color:var(--green-dark)}
+
+/* ============ EMPTY / SUCCESS ============ */
+.empty-state{text-align:center;padding:48px 20px;color:var(--muted)}
+.empty-state svg{margin:0 auto 12px;color:var(--faint)}
+.empty-state h4{color:var(--text);font-size:var(--fs-14);margin-bottom:4px}
+.empty-state p{font-size:var(--fs-12)}
+
+/* ============ MODAL ============ */
+.modal-overlay{position:fixed;inset:0;background:rgba(9,12,28,.5);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
+.modal-overlay.open{display:flex}
+.modal-box{background:#fff;border-radius:var(--radius-lg);width:min(480px,100%);box-shadow:var(--shadow-lg);max-height:90vh;overflow-y:auto}
+.modal-box.wide{width:min(620px,100%)}
+.modal-box.xwide{width:min(920px,96vw)}
+.modal-box-pad{padding:26px}
+.modal-icon-ok{width:52px;height:52px;border-radius:var(--radius-pill);background:var(--green-tint);color:var(--green);display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+
+/* ---- "+" entity picker (compact, same modal chrome as everything else) ---- */
+.entity-picker-list{display:flex;flex-direction:column;gap:6px}
+.entity-picker-item{
+  display:flex;align-items:center;gap:12px;width:100%;padding:11px 12px;border:1px solid rgba(37,99,166,.4);
+  border-radius:var(--radius-md);background:#fff;text-align:left;cursor:pointer;color:var(--text);
+}
+.entity-picker-item:hover{border-color:var(--green);background:var(--green-tint)}
+.entity-picker-item .epi-icon{flex:none;width:34px;height:34px;border-radius:var(--radius-md);background:var(--navy-900);color:#fff;display:flex;align-items:center;justify-content:center}
+.entity-picker-item .epi-text{flex:1;display:flex;flex-direction:column;gap:1px}
+.entity-picker-item .epi-text b{font-size:var(--fs-12);font-weight:600}
+.entity-picker-item .epi-text span{font-size:var(--fs-11);color:var(--muted)}
+.entity-picker-item svg{flex:none;opacity:.5}
+
+/* ============ TOAST ============ */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy-900);color:#fff;padding:11px 18px;border-radius:var(--radius-md);font-size:var(--fs-13);z-index:400;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;display:flex;align-items:center;gap:8px}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+
+/* ============ SCORE RING ============ */
+.score-ring{position:relative;width:104px;height:104px;flex:none}
+.score-ring svg{transform:rotate(-90deg)}
+.score-ring-val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.score-ring-val b{font-family:var(--font-mono);font-size:var(--fs-19);line-height:1}
+.score-ring-val span{font-size:var(--fs-9);color:var(--muted);margin-top:2px}
+
+.subscore-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.subscore-row .sl{width:150px;font-size:var(--fs-12);color:var(--muted);flex:none}
+.subscore-track{flex:1;height:7px;background:var(--bg-2);border-radius:var(--radius-pill);overflow:hidden}
+.subscore-fill{height:100%;background:var(--green);border-radius:var(--radius-pill)}
+.subscore-row .sv{width:30px;text-align:right;font-family:var(--font-mono);font-size:var(--fs-11);flex:none}
+
+/* ============ AVATAR ============ */
+.avatar{border-radius:var(--radius-pill);background:var(--green-tint);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
+.avatar-sq{border-radius:var(--radius-card)}
+
+/* ============ CHARTS (shared) ============ */
+.bar-chart-row{display:flex;align-items:center;gap:10px;margin-bottom:11px}
+.bar-chart-row .bl{width:150px;font-size:var(--fs-12);color:var(--muted);flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-chart-track{flex:1;height:10px;background:var(--bg-2);border-radius:var(--radius-pill);overflow:hidden}
+.bar-chart-fill{height:100%;border-radius:var(--radius-pill);background:var(--green)}
+.bar-chart-row .bv{width:56px;text-align:right;font-family:var(--font-mono);font-size:var(--fs-11);flex:none}
+
+.donut-wrap{display:flex;align-items:center;gap:20px}
+.donut{width:128px;height:128px;border-radius:var(--radius-pill);flex:none;position:relative}
+.donut::after{content:"";position:absolute;inset:20px;background:#fff;border-radius:var(--radius-pill)}
+.donut-legend{display:flex;flex-direction:column;gap:8px;font-size:var(--fs-12)}
+.donut-legend span{display:flex;align-items:center;gap:8px}
+.donut-legend i{width:9px;height:9px;border-radius:3px;flex:none}
+
+.line-chart{width:100%;height:140px}
+
+.city-bar-grid{display:grid;grid-template-columns:1fr;gap:10px}
+
+/* generic small helpers */
+.flex{display:flex}
+.flex-col{display:flex;flex-direction:column}
+.items-center{align-items:center}
+.justify-between{justify-content:space-between}
+.gap-6{gap:6px}.gap-8{gap:8px}.gap-10{gap:10px}.gap-12{gap:12px}.gap-16{gap:16px}
+/* spacing scale: 4 8 12 16 20 24 32 40 */
+.mt-4{margin-top:4px}.mt-8{margin-top:8px}.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mt-20{margin-top:20px}.mt-24{margin-top:24px}.mt-32{margin-top:32px}.mt-40{margin-top:40px}
+.mb-4{margin-bottom:4px}.mb-8{margin-bottom:8px}.mb-12{margin-bottom:12px}.mb-16{margin-bottom:16px}.mb-20{margin-bottom:20px}.mb-24{margin-bottom:24px}.mb-32{margin-bottom:32px}.mb-40{margin-bottom:40px}
+.muted{color:var(--muted)}
+.small{font-size:var(--fs-11)}
+/* ============ TYPE SCALE UTILITIES
+   Bare, weight-agnostic size overrides — added per the Frontend Typography
+   Consistency Audit to replace the many `style={{ fontSize: 13.4 }}` /
+   `style={{ fontSize: 15 }}` one-offs found across profile pages, modals,
+   cards and workspace panels with two shared classes instead. .fs-15 in
+   particular consolidates what was already a de-facto "sub-heading /
+   stat-value" size (used ~80 times, just inconsistently as 13/14/15/16)
+   into one real token. Composable with any element — a heading keeps its
+   own weight from the h1-h5 rule in base.css, a <b> keeps its native bold. */
+.fs-10{font-size:var(--fs-10)}
+.fs-12{font-size:var(--fs-12)}
+.fs-13{font-size:var(--fs-13)}
+.fs-14{font-size:var(--fs-14)}
+.fs-15{font-size:var(--fs-15)}
+.fs-16{font-size:var(--fs-16)}
+/* Pairs with .sm-val on a .stat-mini value that holds free text (an
+   address, an email) rather than a short number — restores normal wrapping
+   and a slightly roomier line-height instead of the single-line mono
+   default. */
+.sm-val-wrap{line-height:var(--line-height-relaxed);white-space:normal}
+.wfull{width:100%}
+
+/* ============ PAGE HEAD (title + description block used at the top of
+   every page) — one shared class instead of re-tuning spacing per page. */
+.page-head{margin-bottom:28px}
+.page-head h1,.page-head h2{font-size:var(--fs-24);font-weight:700;line-height:1.3;margin-bottom:8px}
+.page-head p{margin:0;font-size:var(--fs-13);line-height:1.5;color:var(--muted)}
+
+/* ============ SECTION SPACING ============ */
+.section-block{margin-bottom:32px}
+.section-block:last-child{margin-bottom:0}
+.section-block-head{margin-bottom:16px}

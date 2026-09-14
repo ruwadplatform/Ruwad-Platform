@@ -1,0 +1,97 @@
+/* ============ MULTI-STEP FORM SHELL ============ */
+.form-shell{display:grid;grid-template-columns:240px 1fr;gap:0;background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);overflow:hidden;margin-bottom:70px}
+@media(max-width:760px){.form-shell{grid-template-columns:1fr}}
+
+.form-steps{background:var(--bg-2);border-right:1px solid var(--border);padding:18px 0}
+@media(max-width:760px){.form-steps{border-right:none;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;padding:10px}}
+
+.form-progress{padding:0 18px 16px;margin-bottom:6px;border-bottom:1px solid var(--border)}
+@media(max-width:760px){.form-progress{display:none}}
+.form-progress .fp-num{font-family:var(--font-mono);font-size:var(--fs-26);font-weight:700;color:var(--green-dark)}
+.form-progress .fp-label{font-size:var(--fs-11);color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.form-progress-track{height:6px;background:var(--border);border-radius:var(--radius-pill);margin-top:10px;overflow:hidden}
+.form-progress-fill{height:100%;background:var(--green);border-radius:var(--radius-pill);transition:width .2s}
+
+.step-item{
+  display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:var(--fs-12);color:var(--muted);
+  border-left:3px solid transparent;white-space:nowrap;
+  /* Same fix as .tabs button (components.css): .form-steps scrolls
+     horizontally on mobile (overflow-x:auto) — steps must keep their own
+     content width so the row scrolls instead of every step shrinking
+     below its label and overlapping the next one. */
+  flex:none;
+}
+.step-item .si-dot{width:18px;height:18px;border-radius:var(--radius-pill);background:#fff;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:var(--fs-10);font-weight:700;flex:none;color:var(--muted)}
+.step-item.done .si-dot{background:var(--green);border-color:var(--green);color:#fff}
+.step-item.active{color:var(--text);font-weight:700;border-left-color:var(--green);background:#fff}
+.step-item.active .si-dot{border-color:var(--green);color:var(--green-dark)}
+.step-item .si-req{margin-left:auto;font-size:var(--fs-10);color:var(--faint)}
+@media(max-width:760px){.step-item{border-left:none;border-bottom:3px solid transparent}.step-item.active{border-bottom-color:var(--green)}}
+
+.form-main{padding:26px 30px 40px;min-width:0}
+.form-main-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:8px}
+.form-main-head h2{font-size:var(--fs-18);font-weight:600;line-height:1.3}
+.form-main-head .fmh-sub{font-size:var(--fs-13);line-height:1.45;color:var(--muted);margin-top:4px}
+.autosave-badge{display:flex;align-items:center;gap:6px;font-size:var(--fs-11);color:var(--muted)}
+.autosave-badge svg{color:var(--green)}
+
+.form-section-block{margin-bottom:32px}
+.form-section-block > h4{font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+
+.repeater-card{border:1px solid var(--border);border-radius:var(--radius-card);padding:16px;margin-bottom:12px;position:relative;background:var(--bg-2)}
+.repeater-card .rc-remove{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--faint)}
+.repeater-card .rc-remove:hover{color:var(--crit)}
+
+.form-sticky-actions{
+  position:sticky;bottom:0;background:#fff;border-top:1px solid var(--border);
+  padding:14px 30px;display:flex;align-items:center;justify-content:space-between;
+  margin-top:-1px;
+}
+
+.upload-tile-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.doc-card{border:1px solid var(--border);border-radius:var(--radius-card);padding:16px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.doc-card .doc-icon{width:32px;height:32px;border-radius:var(--radius-icon);background:var(--info-tint);color:var(--info);display:flex;align-items:center;justify-content:center}
+.doc-card b{font-size:var(--fs-12)}
+.doc-card .doc-status{font-size:var(--fs-11);color:var(--muted)}
+
+/* ============ SMART PITCH DECK UPLOAD ============ */
+.btn-xs{height:24px;padding:0 8px;font-size:var(--fs-11)}
+.ai-upload-panel{
+  display:flex;align-items:center;gap:14px;padding:16px 18px;margin-bottom:20px;
+  border:1.5px dashed var(--gold);border-radius:var(--radius-card);background:var(--gold-tint);
+}
+.ai-upload-panel.drag{border-style:solid;background:var(--green-tint);border-color:var(--green)}
+.ai-upload-panel.ai-error{border-color:var(--crit);background:var(--crit-tint)}
+.ai-upload-icon{
+  flex:none;width:36px;height:36px;border-radius:var(--radius-pill);background:var(--gold);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+}
+.ai-upload-icon.ai-error-icon{background:var(--crit)}
+.ai-upload-icon.ai-ok-icon{background:var(--green)}
+.ai-upload-spinner{
+  flex:none;width:36px;height:36px;border-radius:var(--radius-pill);border:3px solid var(--border);
+  border-top-color:var(--gold);animation:aiSpin .8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce){.ai-upload-spinner{animation-duration:2.4s}}
+@keyframes aiSpin{to{transform:rotate(360deg)}}
+.ai-upload-text{flex:1;display:flex;flex-direction:column;gap:2px;font-size:var(--fs-12)}
+.ai-upload-text b{font-size:var(--fs-13)}
+.ai-upload-text span{color:var(--muted)}
+.ai-dupe-banner{
+  margin-top:8px;padding:8px 10px;border-radius:var(--radius-md);background:var(--warn-tint);color:var(--warn);
+  font-size:var(--fs-11);display:flex;align-items:center;gap:6px;
+}
+
+.chip-ai{background:var(--gold-tint);border-color:var(--gold);color:var(--gold-ink);font-size:var(--fs-10);padding:2px 7px;font-weight:700}
+.chip-ai-sm{background:var(--gold-tint);border:1px solid var(--gold);color:var(--gold-ink);font-size:var(--fs-11);padding:2px 8px;border-radius:var(--radius-pill);display:inline-block}
+.ai-suggest-row{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  margin-top:8px;padding:8px 10px;border-radius:var(--radius-md);background:var(--gold-tint);
+  font-size:var(--fs-12);color:var(--text);border:1px solid var(--gold);
+}
+.ai-suggest-row-array{align-items:flex-start}
+.ai-suggest-row span{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+
+/* ============ ADMIN SUBMISSION REVIEW ============ */
+.admin-review-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start}
+@media(max-width:1024px){.admin-review-grid{grid-template-columns:1fr}}

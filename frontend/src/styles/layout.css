@@ -1,0 +1,443 @@
+/* ============ APP SHELL ============ */
+/* #shell and #auth-root are mutually exclusive (toggled via display:none/block
+   in router.js) so #app doesn't need to be a flex container itself — #shell
+   already manages its own internal sidebar+main flex row. Keeping #app a
+   plain block lets whichever child is visible fill 100% width naturally,
+   instead of shrink-to-fit sizing like a flex item without flex:1 would. */
+#app{min-height:100vh}
+#shell{min-height:100vh}
+#auth-root{min-height:100vh}
+
+/* ---- sidebar ----
+   Navigation now lives in the top header on desktop. The sidebar only
+   exists as the off-canvas mobile drawer (see the max-width:1080px block
+   below) — it renders display:none here so it takes no layout space,
+   leaves no margin/column, and main-col fills 100% of the shell. */
+.sidebar{
+  display:none;
+  width:var(--sidebar-w);
+  flex:none;
+  background:var(--navy-900);
+  color:var(--navy-text);
+  flex-direction:column;
+  height:100vh;
+  position:sticky;
+  top:0;
+  z-index:40;
+}
+
+.sb-brand{
+  display:flex;align-items:center;gap:10px;
+  padding:16px 16px 14px;
+  border-bottom:1px solid var(--navy-line);
+  min-height:var(--header-h);
+  cursor:pointer;background:none;border-left:none;border-right:none;border-top:none;width:100%;text-align:left;color:inherit;
+}
+.sb-brand-text{display:flex;flex-direction:column;line-height:1.2}
+.sb-brand-text .en{font-weight:800;font-size:var(--fs-19);letter-spacing:.03em;color:#fff}
+.sb-brand-text .ar{font-size:var(--fs-12);color:var(--ruwad-header-muted)}
+
+.sb-scroll{flex:1;overflow-y:auto;padding:10px 8px}
+.sb-scroll::-webkit-scrollbar{width:6px}
+.sb-scroll::-webkit-scrollbar-thumb{background:var(--navy-600);border-radius:var(--radius-pill)}
+
+.sb-group-label{padding:14px 12px 6px;font-size:var(--fs-10);font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#5C6389}
+.sb-group:first-child .sb-group-label{padding-top:4px}
+
+.sb-item-wrap{position:relative}
+.sb-item{
+  width:100%;display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:var(--radius-card);border:none;background:none;
+  color:var(--navy-text-muted);font-size:var(--fs-13);font-weight:500;
+  position:relative;text-align:left;
+}
+.sb-item svg{opacity:.85}
+.sb-item:hover{background:var(--navy-700);color:#fff}
+.sb-item.active{background:var(--navy-700);color:#fff}
+.sb-item.active::before{content:"";position:absolute;left:-8px;top:6px;bottom:6px;width:3px;border-radius:3px;background:#fff}
+.sidebar.collapsed .sb-item.active::before{left:0}
+.sb-label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-chevron{transition:transform .14s;opacity:.7}
+.sb-item-wrap.open > .sb-item .sb-chevron{transform:rotate(90deg)}
+
+/* direct-child combinator so a nested submenu (e.g. Ecosystem's own
+   Overview/Biotechnology/... list inside Discover) doesn't get forced
+   open just because its ancestor wrap is open */
+.sb-submenu{max-height:0;overflow:hidden;transition:max-height .18s ease}
+.sb-item-wrap.open > .sb-submenu{max-height:640px}
+.sb-submenu button{
+  width:100%;text-align:left;background:none;border:none;color:var(--navy-text-muted);
+  padding:7px 12px 7px 40px;font-size:var(--fs-12);border-radius:var(--radius-card);
+  display:flex;align-items:center;gap:8px;
+}
+.sb-submenu button:hover,.sb-submenu button.active{background:var(--navy-700);color:#fff}
+.sb-submenu .sb-item-wrap .sb-item{padding-left:40px}
+.sb-submenu .sb-item-wrap .sb-submenu button{padding-left:56px}
+
+/* ---- main column ---- */
+.main-col{flex:1;min-width:0;display:flex;flex-direction:column;min-height:100vh}
+
+/* ---- top header ---- */
+/* backdrop-filter:blur() on the search/nav-link glass surfaces has
+   nothing to blur if this is a flat single color — blurring a constant
+   color yields the same constant color, so the "frosted" look was
+   invisible no matter how correct the glass CSS was. This soft
+   two-point gradient gives the header just enough tonal variation for
+   the blur to actually soften and read as glass, while still looking
+   like the same flat Saudi green at a glance. */
+.topheader{
+  height:var(--header-h);flex:none;
+  /* flat, fully opaque navy — no gradient sheen or translucency, so the
+     bar reads as one solid color edge-to-edge instead of lighter in one
+     corner and darker in another. */
+  background:var(--nav-bg);
+  display:flex;align-items:center;gap:14px;
+  padding:0 16px;position:sticky;top:0;z-index:30;
+  border-bottom:1px solid var(--nav-line);
+  /* auto-hide on scroll (see initHeaderAutoHide() in app.js) — slides
+     up out of view on scroll-down, back down on scroll-up or when the
+     cursor nears the top edge. Sticky positioning is unaffected by a
+     transform, so this stays purely a visual offset. */
+  transition:transform .25s ease;
+}
+.topheader.header-hidden{transform:translateY(-100%)}
+
+/* Public header's mobile menu — the authenticated header reuses the
+   sidebar as its off-canvas drawer, but that element doesn't exist on
+   public pages, so logged-out visitors get their own lightweight panel
+   with the same 5 links + Login/Join, anchored under the header. */
+.public-mobile-nav{
+  display:none;position:absolute;top:100%;left:0;right:0;
+  background:var(--nav-bg);border-top:1px solid var(--nav-line);
+  padding:10px 16px 16px;box-shadow:var(--shadow-lg);z-index:29;
+  flex-direction:column;gap:2px;
+}
+.public-mobile-nav.open{display:flex}
+.public-mobile-nav button{
+  text-align:left;padding:11px 10px;border-radius:var(--radius-icon);border:none;background:none;
+  color:#fff;font-size:var(--fs-14);font-weight:600;
+}
+.public-mobile-nav button:hover{background:var(--nav-hover)}
+.public-mobile-nav-actions{display:flex;gap:10px;margin-top:10px;padding-top:12px;border-top:1px solid var(--nav-line)}
+.public-mobile-nav-actions .btn{flex:1}
+.mobile-menu-btn{display:none;background:none;border:none;color:#fff;padding:6px;flex:none}
+
+.hdr-brand{
+  display:flex;align-items:baseline;gap:7px;flex:none;
+  background:none;border:none;color:var(--nav-text);padding:0;cursor:pointer;
+}
+.hdr-brand .en{font-weight:800;font-size:var(--fs-16);letter-spacing:.02em;color:#fff}
+.hdr-brand .ar{font-family:var(--font-arabic);font-size:var(--fs-12);color:#fff}
+
+/* Sizing is width/height + flex-shrink only — deliberately NOT a `flex`
+   shorthand with a basis. `flex-basis` resolves along the flex container's
+   MAIN axis, so the same value means "width" in the header's row layout
+   but "height" if this class is ever placed inside a column-flex parent
+   (exactly what produced the stretched-oval bug in the landing hero) —
+   width/height are axis-independent and don't have that failure mode. */
+/* frosted-glass header search — sits over the Saudi-green navbar */
+.hdr-search{
+  height:40px;width:340px;max-width:100%;flex:0 1 auto;min-width:0;
+  display:flex;align-items:center;
+  background:rgba(255,255,255,.12);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(255,255,255,.20);
+  border-radius:var(--radius-lg);padding:0 14px 0 40px;
+  position:relative;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 1px 2px rgba(0,0,0,.05);
+  transition:background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.hdr-search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,.75);pointer-events:none}
+.hdr-search input{
+  flex:1;background:none;border:none;outline:none;color:#fff;font-size:var(--fs-13);min-width:0;width:100%;
+}
+.hdr-search input::placeholder{color:rgba(255,255,255,.72)}
+.hdr-search:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.28)}
+.hdr-search:focus-within{
+  background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.40);
+  box-shadow:0 0 0 3px rgba(255,255,255,.08);
+}
+@media(max-width:1024px){ .hdr-search{width:260px} }
+.hdr-suggest{
+  position:absolute;top:calc(100% + 6px);left:0;right:0;
+  background:#fff;border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);
+  padding:6px;display:none;z-index:60;max-height:340px;overflow-y:auto;
+}
+.hdr-suggest.open{display:block}
+.hdr-suggest .hs-label{font-size:var(--fs-10);font-weight:700;color:var(--faint);text-transform:uppercase;letter-spacing:.06em;padding:8px 10px 4px}
+.hdr-suggest button{
+  width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-card);border:none;background:none;color:var(--text);font-size:var(--fs-13);
+}
+.hdr-suggest button:hover{background:var(--bg)}
+.hdr-suggest .hs-tag{margin-left:auto;font-size:var(--fs-11);color:var(--faint)}
+
+/* ---- top nav links + hover dropdowns ---- */
+.hdr-nav{display:flex;align-items:center;gap:10px;height:100%;flex:none}
+.hdr-nav-item{position:relative;height:100%;display:flex;align-items:center}
+.hdr-nav-link{
+  display:flex;align-items:center;gap:5px;height:32px;padding:0 12px;
+  border-radius:var(--radius-icon);cursor:pointer;
+  color:var(--nav-text-muted);font-size:var(--fs-13);font-weight:600;white-space:nowrap;
+  transition:background .2s ease,border-color .2s ease,color .15s ease,backdrop-filter .2s ease;
+  /* frosted-glass at rest, not just on hover — the anchor itself reads
+     as a glass pill sitting on the green header at all times, with
+     hover/active below just deepening the same effect */
+  background:rgba(255,255,255,.07);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.12);
+}
+.hdr-nav-link svg{opacity:.85;transform:rotate(90deg);transition:transform .2s ease}
+/* chevron reads as an open/close indicator, not just decoration — it
+   flips to point "up" whenever its own dropdown is open */
+.hdr-nav-link:has(+ .hdr-dropdown.open) svg{transform:rotate(-90deg)}
+/* same frosted-glass language as .hdr-search — translucent white +
+   blur, given something to blur by the header's own gradient above */
+.hdr-nav-link:hover{
+  background:rgba(255,255,255,.12);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-color:rgba(255,255,255,.18);color:#fff;
+}
+.hdr-nav-item.active > .hdr-nav-link{
+  background:rgba(255,255,255,.18);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-color:rgba(255,255,255,.26);color:#fff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.10);
+}
+/* small sliding underline — a second, quieter signal under the glass
+   pill so hover/active reads as a deliberate motion, not just a color
+   flip */
+.hdr-nav-link::after{
+  content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,#fff,rgba(255,255,255,.35));
+  transform:scaleX(0);transform-origin:center;transition:transform .25s cubic-bezier(.4,0,.2,1);
+}
+.hdr-nav-link:hover::after,.hdr-nav-item.active > .hdr-nav-link::after{transform:scaleX(1)}
+
+.hdr-dropdown{
+  /* Centered under its trigger button (left:50% + translateX(-50%))
+     instead of left:0 — left-aligning a 222px-min panel under a much
+     narrower button ("Discover" + chevron) let it drift well past the
+     button's right edge, reading as misaligned rather than anchored to
+     the text above it. */
+  position:absolute;top:calc(100% + 6px);left:50%;min-width:222px;
+  /* frosted glass, same language as the header's own search/nav-link
+     surfaces — translucent white over a blur so whatever's on the page
+     behind it (cards, text) shows through softly instead of a flat
+     opaque panel */
+  background:rgba(255,255,255,.78);
+  backdrop-filter:blur(18px) saturate(1.5);-webkit-backdrop-filter:blur(18px) saturate(1.5);
+  border:1px solid rgba(255,255,255,.6);border-radius:12px;box-shadow:var(--shadow-lg);
+  padding:8px;z-index:1000;overflow:hidden;
+  opacity:0;visibility:hidden;transform:translateX(-50%) translateY(-4px) scale(.98);
+  transition:opacity .16s ease,transform .16s cubic-bezier(.2,.8,.3,1.1),visibility .16s;
+}
+.hdr-dropdown.open{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0) scale(1)}
+/* thin brand-color accent along the top edge — a small signature touch
+   that ties every dropdown back to the header's green */
+.hdr-dropdown::before{
+  content:"";position:absolute;top:0;left:14px;right:14px;height:2px;border-radius:0 0 3px 3px;
+  background:var(--green);
+}
+.hdr-dropdown.mega{width:440px;display:flex;align-items:stretch;gap:0;padding:10px}
+.hdr-dropdown.mega .dd-col{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.hdr-dropdown.mega .dd-col:first-child{padding-right:14px;margin-right:14px;border-right:1px solid var(--border)}
+.hdr-dropdown-label{
+  display:flex;align-items:center;gap:8px;padding:6px 10px 8px;
+  font-size:var(--fs-10);font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);
+}
+.hdr-dropdown-label-link{
+  width:100%;text-align:left;border:none;background:none;cursor:pointer;
+  color:var(--green-dark);font-size:var(--fs-13);font-weight:700;text-transform:none;letter-spacing:0;
+  padding:7px 10px;border-radius:var(--radius-md);margin-bottom:3px;transition:background .15s ease;
+}
+.hdr-dropdown-label-link svg{color:var(--green-dark);flex:none}
+.hdr-dropdown-label-link:hover{background:var(--green-tint)}
+.hdr-dropdown-item{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:8px 10px 8px 12px;border-radius:var(--radius-md);border:none;background:none;
+  color:var(--text);font-size:var(--fs-13);font-weight:500;position:relative;
+  transition:background .15s ease,transform .15s ease;
+}
+/* accent bar that grows in from the item's own left edge on hover —
+   pairs with the icon-badge color flip below for one consistent
+   "this row is now active" motion */
+.hdr-dropdown-item::before{
+  content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;
+  background:var(--green);transform:scaleY(0);transition:transform .15s ease;
+}
+.hdr-dropdown-item:hover::before{transform:scaleY(1)}
+.hdr-dropdown-item .dd-ico{
+  width:27px;height:27px;border-radius:var(--radius-md);flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--bg-2);color:var(--green-dark);
+  transition:background .15s ease,color .15s ease,transform .15s ease;
+}
+.hdr-dropdown-item .chev-right{margin-left:auto;color:var(--faint);flex:none;transition:transform .15s ease}
+.hdr-dropdown-item:hover{background:var(--bg-2);transform:translateX(1px)}
+.hdr-dropdown-item:hover .dd-ico{background:var(--green);color:#fff;transform:scale(1.06)}
+.hdr-dropdown-item:hover .chev-right{transform:translateX(2px);color:var(--green-dark)}
+/* items animate in with a slight stagger so the panel feels assembled
+   rather than just switched on */
+@keyframes ddItemIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+.hdr-dropdown.open .hdr-dropdown-item,.hdr-dropdown.open .hdr-dropdown-label-link{animation:ddItemIn .16s ease backwards}
+.hdr-dropdown.open .hdr-dropdown-item:nth-child(1){animation-delay:0ms}
+.hdr-dropdown.open .hdr-dropdown-item:nth-child(2){animation-delay:22ms}
+.hdr-dropdown.open .hdr-dropdown-item:nth-child(3){animation-delay:44ms}
+.hdr-dropdown.open .hdr-dropdown-item:nth-child(4){animation-delay:66ms}
+.hdr-dropdown.open .hdr-dropdown-item:nth-child(5){animation-delay:88ms}
+.hdr-dropdown.open .hdr-dropdown-item:nth-child(6){animation-delay:110ms}
+
+.hdr-flyout-wrap{position:relative}
+.hdr-flyout{
+  position:absolute;top:-6px;left:calc(100% + 6px);min-width:206px;
+  /* Same solid-white fix as .hdr-dropdown above — was translucent glass,
+     faded to unreadable over dark page content behind it. */
+  background:#fff;
+  border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);
+  padding:6px;z-index:1001;
+  opacity:0;visibility:hidden;transform:translateX(-4px);
+  transition:opacity .12s ease,transform .12s ease,visibility .12s;
+}
+.hdr-flyout.open{opacity:1;visibility:visible;transform:translateX(0)}
+
+.hdr-actions{margin-left:auto;display:flex;align-items:center;gap:4px;flex:none}
+.hdr-icon-btn{
+  width:33px;height:33px;border-radius:var(--radius-icon);border:none;background:none;color:#fff;
+  display:flex;align-items:center;justify-content:center;position:relative;
+}
+.hdr-icon-btn:hover{background:var(--nav-hover)}
+.hdr-badge{position:absolute;top:4px;right:5px;width:7px;height:7px;border-radius:var(--radius-pill);background:#FF6B57;border:1.5px solid var(--nav-bg)}
+.hdr-avatar{
+  width:30px;height:30px;border-radius:var(--radius-pill);background:#fff;color:var(--green);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-12);
+  margin-left:6px;border:2px solid rgba(255,255,255,.35);
+}
+
+/* Login/Join buttons in the public header — .btn-outline defaults to a
+   white fill for light page backgrounds, so it needs a transparent
+   variant here to read correctly on the nav. */
+.hdr-actions .btn-outline{background:transparent;border-color:rgba(255,255,255,.4);color:#fff}
+.hdr-actions .btn-outline:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.6)}
+/* .btn-primary (Join RUWĀD) is --green text-on-white by default — but
+   --green now equals the header's own navy, so a plain .btn-primary
+   here would be a navy button on a navy bar. Inverted so it still
+   reads as the header's one filled, high-contrast action. */
+.hdr-actions .btn-primary{background:#fff;color:var(--green)}
+.hdr-actions .btn-primary:hover{background:var(--bg-2)}
+.hdr-auth-btn{white-space:nowrap}
+
+/* ---- content ---- */
+.content{flex:1;min-width:0;background:var(--bg)}
+.content-in{max-width:var(--content-max);margin:0 auto;padding:32px 32px 60px}
+.content-in.wide{max-width:100%}
+@media(max-width:1024px){.content-in{padding:24px 24px 48px}}
+@media(max-width:760px){.content-in{padding:16px 16px 40px}}
+
+/* dropdown menus (search suggest / user menu / notifications) share this */
+.dropdown-panel{
+  position:absolute;background:#fff;border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-lg);
+  z-index:1000;display:none;
+}
+.dropdown-panel.open{display:block}
+
+/* Rows inside a white dropdown panel (avatar menu etc). Colors are set
+   directly here — never inherited from a dark nav/sidebar ancestor — so
+   hover/active states can never land on dark-text-on-dark-background. */
+/* Section header inside the avatar dropdown ("Workspace"/"Profile") —
+   groups My Organizations/Watchlist/Saved Searches/Introduction Requests/
+   My NDAs apart from the account-level My Profile/Settings/Logout rows,
+   same small-caps treatment used for other panel eyebrows in the app. */
+.dropdown-menu-label{
+  padding:10px 12px 4px;font-size:var(--fs-10);font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--faint);
+}
+.dropdown-menu-label:first-child{padding-top:4px}
+.dropdown-menu-item{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:9px 12px;border-radius:var(--radius-icon);border:none;background:transparent;
+  color:var(--text);font-size:var(--fs-13);font-weight:500;
+}
+.dropdown-menu-item svg{color:var(--muted);flex:none}
+.dropdown-menu-item:hover{background:var(--bg-2);color:var(--text)}
+.dropdown-menu-item:hover svg{color:var(--text)}
+.dropdown-menu-item.active{background:var(--good-tint);color:var(--good);font-weight:600}
+.dropdown-menu-item.active svg{color:var(--good)}
+.dropdown-menu-item.logout{color:var(--crit)}
+.dropdown-menu-item.logout svg{color:var(--crit)}
+.dropdown-menu-item.logout:hover{background:var(--crit-tint);color:var(--crit)}
+.dropdown-menu-item.logout:hover svg{color:var(--crit)}
+
+/* ---- floating support button ---- */
+.fab{
+  position:fixed;bottom:22px;right:22px;width:48px;height:48px;border-radius:var(--radius-pill);
+  background:var(--green);color:#fff;border:none;box-shadow:var(--shadow-lg);
+  display:flex;align-items:center;justify-content:center;z-index:90;
+}
+.fab:hover{background:var(--green-dark)}
+
+/* ---- auth shell (login / signup / forgot) ----
+   A single floating card, centered over a full-bleed blurred photo —
+   not the old edge-to-edge split panel. .auth-shell-bg is a separate,
+   oversized (inset:-24px) layer carrying the blur, rather than putting
+   filter:blur() on .auth-shell itself, which would blur the card and
+   its text too since CSS filters apply to an element's whole subtree. */
+.auth-shell{min-height:100vh;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:24px}
+.auth-shell-bg{
+  position:absolute;inset:-24px;z-index:0;transform:scale(1.06);
+  background:url('../assets/images/saudi-global-network.jpg') center 35% / cover no-repeat;
+  filter:blur(22px);
+}
+.auth-shell-scrim{position:absolute;inset:0;z-index:1;background:rgba(var(--color-navy-950-rgb),.45)}
+.auth-card{
+  position:relative;z-index:2;display:flex;width:100%;max-width:880px;
+  background:#fff;border-radius:var(--radius-lg);overflow:hidden;
+  box-shadow:0 30px 70px -24px rgba(0,0,0,.55);
+}
+.auth-card.wide{max-width:1040px}
+.auth-card-brand{
+  flex:none;width:300px;position:relative;overflow:hidden;color:#fff;
+  padding:40px 32px;display:flex;flex-direction:column;justify-content:center;
+  background:linear-gradient(155deg, var(--navy-900) 0%, var(--color-navy-950) 100%);
+}
+.auth-card-brand-glow{position:absolute;right:-30%;bottom:-30%;width:80%;aspect-ratio:1;border-radius:var(--radius-pill);background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%);filter:blur(6px)}
+.auth-card-logo{position:relative;z-index:1;display:flex;align-items:baseline;gap:8px;margin-bottom:22px;background:none;border:none;padding:0;color:#fff;cursor:pointer}
+.auth-card-logo .en{font-weight:800;font-size:var(--fs-22);letter-spacing:.02em}
+.auth-card-logo .ar{font-family:var(--font-arabic);font-size:var(--fs-14);color:rgba(255,255,255,.7);font-weight:600}
+.auth-card-brand h2{position:relative;z-index:1;font-size:var(--fs-19);margin-bottom:8px}
+.auth-card-brand p{position:relative;z-index:1;font-size:var(--fs-13);line-height:1.55;color:rgba(255,255,255,.8)}
+.auth-card-brand p a{color:var(--gold);font-weight:700}
+.auth-card-form{flex:1;min-width:0;padding:40px 36px;display:flex;flex-direction:column;justify-content:center;max-height:88vh;overflow-y:auto}
+.auth-card-form .chip-select button{border-color:rgba(37,99,166,.4)}
+
+@media(max-width:760px){
+  .auth-shell{padding:16px}
+  .auth-card,.auth-card.wide{flex-direction:column;max-width:440px}
+  .auth-card-brand{width:100%;padding:26px 22px}
+  .auth-card-form{padding:26px 22px}
+}
+
+/* ---- responsive shell ---- */
+@media(max-width:1024px){
+  /* below this width the top-nav links (Discover/Intelligence/Workspace)
+     don't have room to breathe, so navigation moves into the sidebar,
+     which becomes an off-canvas drawer opened via the hamburger button */
+  .sidebar{
+    display:flex;position:fixed;left:0;top:0;
+    transform:translateX(-100%);z-index:200;box-shadow:var(--shadow-lg);
+    transition:transform .18s ease;
+  }
+  .sidebar.mobile-open{transform:translateX(0)}
+  .mobile-menu-btn{display:flex}
+  .hdr-nav{display:none}
+  .sb-scrim{display:none;position:fixed;inset:0;background:rgba(9,12,28,.5);z-index:150}
+  .sb-scrim.open{display:block}
+}
+@media(max-width:760px){
+  .hdr-search{flex:1;width:auto;max-width:none}
+  /* the public header carries two text buttons (Login/Join) instead of
+     compact icon buttons, so it needs to shed the search bar earlier
+     than the authenticated header to avoid everything getting crushed;
+     search is still reachable from any directory page's own toolbar. */
+  .topheader:has(.hdr-auth-btn) .hdr-search{display:none}
+}
+@media(max-width:480px){
+  .hdr-auth-btn.btn-outline{display:none}
+}

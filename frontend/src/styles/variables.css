@@ -1,0 +1,181 @@
+:root{
+  /* ---- brand primitives ----
+     One hex per distinct color. Everything below this block is an alias,
+     never a second source of truth for the same value — added per the
+     RUWĀD Color & UI Audit, which found four names (--navy-900, --green,
+     --nav-bg, --ruwad-green) all resolving to #10142F, and a second
+     duplicate pair (--green-saudi / --ruwad-green-bright) both #2E90E8.
+     Call sites are untouched: every var(--green)/var(--nav-bg)/etc.
+     reference in the app still resolves to exactly the same value it
+     always did, just through one primitive instead of four literals. */
+  --color-navy-950:#050612;
+  --color-navy-900:#080A1F;
+  --color-navy-800:#101430;
+  --color-navy-700:#1A2044;
+  --color-navy-600:#28305C;
+  /* R,G,B channel list (no hex) for the handful of spots that need a
+     translucent navy — rgba() can't take a hex custom property directly,
+     so those call sites use rgba(var(--color-navy-900-rgb),alpha) instead
+     of hardcoding their own rgb() triple, which is exactly how the
+     header's background went stale the last time this primitive moved:
+     it had "rgba(16,20,47,.86)" typed out literally, so it silently kept
+     rendering the old navy after every token above it was updated. */
+  --color-navy-900-rgb:8,10,31;
+  --color-navy-950-rgb:5,6,18;
+  /* --color-blue-accent (#2E90E8) retired — the app used to run a second
+     accent hue on top of navy (header avatar, active-tab bar, a hero
+     glow, some Arabic subtitles) which read as visual inconsistency
+     rather than intentional accenting. --green-saudi/--ruwad-green-bright
+     below now alias navy like everything else; every spot that used to
+     render blue now renders navy, or white/light where it sat on a navy
+     surface and needed contrast. */
+
+  /* ---- brand: navy shell ---- */
+  --navy-900:var(--color-navy-900);
+  --navy-800:var(--color-navy-800);
+  --navy-700:var(--color-navy-700);
+  --navy-600:var(--color-navy-600);
+  --navy-line: rgba(255,255,255,.08);
+  --navy-text-muted: #8C9A91;
+  --navy-text: #E7E9F5;
+
+  /* ---- brand: primary (dark blue) ----
+     Token names kept as --green* rather than renamed to --blue* — this
+     app has ~10 files referencing var(--green)/var(--green-dark)/etc.,
+     and repointing every one of those names carries far more risk of
+     a missed reference than the cosmetic mismatch of a "green" token
+     holding a blue value.
+     --green is intentionally the exact same value as --nav-bg (the
+     header's own dark navy) — the site's primary color and the menu
+     bar's color are one and the same by design. --green-dark is a step
+     darker still, for hover states on top of --green. */
+  --green-dark:var(--color-navy-950);
+  --green:var(--color-navy-900);
+  --green-saudi:var(--color-navy-900);
+  --green-tint:#E7F0FB;
+  --gold:#C9A227;
+  --gold-ink:#8A6B14; /* text/icon-safe gold — 5:1 on white, unlike --gold's 2.4:1 */
+  --gold-tint:#FBF3DC;
+
+  /* ---- top navigation (header) ---- */
+  --nav-bg:var(--color-navy-900);
+  --nav-text:#FFFFFF;
+  --nav-text-muted:rgba(255,255,255,.72);
+  --nav-line:rgba(255,255,255,.16);
+  --nav-hover:rgba(255,255,255,.12);
+  --nav-active:rgba(255,255,255,.18);
+
+  /* ---- shared brand-green tokens ----
+     Single source of truth for the Saudi-green used by the header AND the
+     hero, so the two can never drift into two different greens again.
+     --ruwad-green is the exact same value as --nav-bg (the header's
+     already-shipped color) — not a second, slightly-different hex. */
+  --ruwad-green:var(--color-navy-900);
+  --ruwad-green-bright:var(--color-navy-900);
+  --ruwad-green-deep:var(--color-navy-950);
+  --ruwad-header-height:var(--header-h);
+  --ruwad-header-radius:10px;
+  --ruwad-header-text:#FFFFFF;
+  --ruwad-header-muted:rgba(255,255,255,.8);
+
+  /* ---- surfaces ---- */
+  --white:#FFFFFF;
+  --bg:#F6F7FA;
+  --bg-2:#F8F9FB;
+  --border:#E3E6E2;
+  --border-strong:#D3D9D2;
+
+  /* ---- text ---- */
+  --text:#15201B;
+  --muted:#5C6B62;
+  --faint:#8B978E;
+
+  /* ---- semantic ----
+     --warn darkened from #B7791F to #8F5D14 per the Color & UI Audit's
+     contrast ledger: the old value measured 3.6:1 as text on white and
+     3.2:1 in the warn badge (both fail WCAG AA's 4.5:1). #8F5D14 measures
+     ~5.6:1 on white and ~5.0:1 on --warn-tint — passes both, same hue. */
+  --good:#128A45;
+  --good-tint:#E7F6ED;
+  --warn:#8F5D14;
+  --warn-tint:#FBF0DD;
+  --crit:#C0362C;
+  --crit-tint:#FBEAE8;
+  --info:#2563A6;
+  --info-tint:#E8F1FA;
+
+  /* ---- metrics ----
+     Radius tiers below were formalized from the Color & UI Audit's
+     finding that --radius-card/--radius-input existed but were bypassed
+     by 13+ hardcoded values. Rather than force genuinely different corner
+     treatments into two sizes, the three other values actually repeated
+     with consistent intent (7px icon tiles, 8px panels/dropdown items,
+     10px modals/hero/large logos) became real tokens; true one-offs and
+     unrelated micro-accents (2–3px bars/dots) were left as literals. */
+  --radius-xs:4px;
+  --radius-input:5px;
+  --radius-card:6px;
+  --radius-icon:7px;
+  --radius-md:8px;
+  --radius-lg:10px;
+  --radius-pill:999px;
+  --shadow-sm: 0 1px 2px rgba(16,20,43,.06);
+  --shadow-md: 0 4px 14px -4px rgba(16,20,43,.14);
+  --shadow-lg: 0 12px 32px -10px rgba(16,20,43,.24);
+
+  --sidebar-w:220px;
+  --sidebar-w-collapsed:64px;
+  --header-h:56px;
+  /* 1560 -> 1400: repeated feedback that several pages "use too much
+     horizontal width" on large desktops — 1400 is the top of this pass's
+     own suggested 1200-1400px range. Entity detail pages go narrower
+     still (see .profile-head/.profile-tabs-wrap in profiles.css) since
+     dense label/value content reads better in a tighter column than a
+     directory table does. */
+  --content-max:1400px;
+
+  --font-ui:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-plex:'IBM Plex Sans','Inter',sans-serif;
+  --font-arabic:'IBM Plex Sans Arabic','Inter',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+
+  /* ---- type scale ----
+     Added per the Color & UI Audit's finding of 36 distinct font-size
+     values across the component stylesheets, many a fraction of a pixel
+     apart with no perceptible purpose (e.g. 10.4/10.5/10.6/10.8px all
+     in use at once). Every component font-size below now resolves to one
+     of these; the sub-pixel originals were rounded to their nearest step.
+     --fs-15 and --fs-38 added per the Frontend Typography Consistency
+     Audit: that first pass only tokenized the CSS stylesheets, not
+     component-level inline styles, which had independently drifted back
+     into ~15 distinct one-off pixel values (12.2/12.4/12.6/12.8/13.4/13.6
+     etc.) — all now resolve to the nearest step here instead, and these
+     two round numbers (15, used ~80 times as a deliberate sub-heading/
+     stat-value size; 38, the single biggest number on the page in the
+     score-teaser) were genuine scale gaps rather than drift. */
+  --fs-9:9px; --fs-10:10px; --fs-11:11px; --fs-12:12px; --fs-13:13px;
+  --fs-14:14px; --fs-15:15px; --fs-16:16px; --fs-18:18px; --fs-19:19px; --fs-20:20px; --fs-22:22px;
+  --fs-24:24px; --fs-26:26px; --fs-28:28px; --fs-34:34px; --fs-38:38px;
+
+  /* ---- line height ----
+     Three named tiers instead of the ad-hoc 1.45/1.6/1.7/1.9 values found
+     scattered across prose-block inline styles during the same audit —
+     --line-height-tight matches the heading rule already in base.css,
+     --line-height-normal matches body's own default, both formalized
+     here rather than changed; --line-height-relaxed is new, for longer
+     paragraph/list text that wants more breathing room than body copy. */
+  --line-height-tight:1.3;
+  --line-height-normal:1.5;
+  --line-height-relaxed:1.7;
+
+  /* ---- font weight ----
+     The five weights already in use across every stylesheet, named —
+     nothing here changes an existing declaration, it documents the set
+     already in effect so new code has a token to reach for instead of
+     a sixth arbitrary number. */
+  --fw-regular:400;
+  --fw-medium:500;
+  --fw-semibold:600;
+  --fw-bold:700;
+  --fw-extrabold:800;
+}
