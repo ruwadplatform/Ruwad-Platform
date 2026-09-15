@@ -51,7 +51,11 @@ services:
     plan: free
     region: oregon
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    # --include=dev required for the same reason as ruwad-backend above:
+    # NODE_ENV=production (below) makes Render skip devDependencies during
+    # install, but `next build` needs @tailwindcss/postcss (devDependency)
+    # to process CSS — without it the build fails inside postcss.config.mjs.
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV

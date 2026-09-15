@@ -22,9 +22,13 @@ Production architecture: **Render** hosts both services — `ruwad-frontend` (Ne
 
 Render's network cannot reach Supabase's **direct** database connection in most regions — it resolves to an IPv6-only address and Render's egress doesn't route to it, failing with `ENETUNREACH`. Use the **Session pooler** connection string instead (Supabase Dashboard → your project → **Connect** button → Session pooler → URI) — it's IPv4-proxied. The username changes shape too: `postgres.<project-ref>` instead of plain `postgres`. If your password has special characters, percent-encode them in the URL (`@` → `%40`, etc.) — Supabase's dialog shows a `[YOUR-PASSWORD]` placeholder, not the real value; you have to fill it in yourself.
 
-## Build-time devDependencies (backend only)
+## Build-time devDependencies (both services)
 
-`nest build` (`@nestjs/cli`) and `npm run migration:run` (`typeorm-ts-node-commonjs`, needing `ts-node`/`typescript`) are devDependencies. Render skips devDependencies during `npm install` whenever `NODE_ENV=production` is set in the service's environment, and applies that during the build step too — not just at runtime. `ruwad-backend`'s `buildCommand` therefore passes `--include=dev` explicitly; keep that flag if you ever change the build command, or the build fails with `sh: 1: nest: not found`. The frontend doesn't need this — `next build`/`next start` aren't devDependencies-only tools in the same way.
+Render skips devDependencies during `npm install` whenever `NODE_ENV=production` is set in the service's environment, and applies that during the build step too — not just at runtime. Both services need devDependency-only tools to build:
+- Backend: `nest build` (`@nestjs/cli`) and `npm run migration:run` (`typeorm-ts-node-commonjs`, needing `ts-node`/`typescript`). Without `--include=dev`, fails with `sh: 1: nest: not found`.
+- Frontend: `next build` needs `@tailwindcss/postcss` to process CSS via `postcss.config.mjs`. Without `--include=dev`, the build fails partway through CSS processing with a generic `npm error Lifecycle script 'build' failed with error: code 1` — the real cause only shows up a few lines up the stack trace, inside `postcss.ts`.
+
+Both services' `buildCommand` in `render.yaml` therefore pass `--include=dev` explicitly. Keep that flag if you ever change either build command.
 
 ## Port binding
 
