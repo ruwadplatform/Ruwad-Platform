@@ -5,7 +5,13 @@ services:
     plan: free
     region: oregon
     rootDir: backend
-    buildCommand: npm install && npm run build
+    # --include=dev is required here: Render skips devDependencies during
+    # install whenever NODE_ENV=production is set (below) — even though
+    # that var is meant for the running app, not the build step, Render
+    # applies it there too. `nest build` (nest CLI) and `migration:run`
+    # (ts-node/typescript) both need devDependencies, so a plain
+    # `npm install` here fails with "nest: not found".
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm run deploy:start
     healthCheckPath: /api/health
     envVars:
