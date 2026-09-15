@@ -1,1 +1,12 @@
-@import "tailwindcss";
+/* Tailwind is installed but intentionally unused as a styling layer in this
+ * app — every page is styled by the 16 files ported verbatim from the old
+ * vanilla app (imported in layout.tsx right after this file), not Tailwind
+ * utility classes. `@import "tailwindcss";` used to live here and, in the
+ * production build specifically (not `next dev`), silently caused those 16
+ * files' content to be dropped from the final CSS bundle — only Tailwind's
+ * own reset/theme layer shipped, so every deployed page rendered completely
+ * unstyled (browser default fonts/colors) despite the build succeeding with
+ * no errors. Removing the import fixed it; re-add only if the app actually
+ * starts using Tailwind utility classes somewhere, and re-verify a real
+ * `next build` + `next start` (not just `next dev`) still ships all 16
+ * ported files' rules if so. */
