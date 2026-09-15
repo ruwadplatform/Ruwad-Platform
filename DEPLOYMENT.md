@@ -40,6 +40,8 @@ Both services must listen on whatever port Render assigns via the `PORT` env var
 
 `backend/src/main.ts` builds the CORS allowlist from `FRONTEND_URL` (comma-separated, `credentials: true`) — never `origin: "*"`, since the auth cookie requires credentialed requests. Local dev's default (`http://localhost:5174` — this project's actual frontend dev port, set via `next dev --port 5174`, not Next.js's default 3000) only applies when `FRONTEND_URL` is unset; production must always set it explicitly to the real frontend origin.
 
+**A correctly-configured CORS allowlist is not sufficient on its own.** Helmet's default `Cross-Origin-Resource-Policy: same-origin` header blocks the browser from reading any response to this API from a different origin — this is enforced independently of CORS, so the preflight and `Access-Control-Allow-Origin` can both be perfectly correct and real requests still fail client-side with a generic `Failed to fetch`, no CORS error shown at all. `main.ts` passes `crossOriginResourcePolicy: { policy: "cross-origin" }` to `helmet()` to fix this — required precisely because the frontend and backend are separate Render services/origins by design. If you ever see requests silently fail this way despite CORS headers looking right in `curl`, check this header first (`curl -i ... | grep -i cross-origin-resource-policy`).
+
 The auth cookie itself uses `sameSite: "none"; secure: true` in production (`backend/src/auth/auth.controller.ts`) because the two Render services live on different `onrender.com` subdomains — `onrender.com` is a public-suffix domain, so each service counts as its own "site" for cookie purposes even though they share a parent domain, same as `vercel.app` or `github.io` would.
 
 ## This app's relationship to Supabase

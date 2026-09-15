@@ -11,7 +11,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
-  app.use(helmet());
+  // Helmet's default Cross-Origin-Resource-Policy is "same-origin", which
+  // silently blocks the browser from reading any response to this API from
+  // a different origin — including the frontend's own legitimate fetches,
+  // since it's a separate Render service/domain by design. This is a
+  // browser-enforced header, independent of CORS: the CORS preflight and
+  // Access-Control-Allow-Origin can be perfectly correct and the request
+  // still gets blocked client-side because of this. Every other Helmet
+  // default (CSP, HSTS, COOP, etc.) stays as-is.
+  app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(cookieParser());
   app.setGlobalPrefix("api");
   app.useGlobalPipes(
