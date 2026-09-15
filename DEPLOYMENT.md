@@ -1,29 +1,50 @@
 # Deploying RUWĀD
 
-Production architecture: **Vercel** (Next.js frontend) → **Render** (NestJS backend, always-on) → **Supabase** (Postgres). Render does not provision or own the database — Supabase is the permanent, standalone database in every environment, local dev included.
+Production architecture: **Render** hosts both services — `ruwad-frontend` (Next.js) and `ruwad-backend` (NestJS), each its own web service with its own `onrender.com` URL — in front of **Supabase** (Postgres). Render does not provision or own the database — Supabase is the permanent, standalone database in every environment, local dev included.
 
-## Backend (`backend/`) — Render
+## Both services — Render Blueprint
+
+`render.yaml` (repo root) provisions both services in one Blueprint.
 
 1. Push this repo to GitHub/GitLab.
-2. In Render, "New +" → "Blueprint" → point at the repo. `render.yaml` (repo root) provisions `ruwad-backend` — a Node web service, `rootDir: backend`, building with `npm install --include=dev && npm run build` and starting with `npm run deploy:start` (runs pending migrations, then `node dist/main.js`, bound to `0.0.0.0:$PORT`).
-3. **`DATABASE_URL` must be set manually** in the Render dashboard (Environment tab) after the first deploy — `render.yaml` deliberately does not carry a real value (`sync: false`), so it's never committed to git. Paste the Supabase connection string: Supabase Dashboard → your project → Project Settings → Database → Connection string → URI. `DATABASE_SSL=true` is already set by the blueprint.
-4. `JWT_SECRET` is generated automatically by the blueprint. After the frontend is deployed to Vercel, set `FRONTEND_URL` to its real origin (comma-separated if there's more than one, e.g. a preview + production domain) — CORS and the auth cookie's `sameSite`/`secure` behavior both depend on this being correct.
-5. **Build-time devDependencies**: `nest build` (the `@nestjs/cli` binary) and `npm run migration:run` (`typeorm-ts-node-commonjs`, needing `ts-node`/`typescript`) are all devDependencies, not regular dependencies. Render skips devDependencies during `npm install` whenever `NODE_ENV=production` is set in the service's environment — and it applies that env var during the build step too, not just at runtime, regardless of the var's intended purpose. The blueprint's `buildCommand` therefore explicitly passes `--include=dev` to force them in; if this build command is ever changed, keep that flag or the build fails with `sh: 1: nest: not found`.
-6. Migrations run against whatever `DATABASE_URL` is set to, i.e. Supabase — the same schema already used in local dev, so a first deploy typically has nothing pending. Do not manually recreate tables or run `synchronize` — TypeORM migrations are the only schema-change path in every environment.
-7. `/api/docs` (Swagger) is disabled automatically in production (`NODE_ENV=production`) per the security baseline — don't flip that in production.
-8. Health check: `GET /api/health` (already set as `healthCheckPath` in the blueprint) returns `{"status":"ok","database":"up"}`, or `{"status":"degraded","database":"down"}` with a 200 if the DB is unreachable — Render's health check only looks at the HTTP status, so a `degraded` body still needs the endpoint to actually be reachable to matter. `GET /api/health/database` is a narrower DB-only check for manual debugging.
-9. This app does not use the Supabase client SDK, Supabase Auth, or the Supabase REST/anon/service-role API anywhere — Supabase here is purely the Postgres host, reached only through `DATABASE_URL` via TypeORM/`pg`. There is nothing to configure for `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY` because the app never references them; don't add them speculatively.
+2. In Render, "New +" → "Blueprint" → point at the repo. Confirm the branch (`master`) and that the Blueprint Path is blank (defaults to `render.yaml` at the repo root, which is correct).
+3. Before clicking Deploy, fill in `DATABASE_URL` for `ruwad-backend` — `render.yaml` deliberately does not carry a real value (`sync: false`), so it's never committed to git. Use the Supabase **Session pooler** connection string, not the direct connection string — see "Database connectivity" below for why.
+4. `ANTHROPIC_API_KEY` (also `sync: false`) is optional — only needed for the signup wizard's résumé-autofill endpoint. Leave blank if you don't want that feature live yet.
+5. `JWT_SECRET` is generated automatically by the blueprint.
+6. Click Deploy. Render builds and starts both services.
+7. Once `ruwad-frontend` gets its real `onrender.com` URL, update **both** of these and redeploy:
+   - `ruwad-backend`'s `FRONTEND_URL` env var → the real frontend URL
+   - `ruwad-frontend`'s `NEXT_PUBLIC_API_URL` env var → the real backend URL + `/api` (this one's a build-time value, baked into the client bundle — changing it needs a redeploy, not just a restart)
 
-## Frontend (`frontend/`) — Vercel
+   Until both are correct, login/signup will appear to work (the API call succeeds) but the session cookie won't be accepted by the browser, so the app looks logged-out immediately after — this is the most common thing to get bitten by after a first deploy.
 
-1. In Vercel, "Add New" → "Project" → import this repo. Set the project's **Root Directory** to `frontend` (Vercel auto-detects Next.js — no `vercel.json` needed for a standard App Router build).
-2. Add one environment variable in Vercel (Project → Settings → Environment Variables), for both Preview and Production: `NEXT_PUBLIC_API_URL` = the deployed backend's public URL + `/api` (e.g. `https://ruwad-backend.onrender.com/api`). This is a build-time value (`NEXT_PUBLIC_*` vars are inlined into the client bundle) — changing it requires a redeploy, not just a restart. See `frontend/.env.example`.
-3. Deploy. Once you have the real Vercel domain (production, and any preview domains you rely on), set the backend's `FRONTEND_URL` on Render to that origin (step 4 above) and redeploy the backend so CORS and the auth cookie's cross-site attributes match. Until `FRONTEND_URL` is correct, login/signup will appear to succeed (the API call itself works) but the session cookie won't be accepted by the browser, so the app will look logged-out immediately after.
-4. Never set `NEXT_PUBLIC_API_URL` to a `localhost` address in a Vercel environment — Vercel's build/runtime has no route to your machine. The frontend already has no code path that silently falls back to `localhost` in a way that would work in production; the one local fallback in `src/lib/api/client.ts` only matters if this variable is left unset entirely, which would break every API call in Vercel and should be treated as a misconfiguration to fix, not a working fallback.
+## Database connectivity (important)
+
+Render's network cannot reach Supabase's **direct** database connection in most regions — it resolves to an IPv6-only address and Render's egress doesn't route to it, failing with `ENETUNREACH`. Use the **Session pooler** connection string instead (Supabase Dashboard → your project → **Connect** button → Session pooler → URI) — it's IPv4-proxied. The username changes shape too: `postgres.<project-ref>` instead of plain `postgres`. If your password has special characters, percent-encode them in the URL (`@` → `%40`, etc.) — Supabase's dialog shows a `[YOUR-PASSWORD]` placeholder, not the real value; you have to fill it in yourself.
+
+## Build-time devDependencies (backend only)
+
+`nest build` (`@nestjs/cli`) and `npm run migration:run` (`typeorm-ts-node-commonjs`, needing `ts-node`/`typescript`) are devDependencies. Render skips devDependencies during `npm install` whenever `NODE_ENV=production` is set in the service's environment, and applies that during the build step too — not just at runtime. `ruwad-backend`'s `buildCommand` therefore passes `--include=dev` explicitly; keep that flag if you ever change the build command, or the build fails with `sh: 1: nest: not found`. The frontend doesn't need this — `next build`/`next start` aren't devDependencies-only tools in the same way.
+
+## Port binding
+
+Both services must listen on whatever port Render assigns via the `PORT` env var, not a hardcoded one:
+- Backend: `main.ts` calls `app.listen(port, "0.0.0.0")` with `port` read from `config.get("PORT")`, and `render.yaml` pins it to `4000` explicitly (Render respects an explicit `PORT` override the same way it does its own default injection).
+- Frontend: `next start` reads `process.env.PORT` automatically as long as nothing overrides it — `frontend/package.json`'s `start` script must **not** hardcode `--port` (it previously did, for local convenience — that's fine for `npm run dev`, but `start` is what Render actually runs in production and needs to stay port-agnostic).
 
 ## CORS
 
-`backend/src/main.ts` builds the CORS allowlist from `FRONTEND_URL` (comma-separated, `credentials: true`) — never `origin: "*"`, since the auth cookie requires credentialed requests. Local dev's default (`http://localhost:5174` — this project's actual frontend dev port, set via `next dev --port 5174` in `frontend/package.json`, not Next.js's default 3000) only applies when `FRONTEND_URL` is unset; production must always set it explicitly to the real Vercel origin.
+`backend/src/main.ts` builds the CORS allowlist from `FRONTEND_URL` (comma-separated, `credentials: true`) — never `origin: "*"`, since the auth cookie requires credentialed requests. Local dev's default (`http://localhost:5174` — this project's actual frontend dev port, set via `next dev --port 5174`, not Next.js's default 3000) only applies when `FRONTEND_URL` is unset; production must always set it explicitly to the real frontend origin.
+
+The auth cookie itself uses `sameSite: "none"; secure: true` in production (`backend/src/auth/auth.controller.ts`) because the two Render services live on different `onrender.com` subdomains — `onrender.com` is a public-suffix domain, so each service counts as its own "site" for cookie purposes even though they share a parent domain, same as `vercel.app` or `github.io` would.
+
+## This app's relationship to Supabase
+
+This app does not use the Supabase client SDK, Supabase Auth, or the Supabase REST/anon/service-role API anywhere — Supabase here is purely the Postgres host, reached only through `DATABASE_URL` via TypeORM/`pg`. There is nothing to configure for `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY` because the app never references them; don't add them speculatively.
+
+## Health check
+
+`GET /api/health` (set as the backend's `healthCheckPath` in the blueprint) returns `{"status":"ok","database":"up"}`, or `{"status":"degraded","database":"down"}` with a 200 if the DB is unreachable — Render's health check only looks at the HTTP status, so a `degraded` body still needs the endpoint to actually be reachable to matter. `GET /api/health/database` is a narrower DB-only check for manual debugging. `/api/docs` (Swagger) is disabled automatically in production (`NODE_ENV=production`) per the security baseline.
 
 ## Local development
 

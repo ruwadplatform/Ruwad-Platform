@@ -41,8 +41,27 @@ services:
       - key: PORT
         value: "4000"
       # Set this to the deployed frontend's real origin (comma-separated if
-      # more than one, e.g. a Vercel preview + production domain) after the
-      # frontend is deployed — this Blueprint only provisions the backend;
-      # the frontend deploys to Vercel separately (see DEPLOYMENT.md).
+      # more than one) once you know it — Render assigns ruwad-frontend's
+      # URL only after its first deploy, so this can't be filled in ahead
+      # of time from this file. Update it here (or directly in the Render
+      # dashboard) and redeploy once you have the real onrender.com URL.
       - key: FRONTEND_URL
-        value: https://your-app.vercel.app
+        value: https://ruwad-frontend.onrender.com
+
+  - type: web
+    name: ruwad-frontend
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # The backend's real Render URL, known from its own first deploy.
+      # Baked in at build time (NEXT_PUBLIC_* vars are inlined into the
+      # client bundle) — changing this requires a redeploy, not just a
+      # restart.
+      - key: NEXT_PUBLIC_API_URL
+        value: https://ruwad-backend-e92x.onrender.com/api

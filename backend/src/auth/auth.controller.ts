@@ -27,9 +27,12 @@ export class AuthController {
     return {
       httpOnly: true,
       secure: isProd,
-      // Frontend (Vercel) and backend (Render) live on different domains in
-      // production, so the cookie must be sendable cross-site; "lax" is
-      // used in dev since localhost-to-localhost doesn't need it.
+      // Frontend and backend are two separate Render services (different
+      // onrender.com subdomains — onrender.com is a public-suffix domain,
+      // so these count as different sites for cookie purposes even though
+      // they share a parent domain), so the cookie must be sendable
+      // cross-site; "lax" is used in dev since localhost-to-localhost
+      // doesn't need it.
       sameSite: isProd ? "none" : "lax",
       path: "/",
     };
