@@ -40,13 +40,10 @@ services:
         sync: false
       - key: PORT
         value: "4000"
-      # Set this to the deployed frontend's real origin (comma-separated if
-      # more than one) once you know it — Render assigns ruwad-frontend's
-      # URL only after its first deploy, so this can't be filled in ahead
-      # of time from this file. Update it here (or directly in the Render
-      # dashboard) and redeploy once you have the real onrender.com URL.
+      # The frontend's real Render URL, known from its own first deploy
+      # (comma-separated if you add more origins later, e.g. a staging URL).
       - key: FRONTEND_URL
-        value: https://ruwad-frontend.onrender.com
+        value: https://ruwad-frontend-f9d5.onrender.com
 
   - type: web
     name: ruwad-frontend
