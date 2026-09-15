@@ -94,6 +94,7 @@ function Overview({ v }: { v: Investor }) {
 }
 
 function TabBody({ tab, v, loggedIn }: { tab: Tab; v: Investor; loggedIn: boolean }) {
+  const { hydrated } = useSession();
   switch (tab) {
     case "Investment Thesis":
       return <div className="panel panel-pad"><p className="db-text">{v.thesis || "No investment thesis on file."}</p></div>;
@@ -101,7 +102,7 @@ function TabBody({ tab, v, loggedIn }: { tab: Tab; v: Investor; loggedIn: boolea
       return (
         <div className="panel panel-pad">
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Current Fund</div><div className="sm-val fs-15">{v.name} Fund I (sample)</div></div>
+            <div className="stat-mini"><div className="sm-label">Current Fund</div><div className="sm-val fs-15">Not provided</div></div>
             <div className="stat-mini"><div className="sm-label">AUM</div><div className="sm-val">{v.aum}</div></div>
             <div className="stat-mini"><div className="sm-label">Vintage</div><div className="sm-val">{v.founded || "—"}</div></div>
             <div className="stat-mini"><div className="sm-label">Status</div><div className="sm-val fs-15"><span className="badge badge-good">Actively investing</span></div></div>
@@ -111,7 +112,7 @@ function TabBody({ tab, v, loggedIn }: { tab: Tab; v: Investor; loggedIn: boolea
     case "Portfolio": {
       const items = v.portfolioDetailed ?? [];
       if (!items.length) return <div className="panel panel-pad"><span className="muted small">No public portfolio companies listed.</span></div>;
-      const { shown, capped } = capForGuest(items, 3, !loggedIn);
+      const { shown, capped } = capForGuest(items, 3, !hydrated || !loggedIn);
       return (
         <>
           <div className="entity-grid">
@@ -124,7 +125,7 @@ function TabBody({ tab, v, loggedIn }: { tab: Tab; v: Investor; loggedIn: boolea
               />
             ))}
           </div>
-          {capped && (
+          {hydrated && capped && (
             <div className="panel panel-pad mt-16">
               <LockedTeaser preview={`${items.length} portfolio companies total`} title="Unlock Complete Portfolio" body="See this investor's complete portfolio, not just a preview." blurLines={2} cta="Unlock Complete Portfolio" />
             </div>

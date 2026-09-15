@@ -4,7 +4,6 @@ import { useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
 import { ScoreCard } from "@/components/shared/ScoreCard";
-import { Sparkline } from "@/components/shared/Sparkline";
 import { ProvenanceStrip } from "@/components/shared/ProvenanceStrip";
 import { ContactLock } from "@/components/shared/ContactLock";
 import { LockedTeaser } from "@/components/shared/LockedTeaser";
@@ -17,7 +16,7 @@ import { useModal } from "@/components/shell/ModalProvider";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
 import { requireAuth, getClaimForStartup, getMyClaim } from "@/lib/store";
-import { regBadgeClass, synthesizeQuarterlyTrend } from "@/lib/widgets";
+import { regBadgeClass } from "@/lib/widgets";
 import { initials } from "@/lib/scoring";
 import { useStartups, useInvestors } from "@/hooks/use-directory-data";
 import type { Startup } from "@/types/entities";
@@ -97,6 +96,7 @@ function VerifiedBadge({ status }: { status: Startup["verified"] }) {
 function ClaimCta({ startupId, startupName, verified, loggedIn }: { startupId: string; startupName: string; verified: Startup["verified"]; loggedIn: boolean }) {
   const { openModal } = useModal();
   const toast = useToast();
+  const { hydrated } = useSession();
   if (verified !== "unclaimed") return null;
   const claim = getClaimForStartup(startupId);
   if (!claim) {
@@ -114,7 +114,7 @@ function ClaimCta({ startupId, startupName, verified, loggedIn }: { startupId: s
       </button>
     );
   }
-  const mine = loggedIn && getMyClaim()?.id === claim.id;
+  const mine = hydrated && loggedIn && getMyClaim()?.id === claim.id;
   return (
     <button className="btn btn-outline" disabled title={mine ? "Your claim is under review" : "A claim for this listing is already under review"}>
       <RuwadIcon name="clock" size={14} /> {mine ? "Your Claim: Pending Review" : "Claim Pending Review"}
@@ -124,11 +124,16 @@ function ClaimCta({ startupId, startupName, verified, loggedIn }: { startupId: s
 
 function Overview({ s, loggedIn }: { s: Startup; loggedIn: boolean }) {
   const { data: allStartups } = useStartups();
+  const { hydrated } = useSession();
   return (
     <div className="profile-body">
       <div>
         <div className="stat-mini-row">
-          {loggedIn && <div className="stat-mini"><div className="sm-label">Total Funding</div><div className="sm-val">SAR {s.fundingTotal}M</div></div>}
+          {!hydrated ? (
+            <div className="stat-mini"><div className="sm-label">Total Funding</div><div className="sm-val"><span className="skel" style={{ width: 60 }} /></div></div>
+          ) : loggedIn ? (
+            <div className="stat-mini"><div className="sm-label">Total Funding</div><div className="sm-val">SAR {s.fundingTotal}M</div></div>
+          ) : null}
           <div className="stat-mini"><div className="sm-label">Employees</div><div className="sm-val">{s.employees}</div></div>
           <div className="stat-mini"><div className="sm-label">Founded</div><div className="sm-val">{s.founded}</div></div>
         </div>
@@ -158,6 +163,7 @@ function Stat({ label, val, small }: { label: string; val: React.ReactNode; smal
 }
 
 function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean }) {
+  const { hydrated } = useSession();
   switch (tab) {
     case "Company":
       return (
@@ -171,8 +177,8 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
             <Stat label="Employees" val={s.employees} />
             <Stat label="Country" val={s.country} />
             <Stat label="City" val={s.city} />
-            <Stat label="Email" val={loggedIn ? s.email : <ContactLock />} />
-            <Stat label="Phone" val={loggedIn ? s.phone : <ContactLock />} />
+            <Stat label="Email" val={!hydrated ? <span className="skel" style={{ width: 90 }} /> : loggedIn ? s.email : <ContactLock />} />
+            <Stat label="Phone" val={!hydrated ? <span className="skel" style={{ width: 70 }} /> : loggedIn ? s.phone : <ContactLock />} />
             <Stat label="Website" val={s.website} />
             <Stat label="LinkedIn" val={s.linkedin} />
           </div>
@@ -322,9 +328,8 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
                   <div className="eyebrow">Revenue Trend</div>
                   <b className="fs-15">{t.revenue}</b> <span className="small" style={{ fontWeight: 600, color: growthPct >= 0 ? "var(--good)" : "var(--crit)" }}>{t.growth}</span>
                 </div>
-                <Sparkline values={synthesizeQuarterlyTrend(revenueNum, growthPct, 6, s.id)} w={180} h={44} />
               </div>
-              <div className="small muted mt-8">Last 6 quarters, reconstructed from reported YoY growth — illustrative, not a filed time series.</div>
+              <div className="small muted mt-8">Not enough data available yet — no historical time series has been filed.</div>
             </div>
           )}
           <div className="traction-grid">

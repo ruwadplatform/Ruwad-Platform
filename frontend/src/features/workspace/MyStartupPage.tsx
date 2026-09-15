@@ -5,6 +5,7 @@ import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { ProfileCompleteness } from "@/components/workspace/ProfileCompleteness";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
+import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useToast } from "@/components/shell/ToastProvider";
 import { ListingStatusBadge } from "@/components/workspace/ListingStatusBadge";
@@ -18,7 +19,7 @@ import { useKeyedResource } from "@/hooks/use-async-resource";
  * market, traction, documents — for one specific company, so this fetches
  * it directly by slug instead of reading it out of the lighter list cache. */
 export function MyStartupPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const startupId = useMyStartupId();
   const listings = useOwnedListings();
   const router = useRouter();
@@ -26,6 +27,7 @@ export function MyStartupPage() {
 
   const { data: s, loading, error } = useKeyedResource(startupId, fetchStartupBySlug);
 
+  if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;
 
   if (loading) {

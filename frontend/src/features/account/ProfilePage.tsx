@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
+import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession } from "@/hooks/use-store";
 import { updateProfile } from "@/lib/store";
@@ -12,7 +13,7 @@ import { updateProfile } from "@/lib/store";
  * a plain edit form instead of the old app's draft/dirty/sticky-save-bar/
  * profile-strength system. Real backend persistence via PATCH /users/me. */
 export function ProfilePage() {
-  const { loggedIn, user } = useSession();
+  const { loggedIn, user, hydrated } = useSession();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
@@ -23,6 +24,7 @@ export function ProfilePage() {
   const [bio, setBio] = useState(user?.bio ?? "");
   const [saving, setSaving] = useState(false);
 
+  if (!hydrated) return <SessionLoading />;
   if (!loggedIn || !user) return <WorkspaceGate title="Sign in to view your profile" body="Sign in to see and manage your RUWĀD account profile." />;
 
   function startEdit() {

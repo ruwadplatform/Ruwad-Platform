@@ -15,7 +15,12 @@ import { useStartups, useInvestors, useHubs, useResearchInstitutions, useMultina
 export function SearchResultsPage() {
   const params = useSearchParams();
   const router = useRouter();
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
+  // While the session check is still in flight, cap results the same as a
+  // guest would see (fewer, not more) — see ReportDetailPage's identical
+  // reasoning: under-showing briefly is harmless, over-showing gated
+  // results to an unauthenticated visitor even for a moment is not.
+  const unlocked = hydrated && loggedIn;
   const q = params.get("q") ?? "";
 
   const { data: STARTUPS, loading: l1 } = useStartups();
@@ -44,7 +49,7 @@ export function SearchResultsPage() {
         <EmptyState icon="search" title="No results found" body="Try a different search term." />
       ) : (
         Object.entries(groups).map(([type, items]) => {
-          const { shown, capped } = loggedIn ? { shown: items, capped: false } : capForGuest(items, GUEST_SEARCH_CAPS[type] ?? 3, true);
+          const { shown, capped } = unlocked ? { shown: items, capped: false } : capForGuest(items, GUEST_SEARCH_CAPS[type] ?? 3, true);
           return (
             <div key={type}>
               <div className="panel-head" style={{ border: "none", padding: "6px 0 10px" }}><h3 className="fs-14">{type}</h3></div>
@@ -56,7 +61,7 @@ export function SearchResultsPage() {
                   </div>
                 ))}
               </div>
-              {capped && <DirectoryGateBanner entityLabelPlural={type} totalCount={items.length} />}
+              {hydrated && capped && <DirectoryGateBanner entityLabelPlural={type} totalCount={items.length} />}
             </div>
           );
         })

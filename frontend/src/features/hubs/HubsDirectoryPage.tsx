@@ -27,7 +27,7 @@ interface Filters {
 const EMPTY_FILTERS: Filters = { type: [], city: [], healthcareFocus: [], stage: [] };
 
 export function HubsDirectoryPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const { data: HUBS, loading, error } = useHubs();
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("table");
@@ -48,7 +48,7 @@ export function HubsDirectoryPage() {
     });
   }, [HUBS, search, filters]);
 
-  const { shown, capped } = capForGuest(filtered, 3, !loggedIn);
+  const { shown, capped } = capForGuest(filtered, 3, !hydrated || !loggedIn);
 
   function removeFilter(k: keyof Filters, v: string) {
     setFilters((f) => ({ ...f, [k]: f[k].filter((x) => x !== v) }));
@@ -98,6 +98,8 @@ export function HubsDirectoryPage() {
           <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load hubs</h4><p>{error}</p></div>
         ) : loading ? (
           <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading hubs…</h4></div>
+        ) : !HUBS.length ? (
+          <div className="empty-state"><RuwadIcon name="hubs" size={30} /><h4>No hubs or ecosystem enablers available yet</h4><p>Hubs added to the RUWĀD ecosystem will appear here.</p></div>
         ) : !filtered.length ? (
           <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No hubs match those filters</h4><p>Try clearing a filter or search term.</p></div>
         ) : view === "grid" ? (
@@ -105,7 +107,7 @@ export function HubsDirectoryPage() {
         ) : (
           <HubTable list={shown} />
         )}
-        {capped && <DirectoryGateBanner entityLabelPlural="Hubs & Enablers" totalCount={HUBS.length} />}
+        {hydrated && capped && <DirectoryGateBanner entityLabelPlural="Hubs & Enablers" totalCount={HUBS.length} />}
       </div>
     </div>
   );
@@ -173,6 +175,7 @@ function HubRow({ h }: { h: Hub }) {
 function HubFilterDrawer({
   filters, loggedIn, hubCities, onApply, onClear, onClose,
 }: { filters: Filters; loggedIn: boolean; hubCities: string[]; onApply: (f: Filters) => void; onClear: () => void; onClose: () => void }) {
+  const { hydrated } = useSession();
   function readChecked(key: string): string[] {
     if (typeof document === "undefined") return [];
     return Array.from(document.querySelectorAll<HTMLInputElement>(`input[data-fk="${key}"]:checked`)).map((i) => i.value);
@@ -186,7 +189,12 @@ function HubFilterDrawer({
       <div className="filter-drawer-body">
         <FilterGroup label="Organization Type" options={HUB_TYPES} dataKey="type" checked={filters.type} inputName="type" />
         <FilterGroup label="City" options={hubCities} dataKey="city" checked={filters.city} inputName="city" />
-        {!loggedIn ? (
+        {!hydrated ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 0" }} aria-hidden="true">
+            <span className="skel" style={{ width: "60%" }} />
+            <span className="skel" style={{ width: "80%" }} />
+          </div>
+        ) : !loggedIn ? (
           <GuestAdvancedFilterGate />
         ) : (
           <>

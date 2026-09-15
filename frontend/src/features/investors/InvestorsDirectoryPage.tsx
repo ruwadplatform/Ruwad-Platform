@@ -36,7 +36,7 @@ function investorTokenMatches(v: Investor, key: string, value: string): boolean 
 }
 
 export function InvestorsDirectoryPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const { data: INVESTORS, loading, error } = useInvestors();
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("table");
@@ -60,7 +60,7 @@ export function InvestorsDirectoryPage() {
     });
   }, [INVESTORS, search, filters, searchVocab]);
 
-  const { shown, capped } = capForGuest(filtered, 3, !loggedIn);
+  const { shown, capped } = capForGuest(filtered, 3, !hydrated || !loggedIn);
 
   function removeFilter(k: keyof Filters, v: string) {
     setFilters((f) => ({ ...f, [k]: f[k].filter((x) => x !== v) }));
@@ -110,6 +110,8 @@ export function InvestorsDirectoryPage() {
           <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load investors</h4><p>{error}</p></div>
         ) : loading ? (
           <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading investors…</h4></div>
+        ) : !INVESTORS.length ? (
+          <div className="empty-state"><RuwadIcon name="investors" size={30} /><h4>No investors available yet</h4><p>Investors added to the RUWĀD ecosystem will appear here.</p></div>
         ) : !filtered.length ? (
           <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No investors match those filters</h4><p>Try clearing a filter or search term.</p></div>
         ) : view === "grid" ? (
@@ -117,7 +119,7 @@ export function InvestorsDirectoryPage() {
         ) : (
           <InvestorTable list={shown} />
         )}
-        {capped && <DirectoryGateBanner entityLabelPlural="Investors" totalCount={INVESTORS.length} />}
+        {hydrated && capped && <DirectoryGateBanner entityLabelPlural="Investors" totalCount={INVESTORS.length} />}
       </div>
     </div>
   );
@@ -184,6 +186,7 @@ function InvestorRow({ v }: { v: Investor }) {
 function InvestorFilterDrawer({
   filters, loggedIn, investorCities, onApply, onClear, onClose,
 }: { filters: Filters; loggedIn: boolean; investorCities: string[]; onApply: (f: Filters) => void; onClear: () => void; onClose: () => void }) {
+  const { hydrated } = useSession();
   function readChecked(key: string): string[] {
     if (typeof document === "undefined") return [];
     return Array.from(document.querySelectorAll<HTMLInputElement>(`input[data-fk="${key}"]:checked`)).map((i) => i.value);
@@ -198,7 +201,13 @@ function InvestorFilterDrawer({
         <FilterGroup label="Investor Type" options={INVESTOR_TYPES} dataKey="type" checked={filters.type} inputName="type" />
         <FilterGroup label="Location" options={investorCities} dataKey="location" checked={filters.location} inputName="location" />
         <FilterGroup label="Investment Stage" options={STAGES} dataKey="stage" checked={filters.stage} inputName="stage" />
-        {!loggedIn ? <GuestAdvancedFilterGate /> : <FilterGroup label="Healthcare Focus" options={HC_CATEGORIES} dataKey="focus" checked={filters.focus} inputName="focus" />}
+        {!hydrated ? (
+          <span className="skel" style={{ width: "60%", display: "block" }} />
+        ) : !loggedIn ? (
+          <GuestAdvancedFilterGate />
+        ) : (
+          <FilterGroup label="Healthcare Focus" options={HC_CATEGORIES} dataKey="focus" checked={filters.focus} inputName="focus" />
+        )}
       </div>
       <div className="filter-drawer-foot">
         <button className="btn btn-outline" style={{ flex: 1 }} onClick={onClear}>Clear All</button>

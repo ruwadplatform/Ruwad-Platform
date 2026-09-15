@@ -17,4 +17,14 @@ export class HealthController {
     }
     return { status: database === "up" ? "ok" : "degraded", database };
   }
+
+  @Get("database")
+  async checkDatabase() {
+    try {
+      await this.dataSource.query("SELECT 1");
+      return { status: "ok", connected: true };
+    } catch {
+      return { status: "error", connected: false };
+    }
+  }
 }

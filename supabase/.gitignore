@@ -1,0 +1,4 @@
+# Local Supabase CLI state — created by `supabase link` / `supabase start`.
+# Never commit linked-project metadata or local branch state.
+.branches
+.temp

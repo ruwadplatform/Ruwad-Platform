@@ -2,6 +2,7 @@
 
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
+import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useSession } from "@/hooks/use-store";
 
@@ -10,7 +11,8 @@ import { useSession } from "@/hooks/use-store";
  * page exists only so the Workspace nav link resolves to a real, honest
  * screen instead of a 404. */
 export function MyNdasPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
+  if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate title="Sign in to view your NDAs" body="Sign in to see NDAs and Data Room access tied to your account." />;
   return (
     <div>

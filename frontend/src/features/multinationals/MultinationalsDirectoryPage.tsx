@@ -31,7 +31,7 @@ interface Filters {
 const EMPTY_FILTERS: Filters = { sector: [], hqCountry: [], saudiPresence: [], menaPresence: [], companySize: [], rdPresence: [], partnershipInterest: [] };
 
 export function MultinationalsDirectoryPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const { data: MULTINATIONALS, loading, error } = useMultinationals();
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("table");
@@ -53,7 +53,7 @@ export function MultinationalsDirectoryPage() {
     });
   }, [MULTINATIONALS, search, filters]);
 
-  const { shown, capped } = capForGuest(filtered, 3, !loggedIn);
+  const { shown, capped } = capForGuest(filtered, 3, !hydrated || !loggedIn);
 
   function removeFilter(k: keyof Filters, v: string) {
     setFilters((f) => ({ ...f, [k]: f[k].filter((x) => x !== v) }));
@@ -103,6 +103,8 @@ export function MultinationalsDirectoryPage() {
           <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load companies</h4><p>{error}</p></div>
         ) : loading ? (
           <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading companies…</h4></div>
+        ) : !MULTINATIONALS.length ? (
+          <div className="empty-state"><RuwadIcon name="corp" size={30} /><h4>No multinational companies available yet</h4><p>Multinationals added to the RUWĀD ecosystem will appear here.</p></div>
         ) : !filtered.length ? (
           <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No companies match those filters</h4><p>Try clearing a filter or search term.</p></div>
         ) : view === "grid" ? (
@@ -110,7 +112,7 @@ export function MultinationalsDirectoryPage() {
         ) : (
           <MncTable list={shown} />
         )}
-        {capped && <DirectoryGateBanner entityLabelPlural="Multinationals" totalCount={MULTINATIONALS.length} />}
+        {hydrated && capped && <DirectoryGateBanner entityLabelPlural="Multinationals" totalCount={MULTINATIONALS.length} />}
       </div>
     </div>
   );
@@ -178,6 +180,7 @@ function MncRow({ m }: { m: Multinational }) {
 function MncFilterDrawer({
   filters, loggedIn, onApply, onClear, onClose,
 }: { filters: Filters; loggedIn: boolean; onApply: (f: Filters) => void; onClear: () => void; onClose: () => void }) {
+  const { hydrated } = useSession();
   function readChecked(key: string): string[] {
     if (typeof document === "undefined") return [];
     return Array.from(document.querySelectorAll<HTMLInputElement>(`input[data-fk="${key}"]:checked`)).map((i) => i.value);
@@ -199,7 +202,13 @@ function MncFilterDrawer({
         <FilterGroup label="Company Size" options={COMPANY_SIZES} dataKey="companySize" checked={filters.companySize} inputName="companySize" />
         <FilterGroup label="R&D Presence" options={YES_NO} dataKey="rdPresence" checked={filters.rdPresence} inputName="rdPresence" />
         <FilterGroup label="Partnership Interest" options={YES_NO} dataKey="partnershipInterest" checked={filters.partnershipInterest} inputName="partnershipInterest" />
-        {!loggedIn ? <GuestAdvancedFilterGate /> : <FilterGroup label="Saudi Presence" options={YES_NO} dataKey="saudiPresence" checked={filters.saudiPresence} inputName="saudiPresence" />}
+        {!hydrated ? (
+          <span className="skel" style={{ width: "60%", display: "block" }} />
+        ) : !loggedIn ? (
+          <GuestAdvancedFilterGate />
+        ) : (
+          <FilterGroup label="Saudi Presence" options={YES_NO} dataKey="saudiPresence" checked={filters.saudiPresence} inputName="saudiPresence" />
+        )}
       </div>
       <div className="filter-drawer-foot">
         <button className="btn btn-outline" style={{ flex: 1 }} onClick={onClear}>Clear All</button>

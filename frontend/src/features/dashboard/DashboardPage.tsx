@@ -9,7 +9,7 @@ import { LockedTeaser } from "@/components/shared/LockedTeaser";
 import { useSession, useWatchlist, useIntros, useOwnedListings } from "@/hooks/use-store";
 import { requireAuth } from "@/lib/store";
 import { useToast } from "@/components/shell/ToastProvider";
-import { useStartups, useInvestors, useHubs, useNews, useEvents } from "@/hooks/use-directory-data";
+import { useStartups, useInvestors, useHubs, useNews, useEvents, useReports } from "@/hooks/use-directory-data";
 import { initials } from "@/lib/scoring";
 import { regBadgeClass } from "@/lib/widgets";
 
@@ -65,15 +65,25 @@ export function DashboardPage() {
  * Intro Requests/Data Room) stay logged-in-only. */
 function DashboardIntro({ loggedIn, firstName }: { loggedIn: boolean; firstName?: string }) {
   const router = useRouter();
+  const { hydrated } = useSession();
   const wl = useWatchlist();
   const intros = useIntros();
   const listings = useOwnedListings();
+  const { data: REPORTS } = useReports();
+  const latestReport = REPORTS.length
+    ? [...REPORTS].sort((a, b) => b.publicationDate.localeCompare(a.publicationDate))[0]
+    : null;
   const hour = new Date().getHours();
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <div className="mb-32">
-      {loggedIn && firstName ? (
+      {!hydrated ? (
+        <>
+          <span className="skel" style={{ width: 220, height: 22 }} />
+          <div className="mt-8"><span className="skel" style={{ width: 320 }} /></div>
+        </>
+      ) : loggedIn && firstName ? (
         <>
           <h1 className="fs-22">{greet}, {firstName}.</h1>
           <p className="muted fs-13" style={{ marginTop: 6 }}>Here&apos;s what&apos;s happening across the healthcare innovation ecosystem.</p>
@@ -96,14 +106,20 @@ function DashboardIntro({ loggedIn, firstName }: { loggedIn: boolean; firstName?
               <button className="btn" style={{ background: "rgba(255,255,255,.12)", color: "#fff" }} onClick={() => { if (requireAuth("route", { label: "list" })) router.push("/submit/startup"); }}>List Your Startup</button>
             </div>
           </div>
-          <div className="eco-hero-side">
-            <div><span className="rep-badge">NEW REPORT</span><h4>2026 Saudi Healthcare Innovation Landscape</h4></div>
-            <Link href="/reports/q1-2026-healthcare-ecosystem-report" className="btn btn-gold btn-sm">VIEW REPORT</Link>
-          </div>
+          {latestReport && (
+            <div className="eco-hero-side">
+              <div><span className="rep-badge">NEW REPORT</span><h4>{latestReport.title}</h4></div>
+              <Link href={`/reports/${latestReport.id}`} className="btn btn-gold btn-sm">VIEW REPORT</Link>
+            </div>
+          )}
         </div>
       </div>
 
-      {loggedIn && (
+      {!hydrated ? (
+        <div className="kpi-row mt-24 personal-kpi-row" aria-hidden="true">
+          {[1, 2, 3, 4, 5].map((i) => <span key={i} className="skel" style={{ height: 60, borderRadius: "var(--radius-md, 8px)" }} />)}
+        </div>
+      ) : loggedIn && (
         <div className="kpi-row mt-24 personal-kpi-row">
           <ActivityCard iconName="listings" label="My Listings" count={listings.length} route="/my-organizations" />
           <ActivityCard iconName="startups" label="Saved Startups" count={wl.startups.length} route="/watchlist" />
@@ -116,10 +132,7 @@ function DashboardIntro({ loggedIn, firstName }: { loggedIn: boolean; firstName?
       <div className="mt-32">
         <PersonaSection />
 
-        <div className="panel-head" style={{ border: "none", padding: "4px 0 12px" }}><h3 className="fs-14">Featured Profiles</h3></div>
-        <div className="featured-row">
-          <FeaturedProfiles />
-        </div>
+        <FeaturedProfiles />
       </div>
 
       <EcosystemSnapshot />
@@ -170,13 +183,17 @@ function FeaturedProfiles() {
     ...INVESTORS.slice(0, 4).map((v) => ({ n: v.name, route: "/investors/" + v.id })),
     ...(HUBS_ENABLERS.length ? HUBS_ENABLERS.slice(0, 2).map(() => ({ n: HUBS_ENABLERS[0].name, route: "/hubs" })) : []),
   ];
+  if (!items.length) return null;
   return (
     <>
-      {items.map((x, i) => (
-        <Link key={i} href={x.route} className="featured-card">
-          <div className="flogo">{initials(x.n)}</div><b>{x.n}</b>
-        </Link>
-      ))}
+      <div className="panel-head" style={{ border: "none", padding: "4px 0 12px" }}><h3 className="fs-14">Featured Profiles</h3></div>
+      <div className="featured-row">
+        {items.map((x, i) => (
+          <Link key={i} href={x.route} className="featured-card">
+            <div className="flogo">{initials(x.n)}</div><b>{x.n}</b>
+          </Link>
+        ))}
+      </div>
     </>
   );
 }
@@ -212,13 +229,19 @@ function HealthcareInvestments() {
     <div className="panel mt-32">
       <div className="panel-head"><h3>Healthcare Ecosystem Investments</h3><span className="sub">Last 90 days</span></div>
       <div className="panel-pad">
-        <EcoStackBar />
-        <div className="trend-total"><b className="mono">SAR {total.toFixed(1)}M</b><span>Public &amp; private investments — trending healthcare</span></div>
-        <div className="trend-companies">
-          {STARTUPS.slice(0, 6).map((s) => (
-            <div className="trend-co" key={s.id}><div className="tlogo">{s.logo}</div><b>{s.name}</b><span>SAR {s.fundingTotal}M</span></div>
-          ))}
-        </div>
+        {STARTUPS.length === 0 ? (
+          <p className="muted small">Not enough data available yet.</p>
+        ) : (
+          <>
+            <EcoStackBar />
+            <div className="trend-total"><b className="mono">SAR {total.toFixed(1)}M</b><span>Public &amp; private investments — trending healthcare</span></div>
+            <div className="trend-companies">
+              {STARTUPS.slice(0, 6).map((s) => (
+                <div className="trend-co" key={s.id}><div className="tlogo">{s.logo}</div><b>{s.name}</b><span>SAR {s.fundingTotal}M</span></div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -246,6 +269,7 @@ function EcoStackBar() {
 function EcosystemDashboard({ loggedIn }: { loggedIn: boolean }) {
   const { data: EVENTS } = useEvents();
   const { data: NEWS } = useNews();
+  const { hydrated } = useSession();
   return (
     <div className="intel-grid mt-16">
       <div className="panel intel-events">
@@ -263,7 +287,14 @@ function EcosystemDashboard({ loggedIn }: { loggedIn: boolean }) {
       </div>
 
       <div className="intel-center">
-        {loggedIn ? (
+        {!hydrated ? (
+          <div className="panel panel-pad">
+            <h3 className="fs-14 mb-8">Recommended For You</h3>
+            <div className="locked-teaser" aria-hidden="true">
+              <div className="lt-bars">{[88, 74, 60, 82].map((w, i) => <div key={i} className="lt-bar" style={{ width: `${w}%` }} />)}</div>
+            </div>
+          </div>
+        ) : loggedIn ? (
           <RecommendedPanels />
         ) : (
           <div className="panel panel-pad">
@@ -295,7 +326,7 @@ function EcosystemDashboard({ loggedIn }: { loggedIn: boolean }) {
 
 function AddToCalendarLink() {
   const toast = useToast();
-  return <a className="ev-link" href="javascript:void(0)" onClick={() => toast("Added to calendar (demo)")}>+ Add to Calendar</a>;
+  return <a className="ev-link" href="javascript:void(0)" onClick={() => toast("Added to calendar")}>+ Add to Calendar</a>;
 }
 
 function RecommendedPanels() {
@@ -314,32 +345,40 @@ function RecommendedPanels() {
       <div className="panel">
         <div className="panel-head"><h3>Recommended Startups</h3><span className="sub">Based on your interests</span></div>
         <div className="panel-pad">
-          <div className="entity-grid dash-rec-grid">
-            {recommendedStartups.map((s) => (
-              <EntityCard
-                key={s.id} href={`/startups/${s.id}`} logo={s.logo} logoUrl={s.logoUrl} name={s.name} subtitle={`${s.city} · ${s.category}`}
-                desc={s.tagline} kind="startups" id={s.id}
-                meta={<><span className={`badge ${regBadgeClass(s.regulatory.sfda)}`}>{s.regulatory.sfda}</span><span className="tag">{s.stage}</span></>}
-                foot={<><span className="escore">{s.score}</span><span className="small muted">RUWĀD Score</span></>}
-              />
-            ))}
-          </div>
+          {recommendedStartups.length ? (
+            <div className="entity-grid dash-rec-grid">
+              {recommendedStartups.map((s) => (
+                <EntityCard
+                  key={s.id} href={`/startups/${s.id}`} logo={s.logo} logoUrl={s.logoUrl} name={s.name} subtitle={`${s.city} · ${s.category}`}
+                  desc={s.tagline} kind="startups" id={s.id}
+                  meta={<><span className={`badge ${regBadgeClass(s.regulatory.sfda)}`}>{s.regulatory.sfda}</span><span className="tag">{s.stage}</span></>}
+                  foot={<><span className="escore">{s.score}</span><span className="small muted">RUWĀD Score</span></>}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="muted small">No startup recommendations available yet.</p>
+          )}
         </div>
       </div>
 
       <div className="panel">
         <div className="panel-head"><h3>Recommended Investors</h3></div>
         <div className="panel-pad">
-          <div className="entity-grid dash-rec-grid">
-            {INVESTORS.slice(0, 3).map((v) => (
-              <EntityCard
-                key={v.id} href={`/investors/${v.id}`} logo={v.logo} logoUrl={v.logoUrl} logoStyle={{ background: "var(--navy-900)", color: "#fff" }}
-                name={v.name} subtitle={`${v.city} · ${v.type}`} desc={v.desc} kind="investors" id={v.id}
-                meta={<><span className="tag">{v.ticket}</span><span className="tag">{v.hcFocus.length} focus areas</span></>}
-                foot={<span className="small muted">{v.portfolio.length} in portfolio</span>}
-              />
-            ))}
-          </div>
+          {INVESTORS.length ? (
+            <div className="entity-grid dash-rec-grid">
+              {INVESTORS.slice(0, 3).map((v) => (
+                <EntityCard
+                  key={v.id} href={`/investors/${v.id}`} logo={v.logo} logoUrl={v.logoUrl} logoStyle={{ background: "var(--navy-900)", color: "#fff" }}
+                  name={v.name} subtitle={`${v.city} · ${v.type}`} desc={v.desc} kind="investors" id={v.id}
+                  meta={<><span className="tag">{v.ticket}</span><span className="tag">{v.hcFocus.length} focus areas</span></>}
+                  foot={<span className="small muted">{v.portfolio.length} in portfolio</span>}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="muted small">No investor recommendations available yet.</p>
+          )}
         </div>
       </div>
     </>

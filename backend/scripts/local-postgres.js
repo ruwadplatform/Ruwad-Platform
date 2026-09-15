@@ -1,15 +1,15 @@
 /**
- * Local development Postgres — runs a genuine PostgreSQL server (real
- * postgres/pg_ctl binaries via the `embedded-postgres` package) on disk at
- * ./.pgdata, listening on 127.0.0.1:55432. This exists only because this
- * machine has no system PostgreSQL install and no Docker/WSL available —
- * production (Render) uses a normal managed Postgres instance via
- * DATABASE_URL, and the app talks to both through the exact same `pg`
- * driver / TypeORM Postgres connector. Data persists across restarts
- * (that's the whole point — see the persistence tests in the completion
- * report), it is not an in-memory or mocked database.
+ * Optional offline-dev fallback Postgres — runs a genuine PostgreSQL server
+ * (real postgres/pg_ctl binaries via the `embedded-postgres` package) on
+ * disk at ./.pgdata, listening on 127.0.0.1:55432. Supabase Postgres (via
+ * DATABASE_URL) is the standard database for both development and
+ * production; this only exists as a fallback for offline work or when
+ * Supabase isn't reachable. The app talks to both through the exact same
+ * `pg` driver / TypeORM Postgres connector. Data persists across restarts,
+ * it is not an in-memory or mocked database.
  *
- * Usage: node scripts/local-postgres.js
+ * Usage: node scripts/local-postgres.js (or `npm run dev:local-db` from the
+ * repo root, which also points the backend at it).
  * Leave it running in the background while developing; Ctrl+C (or process
  * kill) stops the server cleanly.
  */

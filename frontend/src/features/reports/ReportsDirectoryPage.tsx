@@ -15,7 +15,7 @@ import { REPORT_CATEGORIES } from "@/data/reference";
 type SortKey = "newest" | "pages" | "title";
 
 export function ReportsDirectoryPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const { data: REPORTS, loading, error } = useReports();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("All");
@@ -37,7 +37,7 @@ export function ReportsDirectoryPage() {
     return sorted;
   }, [REPORTS, category, search, sort, featured]);
 
-  const { shown, capped } = capForGuest(filtered, 3, !loggedIn);
+  const { shown, capped } = capForGuest(filtered, 3, !hydrated || !loggedIn);
 
   return (
     <div className="reports-page">
@@ -68,6 +68,8 @@ export function ReportsDirectoryPage() {
       <SectionHeader title="Latest Intelligence" />
       {loading ? (
         <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading reports…</h4></div>
+      ) : !REPORTS.length ? (
+        <div className="empty-state"><RuwadIcon name="reports" size={30} /><h4>No reports have been published yet</h4><p>RUWĀD intelligence reports will appear here once they are available.</p></div>
       ) : !filtered.length ? (
         <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No reports match those filters</h4><p>Try a different category or search term.</p></div>
       ) : (
@@ -75,7 +77,7 @@ export function ReportsDirectoryPage() {
           {shown.map((r) => <ReportCard key={r.id} report={r} />)}
         </div>
       )}
-      {capped && <DirectoryGateBanner entityLabelPlural="Reports" totalCount={filtered.length} />}
+      {hydrated && capped && <DirectoryGateBanner entityLabelPlural="Reports" totalCount={filtered.length} />}
     </div>
   );
 }

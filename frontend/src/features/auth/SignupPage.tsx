@@ -1,34 +1,80 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useToast } from "@/components/shell/ToastProvider";
-import { registerAccount, ApiError } from "@/lib/store";
+import { RuwadIcon, type RuwadIconName } from "@/components/icons/ruwad-icon";
+import { registerAccount, consumePendingAction, ApiError } from "@/lib/store";
+import { parseResume } from "@/lib/api/resume-parse";
+
+const ALLOWED_RESUME_TYPES = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+const MAX_RESUME_BYTES = 5 * 1024 * 1024;
 
 const ACCOUNT_TYPES = [
-  "Startup Founder", "Investor", "Hub / Accelerator", "Corporate", "Government", "Researcher / Academia", "Explorer",
-] as const;
+  { id: "founder", label: "Startup Founder", desc: "Build your startup profile and connect with investors.", icon: "mystartup" },
+  { id: "investor", label: "Investor", desc: "Discover companies and manage investment opportunities.", icon: "investors" },
+  { id: "hub", label: "Hub / Accelerator", desc: "Showcase your programs and startup support.", icon: "hubs" },
+  { id: "corporate", label: "Corporate", desc: "Discover technologies and partnership opportunities.", icon: "corp" },
+  { id: "government", label: "Government", desc: "Explore ecosystem intelligence.", icon: "building" },
+  { id: "researcher", label: "Researcher / Academia", desc: "Discover healthcare innovation and research.", icon: "research" },
+  { id: "explorer", label: "Explorer", desc: "Browse the ecosystem.", icon: "globe" },
+] as const satisfies { id: string; label: string; desc: string; icon: RuwadIconName }[];
 
-const ACCOUNT_TYPE_TO_ROLE: Record<(typeof ACCOUNT_TYPES)[number], string> = {
-  "Startup Founder": "FOUNDER",
-  Investor: "INVESTOR",
-  "Hub / Accelerator": "ORGANIZATION_ADMIN",
-  Corporate: "ORGANIZATION_ADMIN",
-  Government: "ORGANIZATION_ADMIN",
-  "Researcher / Academia": "ORGANIZATION_ADMIN",
-  Explorer: "USER",
+type AccountTypeId = (typeof ACCOUNT_TYPES)[number]["id"];
+
+const ACCOUNT_TYPE_TO_ROLE: Record<AccountTypeId, string> = {
+  founder: "FOUNDER",
+  investor: "INVESTOR",
+  hub: "ORGANIZATION_ADMIN",
+  corporate: "ORGANIZATION_ADMIN",
+  government: "ORGANIZATION_ADMIN",
+  researcher: "ORGANIZATION_ADMIN",
+  explorer: "USER",
 };
 
-/** Simplified, single-screen port of signupHtml()'s account-creation step
- * (js/auth.js:184-313) — the old app's 4-step wizard (account type →
- * personal info → organization → interests) is condensed to one screen.
- * Real backend account: bcrypt-hashed password, a genuine `users` row —
- * account type maps to the backend's role enum. */
+const HC_CATEGORIES = [
+  "Biotechnology", "MedTech", "Digital Health", "Diagnostics", "AI Healthcare",
+  "Pharmaceuticals", "Medical Devices", "Genomics", "Precision Medicine",
+  "Telemedicine", "Therapeutics", "Health Data", "Preventive Health",
+  "Healthcare Services", "Healthcare IT", "CRO", "CDMO", "Manufacturing", "Other",
+];
+const STAGES = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+", "Growth"];
+const INVESTOR_TYPES = ["VC", "Corporate VC", "Sovereign", "Family Office", "Angel Network", "Venture Studio", "Accelerator", "Government Fund"];
+const INTEREST_SECTORS = HC_CATEGORIES.slice(0, 13);
+const INTEREST_EXTRA = ["Startup Funding", "Investment Opportunities", "Research", "Regulatory", "Partnerships", "Accelerators", "Market Intelligence"];
+
+const STEP_LABELS = ["Account Type", "Personal Info", "Organization", "Interests"];
+
+interface OrgData {
+  name: string; website: string; stage: string; category: string; city: string; type: string;
+}
+
+/** Same `.field.err` banner used across all four steps — now with a real
+ * dismiss control (the X previously just sat there as a static icon, not
+ * an actual button, which read as broken). */
+function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return (
+    <div className="field err" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+      <span style={{ flex: 1 }}>{message}</span>
+      <button type="button" onClick={onDismiss} aria-label="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", color: "inherit" }}>
+        <RuwadIcon name="x" size={13} />
+      </button>
+    </div>
+  );
+}
+
+/** Port of the old app's 4-step signup wizard (js/auth.js:184-322) — same
+ * steps, same DOM/CSS classes (.grid-3 account-type cards, .chip-select
+ * interests), same per-account-type Organization step fields. Only the
+ * final "Complete Setup" step calls the real backend (register a genuine
+ * bcrypt-hashed account) — earlier steps just collect local state, same
+ * as the old app's SIGNUP_DATA object. Every field collected across all
+ * four steps is persisted on the User entity (organization sub-fields and
+ * interests included). */
 export function SignupPage() {
   const router = useRouter();
-  const toast = useToast();
-  const [accountType, setAccountType] = useState<string>(ACCOUNT_TYPES[0]);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
+  const [accountType, setAccountType] = useState<AccountTypeId | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -38,11 +84,52 @@ export function SignupPage() {
   const [country, setCountry] = useState("Saudi Arabia");
   const [city, setCity] = useState("");
   const [agree, setAgree] = useState(false);
+  const [org, setOrg] = useState<OrgData>({ name: "", website: "", stage: STAGES[0], category: HC_CATEGORIES[0], city: "", type: INVESTOR_TYPES[0] });
+  const [interests, setInterests] = useState<string[]>([]);
   const [error, setError] = useState("");
+  const [orgError, setOrgError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resumeFileName, setResumeFileName] = useState("");
+  const [resumeParsing, setResumeParsing] = useState(false);
+  const [resumeError, setResumeError] = useState("");
+  const resumeInputRef = useRef<HTMLInputElement>(null);
 
-  async function submit() {
-    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password || password !== confirm || !agree) {
+  function toggleInterest(label: string) {
+    setInterests((prev) => (prev.includes(label) ? prev.filter((i) => i !== label) : [...prev, label]));
+  }
+
+  async function handleResumeFile(file: File | undefined) {
+    if (!file) return;
+    setResumeError("");
+    if (!ALLOWED_RESUME_TYPES.includes(file.type)) {
+      setResumeError("Must be a PDF or Word (.docx) document.");
+      return;
+    }
+    if (file.size > MAX_RESUME_BYTES) {
+      setResumeError("Must be 5MB or smaller.");
+      return;
+    }
+    setResumeFileName(file.name);
+    setResumeParsing(true);
+    try {
+      const fields = await parseResume(file);
+      if (fields.firstName) setFirstName(fields.firstName);
+      if (fields.lastName) setLastName(fields.lastName);
+      if (fields.email) setEmail(fields.email);
+      if (fields.jobTitle) setJobTitle(fields.jobTitle);
+      if (fields.country) setCountry(fields.country);
+      if (fields.city) setCity(fields.city);
+      if (fields.organization) setOrg((prev) => ({ ...prev, name: fields.organization! }));
+    } catch (e) {
+      setResumeError(e instanceof ApiError ? e.message : "Couldn't read that file — please fill in the fields manually.");
+    } finally {
+      setResumeParsing(false);
+    }
+  }
+
+  function submitStep2() {
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !password || password !== confirm
+      || !jobTitle.trim() || !country.trim() || !city.trim() || !agree) {
       setError("Please complete all required fields correctly.");
       return;
     }
@@ -50,16 +137,47 @@ export function SignupPage() {
       setError("Password must be at least 8 characters.");
       return;
     }
+    setError("");
+    setStep(3);
+  }
+
+  function submitStep3() {
+    const requiredFilled =
+      accountType === "founder"
+        ? org.name.trim() && org.website.trim() && org.city.trim()
+        : accountType === "investor"
+          ? org.name.trim() && org.city.trim()
+          : org.name.trim() && org.type.trim() && org.website.trim();
+    if (!requiredFilled) {
+      setOrgError("Please complete all required fields.");
+      return;
+    }
+    setOrgError("");
+    setStep(4);
+  }
+
+  async function completeSignup() {
     setSubmitting(true);
     setError("");
     try {
+      // Only the org sub-fields actually shown for the selected account
+      // type get sent — same as the old app blanking whichever fields
+      // weren't part of the rendered step 3 branch.
+      const orgFields =
+        accountType === "founder"
+          ? { organizationWebsite: org.website, organizationStage: org.stage, organizationCategory: org.category, organizationCity: org.city }
+          : accountType === "investor"
+            ? { organizationType: org.type, organizationStage: org.stage, organizationCity: org.city }
+            : { organizationType: org.type, organizationWebsite: org.website };
       await registerAccount({
         email: email.trim(), password, firstName: firstName.trim(), lastName: lastName.trim(),
-        role: ACCOUNT_TYPE_TO_ROLE[accountType as (typeof ACCOUNT_TYPES)[number]],
-        jobTitle: jobTitle.trim() || undefined, country: country.trim() || undefined, city: city.trim() || undefined,
+        role: accountType ? ACCOUNT_TYPE_TO_ROLE[accountType] : "USER",
+        jobTitle: jobTitle.trim() || undefined, organization: org.name.trim() || undefined,
+        ...Object.fromEntries(Object.entries(orgFields).map(([k, v]) => [k, v?.trim() || undefined])),
+        country: country.trim() || undefined, city: city.trim() || undefined,
+        interests: interests.length ? interests : undefined,
       });
-      toast("Welcome to RUWĀD — your workspace is ready.");
-      router.push("/dashboard");
+      setStep(5);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Something went wrong — please try again.");
     } finally {
@@ -71,7 +189,7 @@ export function SignupPage() {
     <div className="auth-shell">
       <div className="auth-shell-bg" />
       <div className="auth-shell-scrim" />
-      <div className="auth-card wide">
+      <div className={`auth-card ${step !== 5 ? "wide" : ""}`}>
         <div className="auth-card-brand">
           <div className="auth-card-brand-glow" />
           <Link href="/" className="auth-card-logo"><span className="en">RUWĀD</span><span className="ar">روّاد</span></Link>
@@ -79,28 +197,166 @@ export function SignupPage() {
           <p>Already have an account? <Link href="/login">Log in</Link></p>
         </div>
         <div className="auth-card-form">
-          <h2 className="fs-16">Account Type</h2>
-          <div className="field mt-8">
-            <select className="select" value={accountType} onChange={(e) => setAccountType(e.target.value)}>
-              {ACCOUNT_TYPES.map((t) => <option key={t}>{t}</option>)}
-            </select>
-          </div>
-          <h2 className="fs-16 mt-8">Personal Information</h2>
-          <div className="grid-2 mt-16">
-            <div className="field"><label>First Name <span className="req">*</span></label><input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
-            <div className="field"><label>Last Name <span className="req">*</span></label><input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
-            <div className="field field-full"><label>Work Email <span className="req">*</span></label><input className="input" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-            <div className="field"><label>Password <span className="req">*</span></label><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-            <div className="field"><label>Confirm Password <span className="req">*</span></label><input className="input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} /></div>
-            <div className="field"><label>Job Title</label><input className="input" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} /></div>
-            <div className="field"><label>Country</label><input className="input" value={country} onChange={(e) => setCountry(e.target.value)} /></div>
-            <div className="field field-full"><label>City</label><input className="input" value={city} onChange={(e) => setCity(e.target.value)} /></div>
-          </div>
-          <label className="fs-12" style={{ display: "flex", gap: 8, margin: "6px 0 20px" }}>
-            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> I agree to RUWĀD Terms of Use and Privacy Policy
-          </label>
-          {error && <div className="field err" style={{ display: "flex", marginBottom: 12 }}><span>{error}</span></div>}
-          <button className="btn btn-primary btn-lg btn-block" onClick={submit} disabled={submitting}>{submitting ? "Creating your workspace…" : "Complete Setup"}</button>
+          {step === 5 ? (
+            <div style={{ textAlign: "center" }}>
+              <div className="modal-icon-ok" style={{ width: 64, height: 64, margin: "0 auto" }}><RuwadIcon name="check" size={30} /></div>
+              <h2 className="fs-19 mt-16">Welcome to RUWĀD</h2>
+              <p className="muted fs-13" style={{ marginTop: 6 }}>Your workspace has been created.</p>
+              <button className="btn btn-primary btn-lg mt-24" onClick={() => { const pending = consumePendingAction(); router.push(pending?.route && pending.route !== "/signup" ? pending.route : "/dashboard"); }}>Go to Dashboard</button>
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: 6, marginBottom: 22 }}>
+                {STEP_LABELS.map((l, i) => (
+                  <div key={l} style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{ height: 4, borderRadius: 99, background: i + 1 <= step ? "var(--green)" : "var(--border)", marginBottom: 6 }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, color: i + 1 === step ? "var(--green-dark)" : "var(--faint)", textTransform: "uppercase", letterSpacing: ".04em" }}>{l}</span>
+                  </div>
+                ))}
+              </div>
+
+              {step === 1 && (
+                <>
+                  <h2 className="fs-19">Join RUWĀD</h2>
+                  <p className="muted fs-13" style={{ margin: "4px 0 18px" }}>Choose how you participate in the ecosystem.</p>
+                  <div className="grid-3" style={{ gap: 12 }}>
+                    {ACCOUNT_TYPES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        className="panel"
+                        onClick={() => setAccountType(t.id)}
+                        style={{
+                          gridColumn: "span 1", textAlign: "left", padding: 16, cursor: "pointer",
+                          border: `1.5px solid ${accountType === t.id ? "var(--green)" : "rgba(37,99,166,.4)"}`,
+                          background: accountType === t.id ? "var(--green-tint)" : "#fff",
+                        }}
+                      >
+                        <div className="prog-icon" style={{ marginBottom: 10 }}><RuwadIcon name={t.icon} size={18} /></div>
+                        <b className="fs-13" style={{ display: "block", marginBottom: 3 }}>{t.label}</b>
+                        <span className="fs-12" style={{ color: "var(--muted)" }}>{t.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button className="btn btn-primary btn-lg btn-block mt-24" disabled={!accountType} onClick={() => setStep(2)}>Continue</button>
+                </>
+              )}
+
+              {step === 2 && (
+                <>
+                  <h2 className="fs-16">Personal Information</h2>
+
+                  <input ref={resumeInputRef} type="file" accept=".pdf,.docx" style={{ display: "none" }} onChange={(e) => handleResumeFile(e.target.files?.[0])} />
+                  <div
+                    className={`upload-box${resumeFileName ? " has-file" : ""}`}
+                    style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", cursor: "pointer", marginTop: 12 }}
+                    onClick={() => resumeInputRef.current?.click()}
+                  >
+                    <RuwadIcon name="doc" size={20} />
+                    <div style={{ flex: 1 }}>
+                      <b className="fs-13">{resumeParsing ? "Reading your résumé…" : resumeFileName || "Upload résumé to autofill this form"}</b>
+                      <div className="fs-11 muted">{resumeParsing ? "This takes a few seconds" : "PDF or Word, up to 5MB — optional"}</div>
+                    </div>
+                  </div>
+                  {resumeError && <ErrorBanner message={resumeError} onDismiss={() => setResumeError("")} />}
+
+                  <div className="grid-2 mt-16">
+                    <div className="field"><label>First Name <span className="req">*</span></label><input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
+                    <div className="field"><label>Last Name <span className="req">*</span></label><input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
+                    <div className="field field-full"><label>Work Email <span className="req">*</span></label><input className="input" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                    <div className="field"><label>Password <span className="req">*</span></label><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+                    <div className="field"><label>Confirm Password <span className="req">*</span></label><input className="input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} /></div>
+                    <div className="field"><label>Job Title <span className="req">*</span></label><input className="input" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} /></div>
+                    <div className="field"><label>Country <span className="req">*</span></label><input className="input" value={country} onChange={(e) => setCountry(e.target.value)} /></div>
+                    <div className="field field-full"><label>City <span className="req">*</span></label><input className="input" value={city} onChange={(e) => setCity(e.target.value)} /></div>
+                  </div>
+                  <label className="fs-12" style={{ display: "flex", gap: 8, margin: "6px 0 20px" }}>
+                    <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> I agree to RUWĀD Terms of Use and Privacy Policy
+                  </label>
+                  {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button className="btn btn-outline" onClick={() => setStep(1)}>← Back</button>
+                    <button className="btn btn-primary" style={{ flex: 1 }} onClick={submitStep2}>Continue →</button>
+                  </div>
+                </>
+              )}
+
+              {step === 3 && (
+                <>
+                  <h2 className="fs-16">Organization</h2>
+                  <div className="grid-2 mt-8">
+                    {accountType === "founder" ? (
+                      <>
+                        <div className="field"><label>Startup Name <span className="req">*</span></label><input className="input" value={org.name} onChange={(e) => setOrg({ ...org, name: e.target.value })} /></div>
+                        <div className="field"><label>Company Website <span className="req">*</span></label><input className="input" value={org.website} onChange={(e) => setOrg({ ...org, website: e.target.value })} /></div>
+                        <div className="field"><label>Current Startup Stage <span className="req">*</span></label>
+                          <select className="select" value={org.stage} onChange={(e) => setOrg({ ...org, stage: e.target.value })}>
+                            {STAGES.map((s) => <option key={s}>{s}</option>)}
+                          </select>
+                        </div>
+                        <div className="field"><label>Healthcare Category <span className="req">*</span></label>
+                          <select className="select" value={org.category} onChange={(e) => setOrg({ ...org, category: e.target.value })}>
+                            {HC_CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+                          </select>
+                        </div>
+                        <div className="field field-full"><label>City <span className="req">*</span></label><input className="input" value={org.city} onChange={(e) => setOrg({ ...org, city: e.target.value })} /></div>
+                      </>
+                    ) : accountType === "investor" ? (
+                      <>
+                        <div className="field"><label>Fund / Organization <span className="req">*</span></label><input className="input" value={org.name} onChange={(e) => setOrg({ ...org, name: e.target.value })} /></div>
+                        <div className="field"><label>Investor Type <span className="req">*</span></label>
+                          <select className="select" value={org.type} onChange={(e) => setOrg({ ...org, type: e.target.value })}>
+                            {INVESTOR_TYPES.map((v) => <option key={v}>{v}</option>)}
+                          </select>
+                        </div>
+                        <div className="field"><label>Investment Stage <span className="req">*</span></label>
+                          <select className="select" value={org.stage} onChange={(e) => setOrg({ ...org, stage: e.target.value })}>
+                            {STAGES.map((s) => <option key={s}>{s}</option>)}
+                          </select>
+                        </div>
+                        <div className="field"><label>Location <span className="req">*</span></label><input className="input" value={org.city} onChange={(e) => setOrg({ ...org, city: e.target.value })} /></div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="field"><label>Organization <span className="req">*</span></label><input className="input" value={org.name} onChange={(e) => setOrg({ ...org, name: e.target.value })} /></div>
+                        <div className="field"><label>Organization Type <span className="req">*</span></label><input className="input" value={org.type} onChange={(e) => setOrg({ ...org, type: e.target.value })} /></div>
+                        <div className="field field-full"><label>Website <span className="req">*</span></label><input className="input" value={org.website} onChange={(e) => setOrg({ ...org, website: e.target.value })} /></div>
+                      </>
+                    )}
+                  </div>
+                  {orgError && <ErrorBanner message={orgError} onDismiss={() => setOrgError("")} />}
+                  <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                    <button className="btn btn-outline" onClick={() => setStep(2)}>← Back</button>
+                    <button className="btn btn-primary" style={{ flex: 1 }} onClick={submitStep3}>Continue →</button>
+                  </div>
+                </>
+              )}
+
+              {step === 4 && (
+                <>
+                  <h2 className="fs-16">What are you interested in?</h2>
+                  <p className="muted fs-12" style={{ margin: "4px 0 16px" }}>Select as many as apply.</p>
+                  <div className="eyebrow mb-8">Healthcare Sectors</div>
+                  <div className="chip-select mb-16">
+                    {INTEREST_SECTORS.map((s) => (
+                      <button key={s} type="button" className={interests.includes(s) ? "active" : ""} onClick={() => toggleInterest(s)}>{s}</button>
+                    ))}
+                  </div>
+                  <div className="eyebrow mb-8">Additional Interests</div>
+                  <div className="chip-select mb-16">
+                    {INTEREST_EXTRA.map((s) => (
+                      <button key={s} type="button" className={interests.includes(s) ? "active" : ""} onClick={() => toggleInterest(s)}>{s}</button>
+                    ))}
+                  </div>
+                  {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
+                  <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                    <button className="btn btn-outline" onClick={() => setStep(3)}>← Back</button>
+                    <button className="btn btn-primary" style={{ flex: 1 }} disabled={submitting} onClick={completeSignup}>{submitting ? "Creating your workspace…" : "Complete Setup"}</button>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

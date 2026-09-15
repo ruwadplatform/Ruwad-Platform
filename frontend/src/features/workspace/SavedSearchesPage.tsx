@@ -3,13 +3,15 @@
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { SavedSearchCard } from "@/components/workspace/SavedSearchCard";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
+import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useSession, useSavedSearches } from "@/hooks/use-store";
 
 export function SavedSearchesPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const searches = useSavedSearches();
 
+  if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;
 
   return (

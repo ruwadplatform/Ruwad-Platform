@@ -29,7 +29,7 @@ export function NewsEventsPage() {
 }
 
 function NewsTab() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const { data: NEWS, loading, error } = useNews();
   const [category, setCategory] = useState("All");
   const sorted = useMemo(() => [...NEWS].sort((a, b) => (a.publishedDate < b.publishedDate ? 1 : -1)), [NEWS]);
@@ -38,13 +38,14 @@ function NewsTab() {
     const rest = sorted.slice(3);
     return category === "All" ? rest : rest.filter((n) => n.category === category);
   }, [sorted, category]);
-  const { shown, capped } = capForGuest(filtered, 6, !loggedIn);
+  const { shown, capped } = capForGuest(filtered, 6, !hydrated || !loggedIn);
 
   const bySaudi = shown.filter((n) => n.geography === "Saudi Arabia");
   const byRegional = shown.filter((n) => n.geography !== "Saudi Arabia");
 
   if (error) return <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load news</h4><p>{error}</p></div>;
   if (loading) return <div className="empty-state"><RuwadIcon name="news" size={30} /><h4>Loading news…</h4></div>;
+  if (!NEWS.length) return <div className="empty-state"><RuwadIcon name="news" size={30} /><h4>No news available yet</h4></div>;
 
   return (
     <div>
@@ -69,13 +70,13 @@ function NewsTab() {
         </div>
       )}
       {!shown.length && <div className="empty-state"><RuwadIcon name="news" size={30} /><h4>No news in this category</h4><p>Try a different category filter.</p></div>}
-      {capped && <DirectoryGateBanner entityLabelPlural="News Articles" totalCount={filtered.length + topStories.length} />}
+      {hydrated && capped && <DirectoryGateBanner entityLabelPlural="News Articles" totalCount={filtered.length + topStories.length} />}
     </div>
   );
 }
 
 function EventsTab() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const { data: EVENTS, loading, error } = useEvents();
   const [type, setType] = useState("All");
   const [country, setCountry] = useState("All");
@@ -87,7 +88,7 @@ function EventsTab() {
     const past = list.filter((e) => e.date < today).sort((a, b) => (a.date > b.date ? -1 : 1));
     return [...upcoming, ...past];
   }, [EVENTS, type, country]);
-  const { shown, capped } = capForGuest(filtered, 6, !loggedIn);
+  const { shown, capped } = capForGuest(filtered, 6, !hydrated || !loggedIn);
 
   return (
     <div>
@@ -106,12 +107,14 @@ function EventsTab() {
         <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load events</h4><p>{error}</p></div>
       ) : loading ? (
         <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading events…</h4></div>
+      ) : !EVENTS.length ? (
+        <div className="empty-state"><RuwadIcon name="clock" size={30} /><h4>No upcoming events available</h4></div>
       ) : !filtered.length ? (
         <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No events match those filters</h4><p>Try a different type or country.</p></div>
       ) : (
         <div className="events-grid">{shown.map((e) => <EventCard key={e.id} event={e} />)}</div>
       )}
-      {capped && <DirectoryGateBanner entityLabelPlural="Events" totalCount={filtered.length} />}
+      {hydrated && capped && <DirectoryGateBanner entityLabelPlural="Events" totalCount={filtered.length} />}
     </div>
   );
 }

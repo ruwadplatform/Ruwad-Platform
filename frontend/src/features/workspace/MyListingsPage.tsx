@@ -6,6 +6,7 @@ import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePa
 import { ListingCard } from "@/components/workspace/ListingCard";
 import { SubmissionCard } from "@/components/workspace/SubmissionCard";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
+import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useSession, useOwnedListings, useSubmissions } from "@/hooks/use-store";
 import type { ApiSubmissionStatus } from "@/lib/api/types";
@@ -17,11 +18,12 @@ const GROUP_LABEL: Record<ApiSubmissionStatus, string> = {
 };
 
 export function MyListingsPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const listings = useOwnedListings();
   const submissions = useSubmissions();
   const router = useRouter();
 
+  if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;
 
   // APPROVED submissions are already represented by the owned-listing cards

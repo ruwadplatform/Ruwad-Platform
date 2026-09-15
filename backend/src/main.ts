@@ -42,8 +42,12 @@ async function bootstrap() {
   }
 
   const port = config.get("PORT") ?? 4000;
-  await app.listen(port);
+  // Explicit 0.0.0.0 bind — Render (and most container/PaaS hosts) reach
+  // the process over its internal network interface, not loopback; the
+  // default host Node picks without an explicit argument already covers
+  // this, but binding it explicitly removes any doubt.
+  await app.listen(port, "0.0.0.0");
   // eslint-disable-next-line no-console
-  console.log(`RUWĀD API listening on http://localhost:${port}/api`);
+  console.log(`RUWĀD API listening on port ${port}`);
 }
 bootstrap();

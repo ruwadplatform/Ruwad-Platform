@@ -5,9 +5,9 @@ import { hydrateSession } from "@/lib/store";
 
 /** Checks the real backend session (the httpOnly auth cookie) once on app
  * load — this is what keeps a page refresh logged in, since there's no
- * synchronous localStorage session to read anymore. The demo/admin
- * accounts and demo workspace content are now seeded server-side (see
- * ruwad-backend's seed script), not created here. */
+ * synchronous localStorage session to read anymore. Starts unauthenticated
+ * (user = null) until this resolves; there is no automatic or default
+ * login. */
 export function AppBoot() {
   useEffect(() => {
     hydrateSession();

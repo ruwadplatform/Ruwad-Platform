@@ -94,6 +94,7 @@ function Stat({ label, val, small }: { label: string; val: React.ReactNode; smal
 }
 
 function TabBody({ tab, m, loggedIn }: { tab: Tab; m: Multinational; loggedIn: boolean }) {
+  const { hydrated } = useSession();
   switch (tab) {
     case "Company":
       return (
@@ -108,8 +109,8 @@ function TabBody({ tab, m, loggedIn }: { tab: Tab; m: Multinational; loggedIn: b
             <Stat label="Business Model" val={m.businessModel} />
             <Stat label="Status" val={<span className="badge badge-good">{m.status}</span>} />
             <Stat label="Website" val={m.website} />
-            <Stat label="Email" val={loggedIn ? m.email : <ContactLock />} />
-            <Stat label="Phone" val={loggedIn ? m.phone : <ContactLock />} />
+            <Stat label="Email" val={!hydrated ? <span className="skel" style={{ width: 90 }} /> : loggedIn ? m.email : <ContactLock />} />
+            <Stat label="Phone" val={!hydrated ? <span className="skel" style={{ width: 70 }} /> : loggedIn ? m.phone : <ContactLock />} />
             <Stat label="LinkedIn" val={m.linkedin} />
           </div>
         </div>
@@ -214,8 +215,8 @@ function TabBody({ tab, m, loggedIn }: { tab: Tab; m: Multinational; loggedIn: b
         <div className="panel panel-pad">
           <div className="stat-mini-row">
             <div className="stat-mini"><div className="sm-label">Website</div><div className="sm-val fs-15">{m.website}</div></div>
-            <div className="stat-mini"><div className="sm-label">Email</div><div className="sm-val fs-15">{loggedIn ? m.email : <ContactLock />}</div></div>
-            <div className="stat-mini"><div className="sm-label">Phone</div><div className="sm-val fs-15">{loggedIn ? m.phone : <ContactLock />}</div></div>
+            <div className="stat-mini"><div className="sm-label">Email</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 90 }} /> : loggedIn ? m.email : <ContactLock />}</div></div>
+            <div className="stat-mini"><div className="sm-label">Phone</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 70 }} /> : loggedIn ? m.phone : <ContactLock />}</div></div>
             <div className="stat-mini"><div className="sm-label">LinkedIn</div><div className="sm-val fs-15">{m.linkedin}</div></div>
           </div>
         </div>

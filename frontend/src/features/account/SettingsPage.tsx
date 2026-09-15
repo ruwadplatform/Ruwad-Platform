@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
+import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession, useSettings } from "@/hooks/use-store";
 import { clearSession } from "@/lib/store";
@@ -21,12 +22,13 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
  * by the new `getSettings`/`updateSettings` store functions (LSK.settings
  * was already reserved but unused until now). No backend persistence. */
 export function SettingsPage() {
-  const { loggedIn, user } = useSession();
+  const { loggedIn, user, hydrated } = useSession();
   const { settings, update } = useSettings();
   const toast = useToast();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("Account");
 
+  if (!hydrated) return <SessionLoading />;
   if (!loggedIn || !user) return <WorkspaceGate title="Sign in to view settings" body="Sign in to manage your account, notification and privacy settings." />;
 
   function toggle(key: keyof AccountSettings) {

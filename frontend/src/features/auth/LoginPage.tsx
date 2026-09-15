@@ -8,14 +8,14 @@ import { login, consumePendingAction, ApiError } from "@/lib/store";
 
 /** Ported from authShell()/loginHtml()/doLogin() (js/auth.js:38-139) — same
  * `.auth-shell`/`.auth-card`/`.auth-card-brand`/`.auth-card-form` markup,
- * pre-filled demo credentials, same "resume pending action" idea, adapted
- * from hash-routing to the Next.js router. Real backend auth: password is
- * verified server-side (bcrypt against the DB), not against localStorage. */
+ * same "resume pending action" idea, adapted from hash-routing to the
+ * Next.js router. Real backend auth: password is verified server-side
+ * (bcrypt against the DB) — no pre-filled credentials, no auto-login. */
 export function LoginPage() {
   const router = useRouter();
   const toast = useToast();
-  const [email, setEmail] = useState("demo@ruwad.sa");
-  const [password, setPassword] = useState("demo");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,7 +54,6 @@ export function LoginPage() {
             <button type="button" className="small" style={{ fontWeight: 700, color: "var(--green-dark)", background: "none", border: "none", cursor: "pointer" }} onClick={() => toast("Password reset — demo only")}>Forgot your password?</button>
           </div>
           <button className="btn btn-primary btn-lg" style={{ alignSelf: "flex-start", padding: "0 32px" }} onClick={doLogin} disabled={submitting}>{submitting ? "Logging in…" : "Log in"}</button>
-          <p className="muted small mt-16">Demo login is pre-filled — just click Log in. (demo@ruwad.sa / demo)</p>
         </div>
       </div>
     </div>

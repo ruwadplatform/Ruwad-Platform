@@ -50,7 +50,7 @@ const SORTERS: Record<SortKey, (a: Startup, b: Startup) => number> = {
 export function StartupsDirectoryPage() {
   const searchParams = useSearchParams();
   const catParam = searchParams.get("cat");
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const { data: STARTUPS, loading, error } = useStartups();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("score");
@@ -78,7 +78,7 @@ export function StartupsDirectoryPage() {
     return list;
   }, [STARTUPS, search, filters, sort]);
 
-  const { shown, capped } = capForGuest(filtered, 3, !loggedIn);
+  const { shown, capped } = capForGuest(filtered, 3, !hydrated || !loggedIn);
 
   function removeFilter(k: keyof Filters, v: string) {
     setFilters((f) => ({ ...f, [k]: (f[k] as string[]).filter((x) => x !== v) }));
@@ -143,6 +143,8 @@ export function StartupsDirectoryPage() {
           <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load startups</h4><p>{error}</p></div>
         ) : loading ? (
           <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading startups…</h4></div>
+        ) : !STARTUPS.length ? (
+          <div className="empty-state"><RuwadIcon name="startups" size={30} /><h4>No startups available yet</h4><p>Startups added to the RUWĀD ecosystem will appear here.</p></div>
         ) : !filtered.length ? (
           <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No startups match those filters</h4><p>Try clearing a filter or search term.</p></div>
         ) : view === "grid" ? (
@@ -152,7 +154,7 @@ export function StartupsDirectoryPage() {
         ) : (
           <StartupTable list={shown} />
         )}
-        {capped && <DirectoryGateBanner entityLabelPlural="Startups" totalCount={STARTUPS.length} />}
+        {hydrated && capped && <DirectoryGateBanner entityLabelPlural="Startups" totalCount={STARTUPS.length} />}
       </div>
     </div>
   );
@@ -223,6 +225,7 @@ function StartupFilterDrawer({
   filters, loggedIn, onApply, onClear, onClose,
 }: { filters: Filters; loggedIn: boolean; onApply: (f: Filters) => void; onClear: () => void; onClose: () => void }) {
   const [local, setLocal] = useState(filters);
+  const { hydrated } = useSession();
 
   function readChecked(key: string): string[] {
     if (typeof document === "undefined") return [];
@@ -245,7 +248,12 @@ function StartupFilterDrawer({
         <FilterGroup label="Healthcare Category" options={HC_CATEGORIES} dataKey="category" checked={filters.category} inputName="category" />
         <FilterGroup label="Stage" options={STAGES} dataKey="stage" checked={filters.stage} inputName="stage" />
         <FilterGroup label="Company Status" options={STATUSES} dataKey="status" checked={filters.status} inputName="status" />
-        {!loggedIn ? (
+        {!hydrated ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 0" }} aria-hidden="true">
+            <span className="skel" style={{ width: "60%" }} />
+            <span className="skel" style={{ width: "80%" }} />
+          </div>
+        ) : !loggedIn ? (
           <GuestAdvancedFilterGate />
         ) : (
           <>

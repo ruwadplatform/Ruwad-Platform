@@ -14,7 +14,7 @@ import { initials } from "@/lib/scoring";
  * .hdr-nav-item/.hdr-dropdown/.hdr-actions), same hover-open + 220ms
  * delayed-close + click-toggle dropdown behavior. */
 export function TopHeader({ isPublic = false, onMenuClick, hidden = false }: { isPublic?: boolean; onMenuClick?: () => void; hidden?: boolean }) {
-  const { user, loggedIn } = useSession();
+  const { user, loggedIn, hydrated } = useSession();
   const pathname = usePathname();
   const search = useSearchParams();
   const router = useRouter();
@@ -25,7 +25,13 @@ export function TopHeader({ isPublic = false, onMenuClick, hidden = false }: { i
   const rootRef = useRef<HTMLElement>(null);
 
   const active = activeNavGroup(pathname, search.toString());
-  const nav = visibleTopNav(loggedIn, !!user?.isAdmin);
+  // While the session check (hydrateSession — GET /auth/me) is still in
+  // flight, `loggedIn` starts false regardless of the real auth state —
+  // computing nav from it here would flash the logged-out nav (no
+  // Dashboard/Workspace) at an authenticated visitor on every refresh.
+  // Not resolved yet -> render neither variant, show a skeleton instead.
+  const navReady = isPublic || hydrated;
+  const nav = navReady ? visibleTopNav(loggedIn, !!user?.isAdmin) : [];
 
   function openPanel(id: string) {
     if (closeTimer.current) clearTimeout(closeTimer.current);
@@ -81,31 +87,37 @@ export function TopHeader({ isPublic = false, onMenuClick, hidden = false }: { i
         <div className="hdr-suggest" id="searchSuggest" />
       </form>
       <nav className="hdr-nav">
-        {nav.map((top) => (
-          <TopNavItem
-            key={top.id}
-            top={top}
-            active={active === top.id}
-            open={openDropdown === "dd-" + top.id}
-            onEnter={() => openPanel("dd-" + top.id)}
-            onLeave={scheduleClose}
-            onToggle={() => toggleClick("dd-" + top.id)}
-            onChildClick={handleChildClick}
-          />
-        ))}
+        {navReady ? (
+          nav.map((top) => (
+            <TopNavItem
+              key={top.id}
+              top={top}
+              active={active === top.id}
+              open={openDropdown === "dd-" + top.id}
+              onEnter={() => openPanel("dd-" + top.id)}
+              onLeave={scheduleClose}
+              onToggle={() => toggleClick("dd-" + top.id)}
+              onChildClick={handleChildClick}
+            />
+          ))
+        ) : (
+          <HeaderNavSkeleton />
+        )}
       </nav>
       <div className="hdr-actions">
-        {isPublic || !loggedIn ? (
+        {isPublic || (hydrated && !loggedIn) ? (
           <>
             <Link href="/login" className="btn btn-outline hdr-auth-btn">Login</Link>
             <Link href="/signup" className="btn btn-primary hdr-auth-btn">Create Account</Link>
           </>
-        ) : (
+        ) : hydrated ? (
           <>
             <AddButton />
             <NotifMenu open={notifOpen} setOpen={setNotifOpen} />
             <UserMenu open={userMenuOpen} setOpen={setUserMenuOpen} name={user ? initials(user.firstName + " " + user.lastName) : "?"} />
           </>
+        ) : (
+          <HeaderActionsSkeleton />
         )}
       </div>
     </header>
@@ -140,6 +152,32 @@ function TopNavItem({
           </Link>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Placeholder shown in place of the nav links while the session check is
+ * still in flight — same slot/height as the real nav, so nothing shifts
+ * once it resolves and .hdr-nav-item/.hdr-nav-link's real content swaps in. */
+function HeaderNavSkeleton() {
+  return (
+    <div className="hdr-skel-row" aria-hidden="true">
+      {[64, 76, 84, 96].map((w, i) => (
+        <span key={i} className="hdr-skel" style={{ width: w }} />
+      ))}
+    </div>
+  );
+}
+
+/** Same idea for the right-side actions — neither the guest Login/Create
+ * Account buttons nor the authenticated icon row render until `hydrated`
+ * is true, so an authenticated visitor never sees the guest buttons (even
+ * for one frame) on refresh. */
+function HeaderActionsSkeleton() {
+  return (
+    <div className="hdr-skel-row" aria-hidden="true">
+      <span className="hdr-skel" style={{ width: 33, height: 33, borderRadius: "var(--radius-icon)" }} />
+      <span className="hdr-skel" style={{ width: 30, height: 30, borderRadius: "var(--radius-pill)" }} />
     </div>
   );
 }

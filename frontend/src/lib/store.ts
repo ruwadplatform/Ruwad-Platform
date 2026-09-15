@@ -5,6 +5,7 @@
  * stubs — out of scope for the backend migration. Data Room / submission
  * drafts stay stubbed to a clean/empty state until that subsystem grows a
  * real frontend. */
+import { flushSync } from "react-dom";
 import * as authApi from "./api/auth";
 import * as watchlistApi from "./api/watchlist";
 import * as savedSearchesApi from "./api/saved-searches";
@@ -41,10 +42,19 @@ function lsSet<T>(key: string, val: T): void {
 }
 
 /** Dispatched after every store mutation so useSyncExternalStore-based
- * hooks (src/hooks/use-store.ts) re-read and re-render. */
+ * hooks (src/hooks/use-store.ts, hooks/use-directory-data.ts) re-read and
+ * re-render. flushSync matters here: this fires from contexts React
+ * doesn't track (a resolved fetch promise, a setTimeout, etc.), and
+ * without it the update reliably gets scheduled but not painted — the
+ * component silently holds stale data until some unrelated interaction
+ * forces the next render (confirmed: a real, reproducible bug, not a
+ * timing fluke — startup/investor/etc. directories loaded fine over the
+ * network but rendered 0 results on first paint until something else,
+ * e.g. typing in the search box, triggered a render). */
 const STORE_EVENT = "ruwad-store-change";
 export function notifyStoreChange(): void {
-  if (isBrowser()) window.dispatchEvent(new Event(STORE_EVENT));
+  if (!isBrowser()) return;
+  flushSync(() => window.dispatchEvent(new Event(STORE_EVENT)));
 }
 export function subscribeStoreChange(onChange: () => void): () => void {
   window.addEventListener(STORE_EVENT, onChange);
@@ -110,6 +120,10 @@ function createResourceCache<T>(fallback: T) {
 export interface OrgInfo {
   name?: string;
   website?: string;
+  stage?: string;
+  category?: string;
+  city?: string;
+  type?: string;
 }
 export interface Account {
   id: string;
@@ -123,6 +137,7 @@ export interface Account {
   org?: OrgInfo;
   linkedin?: string;
   bio?: string;
+  interests?: string[];
   createdAt: number;
   isAdmin?: boolean;
 }
@@ -146,9 +161,17 @@ function toAccount(u: ApiUser): Account {
     jobTitle: u.jobTitle ?? undefined,
     country: u.country ?? undefined,
     city: u.city ?? undefined,
-    org: { name: u.organization ?? undefined },
+    org: {
+      name: u.organization ?? undefined,
+      website: u.organizationWebsite ?? undefined,
+      stage: u.organizationStage ?? undefined,
+      category: u.organizationCategory ?? undefined,
+      city: u.organizationCity ?? undefined,
+      type: u.organizationType ?? undefined,
+    },
     linkedin: u.linkedin ?? undefined,
     bio: u.bio ?? undefined,
+    interests: u.interests ?? [],
     createdAt: Date.parse(u.createdAt),
     isAdmin: u.role === "RUWAD_ADMIN" || u.role === "SUPER_ADMIN",
   };
@@ -197,7 +220,10 @@ export async function login(email: string, password: string): Promise<Account> {
 
 export async function registerAccount(input: {
   firstName: string; lastName: string; email: string; password: string;
-  role?: string; jobTitle?: string; organization?: string; country?: string; city?: string;
+  role?: string; jobTitle?: string; organization?: string;
+  organizationWebsite?: string; organizationStage?: string; organizationCategory?: string;
+  organizationCity?: string; organizationType?: string;
+  country?: string; city?: string; interests?: string[];
 }): Promise<Account> {
   const u = await authApi.register(input);
   sessionUser = u;
@@ -217,11 +243,14 @@ export async function clearSession(): Promise<void> {
   }
 }
 
-export async function updateProfile(patch: Partial<Pick<Account, "firstName" | "lastName" | "jobTitle" | "city" | "country" | "bio" | "linkedin">> & { orgName?: string }): Promise<void> {
+export async function updateProfile(patch: Partial<Pick<Account, "firstName" | "lastName" | "jobTitle" | "city" | "country" | "bio" | "linkedin" | "interests">> & { orgName?: string; org?: OrgInfo }): Promise<void> {
   const u = await authApi.updateProfile({
     firstName: patch.firstName, lastName: patch.lastName, jobTitle: patch.jobTitle,
     country: patch.country, city: patch.city, bio: patch.bio, linkedin: patch.linkedin,
-    organization: patch.orgName,
+    organization: patch.orgName ?? patch.org?.name,
+    organizationWebsite: patch.org?.website, organizationStage: patch.org?.stage,
+    organizationCategory: patch.org?.category, organizationCity: patch.org?.city, organizationType: patch.org?.type,
+    interests: patch.interests,
   });
   sessionUser = u;
   notifyStoreChange();
@@ -453,6 +482,14 @@ export function consumePendingAction(): PendingAction | null {
   const a = lsGet<PendingAction | null>(PENDING_ACTION_KEY, null);
   if (isBrowser()) localStorage.removeItem(PENDING_ACTION_KEY);
   return a;
+}
+
+/** For a guest who landed on an auth-gated page directly (WorkspaceGate) —
+ * stashes the current route so login/signup can return them here, without
+ * requireAuth's own forced full-page navigation (the caller already has a
+ * router and just needs the return route remembered first). */
+export function stashReturnRoute(route: string): void {
+  lsSet<PendingAction>(PENDING_ACTION_KEY, { type: "route", payload: null, route });
 }
 
 /* ------------------------------------------------------------ SAVED SEARCHES */

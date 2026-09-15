@@ -3,7 +3,10 @@ import type { ApiSettings, ApiUser } from "./types";
 
 export function register(input: {
   firstName: string; lastName: string; email: string; password: string;
-  role?: string; jobTitle?: string; organization?: string; country?: string; city?: string;
+  role?: string; jobTitle?: string; organization?: string;
+  organizationWebsite?: string; organizationStage?: string; organizationCategory?: string;
+  organizationCity?: string; organizationType?: string;
+  country?: string; city?: string; interests?: string[];
 }): Promise<ApiUser> {
   return api.post<ApiUser>("/auth/register", input);
 }
@@ -20,7 +23,7 @@ export function logout(): Promise<{ success: boolean }> {
   return api.post<{ success: boolean }>("/auth/logout");
 }
 
-export function updateProfile(patch: Partial<Pick<ApiUser, "firstName" | "lastName" | "jobTitle" | "organization" | "country" | "city" | "bio" | "linkedin">>): Promise<ApiUser> {
+export function updateProfile(patch: Partial<Pick<ApiUser, "firstName" | "lastName" | "jobTitle" | "organization" | "organizationWebsite" | "organizationStage" | "organizationCategory" | "organizationCity" | "organizationType" | "country" | "city" | "bio" | "linkedin" | "interests">>): Promise<ApiUser> {
   return api.patch<ApiUser>("/users/me", patch);
 }
 

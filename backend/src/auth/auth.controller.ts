@@ -22,18 +22,21 @@ export class AuthController {
     private readonly config: ConfigService,
   ) {}
 
-  private setAuthCookie(res: Response, token: string) {
+  private authCookieOptions(): { httpOnly: true; secure: boolean; sameSite: "none" | "lax"; path: string } {
     const isProd = this.config.get("NODE_ENV") === "production";
-    res.cookie(COOKIE_NAME, token, {
+    return {
       httpOnly: true,
       secure: isProd,
-      // Frontend and backend live on different Render domains in
+      // Frontend (Vercel) and backend (Render) live on different domains in
       // production, so the cookie must be sendable cross-site; "lax" is
       // used in dev since localhost-to-localhost doesn't need it.
       sameSite: isProd ? "none" : "lax",
-      maxAge: COOKIE_MAX_AGE_MS,
       path: "/",
-    });
+    };
+  }
+
+  private setAuthCookie(res: Response, token: string) {
+    res.cookie(COOKIE_NAME, token, { ...this.authCookieOptions(), maxAge: COOKIE_MAX_AGE_MS });
   }
 
   @Post("register")
@@ -66,7 +69,10 @@ export class AuthController {
   @Post("logout")
   @HttpCode(200)
   logout(@Res({ passthrough: true }) res: Response) {
-    res.clearCookie(COOKIE_NAME, { path: "/" });
+    // Same attributes as setAuthCookie — an expiring Set-Cookie with
+    // mismatched secure/sameSite risks the browser treating it as a
+    // different cookie instead of overwriting the real session cookie.
+    res.clearCookie(COOKIE_NAME, this.authCookieOptions());
     return { success: true };
   }
 }

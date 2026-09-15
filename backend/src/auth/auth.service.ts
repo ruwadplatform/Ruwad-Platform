@@ -29,8 +29,14 @@ export class AuthService {
       role: dto.role ?? UserRole.USER,
       jobTitle: dto.jobTitle,
       organization: dto.organization,
+      organizationWebsite: dto.organizationWebsite,
+      organizationStage: dto.organizationStage,
+      organizationCategory: dto.organizationCategory,
+      organizationCity: dto.organizationCity,
+      organizationType: dto.organizationType,
       country: dto.country,
       city: dto.city,
+      interests: dto.interests ?? [],
     });
     await this.users.getOrCreateSettings(user.id);
     return user;

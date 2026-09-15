@@ -36,7 +36,7 @@ export function ScoreCard({ score, sub, category, peers, loggedIn }: {
           </svg>
           <div className="score-ring-val"><b>{score}</b><span>/ 1000</span></div>
         </div>
-        <div className="sc-sub small muted">Demo/mock scoring only — illustrates how RUWĀD would rank ecosystem readiness.</div>
+        <div className="sc-sub small muted">Composite score computed from the six factors below.</div>
       </div>
       {SUBS.map(({ label, key, why }) => (
         <div className="subscore-row" title={why} key={key}>

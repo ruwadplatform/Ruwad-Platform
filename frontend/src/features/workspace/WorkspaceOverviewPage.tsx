@@ -10,12 +10,13 @@ import { InsightCard } from "@/components/intelligence/InsightCard";
 import { ActivityRow } from "@/components/workspace/ActivityRow";
 import { IntroductionStatusBadge } from "@/components/workspace/IntroductionStatusBadge";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
+import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { useSession, useWatchlist, useSavedSearches, useIntros, useRecentActivity, useOwnedListings } from "@/hooks/use-store";
 import { useResolveCollections } from "@/hooks/use-directory-data";
 import { resolveEntity, RESOLVABLE_KINDS, KIND_LOGO_STYLE, type ResolvableKind } from "@/lib/entity-resolve";
 
 export function WorkspaceOverviewPage() {
-  const { loggedIn, user } = useSession();
+  const { loggedIn, user, hydrated } = useSession();
   const listings = useOwnedListings();
   const watchlist = useWatchlist();
   const savedSearches = useSavedSearches();
@@ -37,6 +38,7 @@ export function WorkspaceOverviewPage() {
     return m;
   }, [intros]);
 
+  if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;
 
   return (

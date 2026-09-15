@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsOptional, IsString, MaxLength } from "class-validator";
 
 export class UpdateProfileDto {
   @IsOptional() @IsString() @MaxLength(80)
@@ -13,6 +13,21 @@ export class UpdateProfileDto {
   @IsOptional() @IsString() @MaxLength(150)
   organization?: string;
 
+  @IsOptional() @IsString() @MaxLength(200)
+  organizationWebsite?: string;
+
+  @IsOptional() @IsString() @MaxLength(80)
+  organizationStage?: string;
+
+  @IsOptional() @IsString() @MaxLength(80)
+  organizationCategory?: string;
+
+  @IsOptional() @IsString() @MaxLength(80)
+  organizationCity?: string;
+
+  @IsOptional() @IsString() @MaxLength(80)
+  organizationType?: string;
+
   @IsOptional() @IsString() @MaxLength(80)
   country?: string;
 
@@ -24,4 +39,7 @@ export class UpdateProfileDto {
 
   @IsOptional() @IsString() @MaxLength(200)
   linkedin?: string;
+
+  @IsOptional() @IsArray() @ArrayMaxSize(40) @IsString({ each: true })
+  interests?: string[];
 }

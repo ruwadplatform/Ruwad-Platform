@@ -10,10 +10,16 @@ export interface ApiUser {
   lastName: string;
   jobTitle: string | null;
   organization: string | null;
+  organizationWebsite: string | null;
+  organizationStage: string | null;
+  organizationCategory: string | null;
+  organizationCity: string | null;
+  organizationType: string | null;
   country: string | null;
   city: string | null;
   bio: string | null;
   linkedin: string | null;
+  interests: string[];
   role: UserRole;
   createdAt: string;
 }

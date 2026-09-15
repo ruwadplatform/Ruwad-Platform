@@ -7,7 +7,8 @@
     "backend"
   ],
   "scripts": {
-    "dev": "concurrently -n postgres,backend,frontend -c yellow,green,cyan \"npm run db:local --workspace=backend\" \"npm run start:dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "dev": "concurrently -n backend,frontend -c green,cyan \"npm run start:dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "dev:local-db": "concurrently -n postgres,backend,frontend -c yellow,green,cyan \"npm run db:local --workspace=backend\" \"npm run start:dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
     "dev:frontend": "npm run dev --workspace=frontend",
     "dev:backend": "npm run start:dev --workspace=backend",
     "dev:db": "npm run db:local --workspace=backend",
@@ -19,8 +20,7 @@
     "lint:backend": "npm run lint --workspace=backend",
     "typecheck": "npm run typecheck --workspace=backend && npm run typecheck --workspace=frontend",
     "typecheck:frontend": "npm run typecheck --workspace=frontend",
-    "typecheck:backend": "npm run typecheck --workspace=backend",
-    "seed": "npm run seed --workspace=backend"
+    "typecheck:backend": "npm run typecheck --workspace=backend"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

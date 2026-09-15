@@ -324,6 +324,17 @@
 .hdr-actions .btn-primary:hover{background:var(--bg-2)}
 .hdr-auth-btn{white-space:nowrap}
 
+/* Header loading state — shown in .hdr-nav/.hdr-actions while the session
+   check (GET /auth/me) is still in flight, instead of guessing logged-out
+   and flashing Login/Create Account at an authenticated visitor. */
+.hdr-skel-row{display:flex;align-items:center;gap:10px;height:100%}
+.hdr-skel{
+  display:inline-block;height:14px;border-radius:var(--radius-pill);
+  background:rgba(255,255,255,.14);animation:hdr-skel-pulse 1.2s ease-in-out infinite;
+}
+@keyframes hdr-skel-pulse{0%,100%{opacity:.5}50%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.hdr-skel{animation:none;opacity:.7}}
+
 /* ---- content ---- */
 .content{flex:1;min-width:0;background:var(--bg)}
 .content-in{max-width:var(--content-max);margin:0 auto;padding:32px 32px 60px}

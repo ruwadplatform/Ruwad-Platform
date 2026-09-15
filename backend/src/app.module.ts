@@ -23,6 +23,7 @@ import { IntroductionsModule } from "./introductions/introductions.module";
 import { OrganizationsModule } from "./organizations/organizations.module";
 import { SubmissionsModule } from "./submissions/submissions.module";
 import { UploadsModule } from "./uploads/uploads.module";
+import { ResumeParseModule } from "./resume-parse/resume-parse.module";
 import { DataRoomModule } from "./data-room/data-room.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
 
@@ -51,6 +52,7 @@ import { AnalyticsModule } from "./analytics/analytics.module";
     OrganizationsModule,
     SubmissionsModule,
     UploadsModule,
+    ResumeParseModule,
     DataRoomModule,
     AnalyticsModule,
   ],

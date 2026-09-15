@@ -19,7 +19,19 @@ import type { Report, ReportSection } from "@/types/intelligence";
  * section — same pattern AnalyticsDetailPage's local `Gated` uses, kept
  * page-local here too rather than promoted to a shared component (it's a
  * 3-line LockedTeaser wrapper, not something worth a new file). */
-function Gated({ loggedIn, title, body, children }: { loggedIn: boolean; title: string; body: string; children: ReactNode }) {
+function Gated({ loggedIn, hydrated, title, body, children }: { loggedIn: boolean; hydrated: boolean; title: string; body: string; children: ReactNode }) {
+  // Session check still in flight — show neither the real content nor the
+  // guest-specific "Sign in to unlock" CTA (loggedIn defaults to false
+  // until hydrated, so showing the teaser here would flash it at an
+  // authenticated visitor on every refresh). Same bars LockedTeaser itself
+  // renders, just without the CTA that asserts a guest state we don't know yet.
+  if (!hydrated) {
+    return (
+      <div className="locked-teaser" aria-hidden="true">
+        <div className="lt-bars">{[88, 74, 60].map((w, i) => <div key={i} className="lt-bar" style={{ width: `${w}%` }} />)}</div>
+      </div>
+    );
+  }
   if (loggedIn) return <>{children}</>;
   return <LockedTeaser title={title} body={body} blurLines={3} cta="Unlock Full Report" />;
 }
@@ -44,19 +56,24 @@ function SectionTitle({ children }: { children: ReactNode }) {
 export function ReportDetailPage({ report: r }: { report: Report }) {
   const router = useRouter();
   const toast = useToast();
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
 
   const relatedCompanies = r.relatedCompaniesDetailed ?? [];
   const relatedInvestors = r.relatedInvestorsDetailed ?? [];
   const relatedReports = r.relatedReportsDetailed ?? [];
   const chartSections = r.sections.filter((s) => (s.chart?.length ?? 0) > 0);
-  const visibleFindings = loggedIn ? r.keyFindings : r.keyFindings.slice(0, 2);
+  // While the session check is still in flight, default to the guest-
+  // capped view (fewer findings) rather than guessing logged-in — under-
+  // showing real content for ~100ms is harmless; over-showing gated
+  // content to a guest, even briefly, is not.
+  const unlocked = hydrated && loggedIn;
+  const visibleFindings = unlocked ? r.keyFindings : r.keyFindings.slice(0, 2);
   const lockedFindingsCount = r.keyFindings.length - visibleFindings.length;
   // Only treat the last section as a distinct "Outlook" narrative when the
   // report actually has more than one section — a single-section report
   // has nothing separate to say twice.
   const outlookSection: ReportSection | null = r.sections.length > 1 ? r.sections[r.sections.length - 1] : null;
-  const opportunityFindings = (loggedIn ? r.keyFindings.slice(0, 3) : r.keyFindings.slice(0, 2));
+  const opportunityFindings = unlocked ? r.keyFindings.slice(0, 3) : r.keyFindings.slice(0, 2);
 
   function shareLink() {
     const url = `${location.origin}/reports/${r.id}`;
@@ -114,7 +131,7 @@ export function ReportDetailPage({ report: r }: { report: Report }) {
               if (i === 0) return <div key={s.heading}>{card}</div>;
               return (
                 <div key={s.heading}>
-                  <Gated loggedIn={loggedIn} title="Unlock Full Market Snapshot" body={`Sign in to see ${chartSections.length - 1} more chart${chartSections.length - 1 === 1 ? "" : "s"} from this report's market data.`}>
+                  <Gated loggedIn={loggedIn} hydrated={hydrated} title="Unlock Full Market Snapshot" body={`Sign in to see ${chartSections.length - 1} more chart${chartSections.length - 1 === 1 ? "" : "s"} from this report's market data.`}>
                     {card}
                   </Gated>
                 </div>
@@ -135,7 +152,7 @@ export function ReportDetailPage({ report: r }: { report: Report }) {
             </div>
           ))}
         </div>
-        {!loggedIn && lockedFindingsCount > 0 && (
+        {hydrated && !loggedIn && lockedFindingsCount > 0 && (
           <div className="mt-12">
             <LockedTeaser preview={`${lockedFindingsCount} more finding${lockedFindingsCount === 1 ? "" : "s"}`} title="Unlock the Full Report" body="Sign in to read every key finding, market statistic and the full analysis in this report." blurLines={2} cta="Unlock Full Report" />
           </div>
@@ -145,7 +162,7 @@ export function ReportDetailPage({ report: r }: { report: Report }) {
       {/* ======================================================= ANALYSIS */}
       <div className="mb-24">
         <SectionTitle>Analysis</SectionTitle>
-        <Gated loggedIn={loggedIn} title="Unlock Full Analysis" body="Sign in to read this report's full sector, funding and regulatory analysis.">
+        <Gated loggedIn={loggedIn} hydrated={hydrated} title="Unlock Full Analysis" body="Sign in to read this report's full sector, funding and regulatory analysis.">
           <div className="insight-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))" }}>
             {/* The last section is broken out as "Outlook" below instead of
                repeated here, when the report has more than one section. */}
@@ -168,7 +185,7 @@ export function ReportDetailPage({ report: r }: { report: Report }) {
               <div className="panel panel-pad">
                 <div className="eyebrow brand mb-8">Outlook</div>
                 <h3 className="fs-14 mb-8">{outlookSection.heading}</h3>
-                <Gated loggedIn={loggedIn} title="Unlock the Full Outlook" body="Sign in to read this report's forward-looking analysis.">
+                <Gated loggedIn={loggedIn} hydrated={hydrated} title="Unlock the Full Outlook" body="Sign in to read this report's forward-looking analysis.">
                   <p className="fs-13" style={{ lineHeight: "var(--line-height-relaxed)", color: "var(--text)" }}>{outlookSection.body}</p>
                 </Gated>
               </div>
@@ -235,7 +252,6 @@ export function ReportDetailPage({ report: r }: { report: Report }) {
           <ul className="fs-12" style={{ paddingLeft: 18, color: "var(--muted)", lineHeight: "var(--line-height-relaxed)" }}>
             {r.sources.map((s) => <li key={s}>{s}</li>)}
           </ul>
-          <p className="small muted mt-8">All figures in this report are illustrative sample data produced for the RUWĀD prototype, not verified market figures.</p>
         </div>
       </details>
     </div>

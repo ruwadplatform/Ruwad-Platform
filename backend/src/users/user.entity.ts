@@ -26,6 +26,24 @@ export class User extends BaseEntity {
   organization?: string;
 
   @Column({ nullable: true })
+  organizationWebsite?: string;
+
+  @Column({ nullable: true })
+  organizationStage?: string;
+
+  @Column({ nullable: true })
+  organizationCategory?: string;
+
+  @Column({ nullable: true })
+  organizationCity?: string;
+
+  @Column({ nullable: true })
+  organizationType?: string;
+
+  @Column({ type: "text", array: true, default: () => "'{}'" })
+  interests!: string[];
+
+  @Column({ nullable: true })
   country?: string;
 
   @Column({ nullable: true })

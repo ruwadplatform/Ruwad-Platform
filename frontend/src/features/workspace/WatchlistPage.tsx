@@ -6,6 +6,7 @@ import { EntityCard } from "@/components/shared/EntityCard";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
+import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { useSession, useWatchlist, useToggleSaved } from "@/hooks/use-store";
 import { useResolveCollections } from "@/hooks/use-directory-data";
 import { resolveEntity, RESOLVABLE_KINDS, KIND_LABELS, KIND_LOGO_STYLE, type ResolvableKind } from "@/lib/entity-resolve";
@@ -13,7 +14,7 @@ import { resolveEntity, RESOLVABLE_KINDS, KIND_LABELS, KIND_LOGO_STYLE, type Res
 type Group = "All" | ResolvableKind;
 
 export function WatchlistPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const watchlist = useWatchlist();
   const toggleSaved = useToggleSaved();
   const collections = useResolveCollections();
@@ -34,6 +35,7 @@ export function WatchlistPage() {
     return list;
   }, [watchlist, group, search, sort, collections]);
 
+  if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;
 
   const totalCount = RESOLVABLE_KINDS.reduce((a, k) => a + (watchlist[k]?.length ?? 0), 0);

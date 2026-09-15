@@ -86,6 +86,7 @@ function Overview({ h }: { h: Hub }) {
 }
 
 function TabBody({ tab, h, loggedIn }: { tab: Tab; h: Hub; loggedIn: boolean }) {
+  const { hydrated } = useSession();
   switch (tab) {
     case "Organization":
       return (
@@ -191,8 +192,8 @@ function TabBody({ tab, h, loggedIn }: { tab: Tab; h: Hub; loggedIn: boolean }) 
         <div className="panel panel-pad">
           <div className="stat-mini-row">
             <div className="stat-mini"><div className="sm-label">Program Contact</div><div className="sm-val fs-15">{h.contacts.programContact}</div></div>
-            <div className="stat-mini"><div className="sm-label">Email</div><div className="sm-val fs-15">{loggedIn ? h.contacts.email : <ContactLock />}</div></div>
-            <div className="stat-mini"><div className="sm-label">Phone</div><div className="sm-val fs-15">{loggedIn ? h.contacts.phone : <ContactLock />}</div></div>
+            <div className="stat-mini"><div className="sm-label">Email</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 90 }} /> : loggedIn ? h.contacts.email : <ContactLock />}</div></div>
+            <div className="stat-mini"><div className="sm-label">Phone</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 70 }} /> : loggedIn ? h.contacts.phone : <ContactLock />}</div></div>
             <div className="stat-mini"><div className="sm-label">Website</div><div className="sm-val fs-15">{h.contacts.website}</div></div>
             <div className="stat-mini"><div className="sm-label">HQ</div><div className="sm-val fs-15">{h.contacts.hq}</div></div>
           </div>

@@ -90,6 +90,7 @@ function Overview({ r }: { r: ResearchInstitution }) {
 }
 
 function TabBody({ tab, r, loggedIn }: { tab: Tab; r: ResearchInstitution; loggedIn: boolean }) {
+  const { hydrated } = useSession();
   switch (tab) {
     case "Institution":
       return (
@@ -202,8 +203,8 @@ function TabBody({ tab, r, loggedIn }: { tab: Tab; r: ResearchInstitution; logge
             <div className="stat-mini"><div className="sm-label">Main Contact</div><div className="sm-val fs-15">{r.contacts.mainContact}</div></div>
             <div className="stat-mini"><div className="sm-label">Research Office</div><div className="sm-val fs-15">{r.contacts.researchOffice}</div></div>
             <div className="stat-mini"><div className="sm-label">Tech Transfer Office</div><div className="sm-val fs-15">{r.contacts.techTransferOffice}</div></div>
-            <div className="stat-mini"><div className="sm-label">Email</div><div className="sm-val fs-15">{loggedIn ? r.contacts.email : <ContactLock />}</div></div>
-            <div className="stat-mini"><div className="sm-label">Phone</div><div className="sm-val fs-15">{loggedIn ? r.contacts.phone : <ContactLock />}</div></div>
+            <div className="stat-mini"><div className="sm-label">Email</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 90 }} /> : loggedIn ? r.contacts.email : <ContactLock />}</div></div>
+            <div className="stat-mini"><div className="sm-label">Phone</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 70 }} /> : loggedIn ? r.contacts.phone : <ContactLock />}</div></div>
             <div className="stat-mini"><div className="sm-label">Website</div><div className="sm-val fs-15">{r.contacts.website}</div></div>
           </div>
         </div>

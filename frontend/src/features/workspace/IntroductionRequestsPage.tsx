@@ -3,13 +3,15 @@
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { IntroductionRequestRow } from "@/components/workspace/IntroductionRequestRow";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
+import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useSession, useIntros } from "@/hooks/use-store";
 
 export function IntroductionRequestsPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const intros = useIntros();
 
+  if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;
 
   return (

@@ -38,6 +38,19 @@ export function AnalyticsDetailPage({ dashboardId }: { dashboardId: string }) {
 }
 
 function Gated({ loggedIn, title, body, children }: { loggedIn: boolean; title: string; body: string; children: React.ReactNode }) {
+  // Reads hydrated directly rather than threading it through every
+  // dashboard sub-component's props — see TopHeader's identical guard.
+  // `loggedIn` (the prop) defaults to false until the session check
+  // resolves, so without this a refresh briefly locks content that an
+  // authenticated visitor should already see.
+  const { hydrated } = useSession();
+  if (!hydrated) {
+    return (
+      <div className="locked-teaser" aria-hidden="true">
+        <div className="lt-bars">{[88, 74, 60].map((w, i) => <div key={i} className="lt-bar" style={{ width: `${w}%` }} />)}</div>
+      </div>
+    );
+  }
   if (loggedIn) return <>{children}</>;
   return <LockedTeaser title={title} body={body} blurLines={3} cta="Unlock Full Intelligence" />;
 }

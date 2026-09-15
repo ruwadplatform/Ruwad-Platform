@@ -30,7 +30,7 @@ const EMPTY_FILTERS: Filters = { type: [], country: [], city: [], healthcareFocu
 const COLLAB_STATUSES = ["Open", "Selective", "Closed"] as const;
 
 export function ResearchDirectoryPage() {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const { data: RESEARCH_INSTITUTIONS, loading, error } = useResearchInstitutions();
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("table");
@@ -53,7 +53,7 @@ export function ResearchDirectoryPage() {
     });
   }, [RESEARCH_INSTITUTIONS, search, filters]);
 
-  const { shown, capped } = capForGuest(filtered, 3, !loggedIn);
+  const { shown, capped } = capForGuest(filtered, 3, !hydrated || !loggedIn);
 
   function removeFilter(k: keyof Filters, v: string) {
     setFilters((f) => ({ ...f, [k]: f[k].filter((x) => x !== v) }));
@@ -103,6 +103,8 @@ export function ResearchDirectoryPage() {
           <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load institutions</h4><p>{error}</p></div>
         ) : loading ? (
           <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading institutions…</h4></div>
+        ) : !RESEARCH_INSTITUTIONS.length ? (
+          <div className="empty-state"><RuwadIcon name="research" size={30} /><h4>No research institutions available yet</h4><p>Research institutions added to the RUWĀD ecosystem will appear here.</p></div>
         ) : !filtered.length ? (
           <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No institutions match those filters</h4><p>Try clearing a filter or search term.</p></div>
         ) : view === "grid" ? (
@@ -110,7 +112,7 @@ export function ResearchDirectoryPage() {
         ) : (
           <ResearchTable list={shown} />
         )}
-        {capped && <DirectoryGateBanner entityLabelPlural="Research Institutions" totalCount={RESEARCH_INSTITUTIONS.length} />}
+        {hydrated && capped && <DirectoryGateBanner entityLabelPlural="Research Institutions" totalCount={RESEARCH_INSTITUTIONS.length} />}
       </div>
     </div>
   );
@@ -178,6 +180,7 @@ function ResearchRow({ r }: { r: ResearchInstitution }) {
 function ResearchFilterDrawer({
   filters, loggedIn, researchCities, onApply, onClear, onClose,
 }: { filters: Filters; loggedIn: boolean; researchCities: string[]; onApply: (f: Filters) => void; onClear: () => void; onClose: () => void }) {
+  const { hydrated } = useSession();
   function readChecked(key: string): string[] {
     if (typeof document === "undefined") return [];
     return Array.from(document.querySelectorAll<HTMLInputElement>(`input[data-fk="${key}"]:checked`)).map((i) => i.value);
@@ -197,7 +200,13 @@ function ResearchFilterDrawer({
         <FilterGroup label="Country" options={COUNTRIES} dataKey="country" checked={filters.country} inputName="country" />
         <FilterGroup label="City" options={researchCities} dataKey="city" checked={filters.city} inputName="city" />
         <FilterGroup label="Collaboration Availability" options={COLLAB_STATUSES} dataKey="collaboration" checked={filters.collaboration} inputName="collaboration" />
-        {!loggedIn ? <GuestAdvancedFilterGate /> : <FilterGroup label="Research Field" options={RESEARCH_FIELDS} dataKey="researchArea" checked={filters.researchArea} inputName="researchArea" />}
+        {!hydrated ? (
+          <span className="skel" style={{ width: "60%", display: "block" }} />
+        ) : !loggedIn ? (
+          <GuestAdvancedFilterGate />
+        ) : (
+          <FilterGroup label="Research Field" options={RESEARCH_FIELDS} dataKey="researchArea" checked={filters.researchArea} inputName="researchArea" />
+        )}
       </div>
       <div className="filter-drawer-foot">
         <button className="btn btn-outline" style={{ flex: 1 }} onClick={onClear}>Clear All</button>

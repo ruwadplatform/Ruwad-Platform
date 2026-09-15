@@ -48,7 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="content-in wide">{children}</div>
         </main>
       </div>
-      <button className="fab" title="Support" onClick={() => toast("RUWĀD support chat — demo only")}>
+      <button className="fab" title="Support" onClick={() => toast("Support chat is coming soon.")}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>

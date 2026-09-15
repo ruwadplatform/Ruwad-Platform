@@ -53,3 +53,15 @@ button:focus-visible{outline-offset:1px}
 
 /* skeleton util */
 .vis-hide{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+
+/* Generic light-background loading placeholder — the same "session check
+   still in flight" pattern the header uses (.hdr-skel, dark variant), for
+   any auth-gated content on a normal page background: neither the locked
+   (guest) nor unlocked (member) version renders until hydration resolves,
+   so this fills the gap without asserting either state. */
+.skel{
+  display:inline-block;height:12px;border-radius:var(--radius-pill);
+  background:var(--border);animation:skel-pulse 1.2s ease-in-out infinite;
+}
+@keyframes skel-pulse{0%,100%{opacity:.6}50%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.skel{animation:none;opacity:.8}}

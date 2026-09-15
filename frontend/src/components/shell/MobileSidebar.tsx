@@ -15,8 +15,12 @@ import { requireAuth } from "@/lib/store";
  * (accordion trigger vs. plain link) that they're two components, not one
  * recursive component branching on a union type. */
 export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { user, loggedIn } = useSession();
-  const nav = visibleTopNav(loggedIn, !!user?.isAdmin);
+  const { user, loggedIn, hydrated } = useSession();
+  // See TopHeader's identical guard: `loggedIn` starts false until the
+  // session check resolves, so gate on `hydrated` too or an authenticated
+  // visitor briefly sees the guest sidebar (no Dashboard/Workspace, plus
+  // Login/Create Account) on every refresh.
+  const nav = hydrated ? visibleTopNav(loggedIn, !!user?.isAdmin) : [];
 
   return (
     <>
@@ -26,18 +30,26 @@ export function MobileSidebar({ open, onClose }: { open: boolean; onClose: () =>
           <span className="sb-brand-text"><span className="en">RUWĀD</span><span className="ar">روّاد</span></span>
         </Link>
         <div className="sb-scroll">
-          {nav.map((it) =>
-            it.children ? (
-              <MobileNavGroup key={it.id} group={it} onNavigate={onClose} />
-            ) : (
-              <MobileNavLeaf key={it.id} label={it.label} icon={it.icon} route={it.route || "#"} onNavigate={onClose} />
-            ),
-          )}
-          {!loggedIn && (
-            <div className="sb-item-wrap" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
-              <Link href="/login" className="btn btn-outline btn-block" onClick={onClose}>Login</Link>
-              <Link href="/signup" className="btn btn-primary btn-block" onClick={onClose}>Create Account</Link>
+          {!hydrated ? (
+            <div className="sb-item-wrap" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }} aria-hidden="true">
+              {[1, 2, 3, 4].map((i) => <span key={i} className="hdr-skel" style={{ width: "70%", background: "var(--border)" }} />)}
             </div>
+          ) : (
+            <>
+              {nav.map((it) =>
+                it.children ? (
+                  <MobileNavGroup key={it.id} group={it} onNavigate={onClose} />
+                ) : (
+                  <MobileNavLeaf key={it.id} label={it.label} icon={it.icon} route={it.route || "#"} onNavigate={onClose} />
+                ),
+              )}
+              {!loggedIn && (
+                <div className="sb-item-wrap" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <Link href="/login" className="btn btn-outline btn-block" onClick={onClose}>Login</Link>
+                  <Link href="/signup" className="btn btn-primary btn-block" onClick={onClose}>Create Account</Link>
+                </div>
+              )}
+            </>
           )}
         </div>
       </aside>
