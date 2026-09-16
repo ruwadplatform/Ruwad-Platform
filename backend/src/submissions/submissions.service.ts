@@ -21,6 +21,7 @@ import { CreateInvestorDto } from "../investors/dto/create-investor.dto";
 import { CreateHubDto } from "../hubs/dto/create-hub.dto";
 import { CreateResearchDto } from "../research/dto/create-research.dto";
 import { CreateMultinationalDto } from "../multinationals/dto/create-multinational.dto";
+import { SubmissionAutofillService } from "./submission-autofill.service";
 
 /** DRAFT and CHANGES_REQUESTED are the only two states a user may edit or
  * submit from — every other transition below is admin-only and enforced
@@ -51,6 +52,7 @@ export class SubmissionsService {
     @InjectRepository(SubmissionReviewEvent) private readonly events: Repository<SubmissionReviewEvent>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly activity: ActivityService,
+    private readonly autofillService: SubmissionAutofillService,
     startupPublisher: StartupSubmissionPublisher,
     investorPublisher: InvestorSubmissionPublisher,
     hubPublisher: HubSubmissionPublisher,
@@ -117,6 +119,20 @@ export class SubmissionsService {
     if (dto.completionPercentage !== undefined) item.completionPercentage = dto.completionPercentage;
     item.title = dto.title ?? (typeof item.payload.name === "string" ? item.payload.name : item.title);
     return this.repo.save(item);
+  }
+
+  /** Extracts fields from an uploaded document but never touches
+   * item.payload — the merge-vs-conflict decision stays entirely
+   * client-side, and the actual write goes through update() (PATCH :id)
+   * so AI-extracted values get exactly the same treatment as manual
+   * entry, with no separate validation path. */
+  async autofill(userId: string, id: string, file: Express.Multer.File | undefined): Promise<{ fields: Record<string, unknown> }> {
+    const item = await this.findOneForUser(userId, id);
+    if (item.status !== SubmissionStatus.DRAFT && item.status !== SubmissionStatus.CHANGES_REQUESTED) {
+      throw new BadRequestException(`Cannot edit a submission with status ${item.status}`);
+    }
+    const fields = await this.autofillService.extract(item.kind, file);
+    return { fields };
   }
 
   async remove(userId: string, id: string): Promise<void> {

@@ -1,8 +1,7 @@
 import { BadGatewayException, BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Anthropic from "@anthropic-ai/sdk";
-import { PDFParse } from "pdf-parse";
-import * as mammoth from "mammoth";
+import { extractDocumentText } from "../common/document-text-extractor";
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -60,26 +59,12 @@ export class ResumeParseService {
       throw new ServiceUnavailableException("Resume parsing isn't configured on this server");
     }
 
-    const text = await this.extractText(file);
+    const text = await extractDocumentText(file);
     if (!text.trim()) {
       throw new BadRequestException("Couldn't read any text from that file — please fill in the fields manually");
     }
 
     return this.extractFields(text.slice(0, MAX_TEXT_CHARS));
-  }
-
-  private async extractText(file: Express.Multer.File): Promise<string> {
-    if (file.mimetype === "application/pdf") {
-      const parser = new PDFParse({ data: file.buffer });
-      try {
-        const result = await parser.getText();
-        return result.text;
-      } finally {
-        await parser.destroy();
-      }
-    }
-    const result = await mammoth.extractRawText({ buffer: file.buffer });
-    return result.value;
   }
 
   private async extractFields(text: string): Promise<ParsedResumeFields> {

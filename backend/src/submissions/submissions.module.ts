@@ -9,6 +9,7 @@ import { InvestorSubmissionPublisher } from "./publishers/investor-submission.pu
 import { HubSubmissionPublisher } from "./publishers/hub-submission.publisher";
 import { ResearchSubmissionPublisher } from "./publishers/research-submission.publisher";
 import { MultinationalSubmissionPublisher } from "./publishers/multinational-submission.publisher";
+import { SubmissionAutofillService } from "./submission-autofill.service";
 import { ActivityModule } from "../activity/activity.module";
 
 /** The five publishers below reach every directory/child entity purely
@@ -21,6 +22,7 @@ import { ActivityModule } from "../activity/activity.module";
   imports: [TypeOrmModule.forFeature([Submission, SubmissionReviewEvent]), ActivityModule],
   providers: [
     SubmissionsService,
+    SubmissionAutofillService,
     StartupSubmissionPublisher, InvestorSubmissionPublisher, HubSubmissionPublisher, ResearchSubmissionPublisher, MultinationalSubmissionPublisher,
   ],
   controllers: [SubmissionsController],

@@ -3,7 +3,7 @@ import type { EntitySchema, FieldDef } from "./schema-types";
 
 type Payload = Record<string, unknown>;
 
-function formatValue(field: FieldDef, value: unknown): string {
+export function formatValue(field: FieldDef, value: unknown): string {
   if (value === undefined || value === null || value === "") return "—";
   if (field.type === "boolean") return value ? "Yes" : "No";
   if (Array.isArray(value)) {

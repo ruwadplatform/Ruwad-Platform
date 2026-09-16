@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { Throttle } from "@nestjs/throttler";
 import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
 import { SubmissionsService } from "./submissions.service";
 import { CreateSubmissionDto } from "./dto/create-submission.dto";
@@ -112,5 +114,14 @@ export class SubmissionsController {
   @Post(":id/submit")
   submit(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return this.submissionsService.submit(user.userId, id);
+  }
+
+  /** Spends real Anthropic API credits per call, same as /resume-parse —
+   * throttled to match. */
+  @Post(":id/autofill")
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } }))
+  autofill(@CurrentUser() user: AuthUser, @Param("id") id: string, @UploadedFile() file: Express.Multer.File) {
+    return this.submissionsService.autofill(user.userId, id, file);
   }
 }

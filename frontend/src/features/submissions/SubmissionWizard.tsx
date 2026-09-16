@@ -14,15 +14,27 @@ import { fetchMySubmissions } from "@/lib/api/submissions";
 import { ApiError } from "@/lib/api/client";
 import type { ApiSubmission, ApiSubmissionKind } from "@/lib/api/types";
 import { SCHEMAS } from "./schemas";
-import { Field, type FieldValue } from "./Field";
-import { Repeater } from "./Repeater";
 import { validateStep, validateSchema, completionPercentage } from "./validate";
-import type { EntitySchema, StepDef } from "./schema-types";
+import { allFields } from "./schema-types";
+import type { EntitySchema } from "./schema-types";
+import { SubmissionLayout } from "./SubmissionLayout";
+import { SubmissionSection } from "./SubmissionSection";
+import { StickyFormActions } from "./StickyFormActions";
+import { ReviewSection } from "./ReviewSection";
+import { AIAutofillCard } from "./AIAutofillCard";
+import { CompactLogoUploader } from "./CompactLogoUploader";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type Payload = Record<string, unknown>;
 
 const AUTOSAVE_DELAY_MS = 1500;
+
+function isEmptyValue(v: unknown): boolean {
+  if (v === undefined || v === null) return true;
+  if (typeof v === "string") return v.trim() === "";
+  if (Array.isArray(v)) return v.length === 0;
+  return false;
+}
 
 export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
   const { loggedIn, hydrated } = useSession();
@@ -36,6 +48,8 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
   const [payload, setPayload] = useState<Payload>({});
   const [stepIndex, setStepIndex] = useState(0);
   const [touchedSteps, setTouchedSteps] = useState<Set<number>>(new Set());
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
+  const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [confirmChecked, setConfirmChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -99,11 +113,59 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
   function updateField(name: string, value: unknown) {
     dirtyRef.current = true;
     setSaveStatus("idle");
+    setTouchedFields((s) => new Set(s).add(name));
+    // A manual edit is the user overriding whatever AI put there — the
+    // "AI filled" badge is only meaningful until the user has looked at
+    // and touched that field.
+    setAiFilledFields((s) => { if (!s.has(name)) return s; const next = new Set(s); next.delete(name); return next; });
     setPayload((p) => ({ ...p, [name]: value }));
   }
 
+  /** Called by AIAutofillCard once a document has been analyzed. Never
+   * writes anywhere but `payload` — the same setPayload → debounced
+   * persist() → PATCH /api/submissions/:id path every manual edit already
+   * goes through, so AI-extracted values get exactly the same validation
+   * as manual entry, with no separate code path. A field the user has
+   * already edited (and is non-empty) is never silently overwritten —
+   * conflicts route through the existing ConfirmModal instead. */
+  function applyAiAutofill(extracted: Record<string, unknown>) {
+    const safe: Record<string, unknown> = {};
+    const conflictingNames: string[] = [];
+    for (const [name, value] of Object.entries(extracted)) {
+      if (touchedFields.has(name) && !isEmptyValue(payload[name])) {
+        conflictingNames.push(name);
+      } else {
+        safe[name] = value;
+      }
+    }
+
+    const merge = (fields: Record<string, unknown>) => {
+      if (Object.keys(fields).length === 0) return;
+      dirtyRef.current = true;
+      setSaveStatus("idle");
+      setAiFilledFields((s) => new Set([...s, ...Object.keys(fields)]));
+      setPayload((p) => ({ ...p, ...fields }));
+    };
+
+    if (conflictingNames.length === 0) {
+      merge(safe);
+      return;
+    }
+
+    const labels = allFields(schema).filter((f) => conflictingNames.includes(f.name)).map((f) => f.label);
+    openModal(
+      <ConfirmModal
+        title="Some fields you've already edited"
+        body={`The document also has values for: ${labels.join(", ")}. Click Cancel to keep your own edits for those fields, or Overwrite to replace them with the AI-extracted values. Every other extracted field will be filled in either way.`}
+        confirmLabel="Overwrite with AI Values"
+        onCancel={() => { merge(safe); closeModal(); }}
+        onConfirm={() => { merge({ ...safe, ...Object.fromEntries(conflictingNames.map((n) => [n, extracted[n]])) }); closeModal(); }}
+      />,
+    );
+  }
+
   const isReviewStep = stepIndex === schema.steps.length;
-  const currentStep: StepDef | undefined = schema.steps[stepIndex];
+  const currentStep = schema.steps[stepIndex];
   const stepValidation = currentStep ? validateStep(currentStep, payload) : { fieldErrors: {}, repeaterErrors: {}, valid: true };
   const showErrors = touchedSteps.has(stepIndex);
 
@@ -187,142 +249,58 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
         </div>
       )}
 
-      <div className="form-shell">
-        <div className="form-steps">
-          <div className="form-progress">
-            <div className="fp-num">{completionPercentage(schema, payload)}%</div>
-            <div className="fp-label">Complete</div>
-            <div className="form-progress-track"><div className="form-progress-fill" style={{ width: `${completionPercentage(schema, payload)}%` }} /></div>
+      <SubmissionLayout schema={schema} payload={payload} stepIndex={stepIndex} touchedSteps={touchedSteps} isReviewStep={isReviewStep} onGoToStep={goToStep} saveStatus={saveStatus}>
+        {!isReviewStep && currentStep && (
+          <div>
+            {stepIndex === 0 && (
+              <>
+                <AIAutofillCard kind={kind} submissionId={submission.id} onExtracted={applyAiAutofill} />
+                <CompactLogoUploader value={payload.logoImageId as string | undefined} onChange={(v) => updateField("logoImageId", v)} />
+              </>
+            )}
+            {currentStep.sections.map((section, si) => {
+              // The logo field is already rendered by CompactLogoUploader
+              // above on step 0 — never render it twice.
+              const fields = stepIndex === 0 ? section.fields.filter((f) => f.type !== "image-upload") : section.fields;
+              if (fields.length === 0) return null;
+              return (
+                <SubmissionSection
+                  key={si}
+                  section={{ ...section, fields }}
+                  payload={payload}
+                  showErrors={showErrors}
+                  fieldErrors={stepValidation.fieldErrors}
+                  repeaterErrors={stepValidation.repeaterErrors}
+                  aiFilledFields={aiFilledFields}
+                  onFieldChange={updateField}
+                />
+              );
+            })}
           </div>
-          {schema.steps.map((step, i) => {
-            const stepErrs = validateStep(step, payload);
-            const stepDone = stepErrs.valid && touchedSteps.has(i);
-            return (
-              <button key={step.id} type="button" className={`step-item${i === stepIndex ? " active" : ""}${stepDone ? " done" : ""}`} onClick={() => goToStep(i)}>
-                <span className="si-dot">{stepDone ? <RuwadIcon name="check" size={11} /> : i + 1}</span>
-                {step.label}
-              </button>
-            );
-          })}
-          <button type="button" className={`step-item${isReviewStep ? " active" : ""}`} onClick={() => goToStep(schema.steps.length)}>
-            <span className="si-dot">{schema.steps.length + 1}</span>
-            Review & Submit
-          </button>
-        </div>
+        )}
 
-        <div className="form-main">
-          <div className="form-main-head">
-            <div>
-              <h2>{isReviewStep ? "Review & Submit" : currentStep!.label}</h2>
-              <div className="fmh-sub">{schema.label} submission</div>
-            </div>
-            <SaveBadge status={saveStatus} />
-          </div>
+        {isReviewStep && (
+          <ReviewSection
+            schema={schema}
+            payload={payload}
+            onEditSection={(i) => setStepIndex(i)}
+            confirmChecked={confirmChecked}
+            onConfirmChange={setConfirmChecked}
+          />
+        )}
+      </SubmissionLayout>
 
-          {!isReviewStep && currentStep && (
-            <div>
-              {currentStep.sections.map((section, si) => (
-                <div className="form-section-block" key={si}>
-                  {section.title && <h4>{section.title}</h4>}
-                  <div className="grid-2">
-                    {section.fields.map((f) => {
-                      if (f.condition && !f.condition(payload)) return null;
-                      if (f.type === "repeater") {
-                        return (
-                          <div key={f.name} className="field-full">
-                            <Repeater
-                              field={f}
-                              items={Array.isArray(payload[f.name]) ? (payload[f.name] as Payload[]) : []}
-                              errors={showErrors ? stepValidation.repeaterErrors[f.name] : undefined}
-                              onChange={(items) => updateField(f.name, items)}
-                            />
-                          </div>
-                        );
-                      }
-                      return (
-                        <Field
-                          key={f.name}
-                          field={f}
-                          value={payload[f.name] as FieldValue}
-                          error={showErrors ? stepValidation.fieldErrors[f.name] : undefined}
-                          onChange={(v) => updateField(f.name, v)}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {isReviewStep && (
-            <ReviewPanel
-              schema={schema}
-              payload={payload}
-              onEditSection={(i) => setStepIndex(i)}
-              confirmChecked={confirmChecked}
-              onConfirmChange={setConfirmChecked}
-            />
-          )}
-        </div>
-      </div>
-
-      <div className="form-sticky-actions">
-        <div className="flex gap-8">
-          <button type="button" className="btn btn-outline" onClick={goPrev} disabled={stepIndex === 0}>Previous</button>
-          <button type="button" className="btn btn-outline btn-sm" onClick={deleteThisDraft}><RuwadIcon name="trash" size={13} /> Delete Draft</button>
-        </div>
-        <div className="flex gap-8">
-          <button type="button" className="btn btn-outline" onClick={saveDraftNow}>Save Draft</button>
-          {isReviewStep ? (
-            <button type="button" className="btn btn-primary" disabled={!confirmChecked || submitting || !validateSchema(schema, payload)} onClick={handleSubmit}>
-              {submitting ? "Submitting…" : "Submit for Review"}
-            </button>
-          ) : (
-            <button type="button" className="btn btn-primary" onClick={goNext}>Next</button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SaveBadge({ status }: { status: SaveStatus }) {
-  if (status === "saving") return <span className="autosave-badge"><RuwadIcon name="clock" size={13} /> Saving…</span>;
-  if (status === "saved") return <span className="autosave-badge"><RuwadIcon name="check" size={13} /> Saved</span>;
-  if (status === "error") return <span className="autosave-badge" style={{ color: "var(--crit)" }}><RuwadIcon name="help" size={13} /> Save failed — retrying</span>;
-  return <span className="autosave-badge"><RuwadIcon name="cloud" size={13} /> Autosaves as you go</span>;
-}
-
-function ReviewPanel({ schema, payload, onEditSection, confirmChecked, onConfirmChange }: {
-  schema: EntitySchema;
-  payload: Payload;
-  onEditSection: (stepIndex: number) => void;
-  confirmChecked: boolean;
-  onConfirmChange: (v: boolean) => void;
-}) {
-  return (
-    <div>
-      {schema.steps.map((step, i) => {
-        const v = validateStep(step, payload);
-        return (
-          <div className="form-section-block" key={step.id}>
-            <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
-              <h4 style={{ border: "none", marginBottom: 0, paddingBottom: 0 }}>{step.label}</h4>
-              <div className="flex gap-8" style={{ alignItems: "center" }}>
-                <span className={`badge ${v.valid ? "badge-good" : "badge-warn"}`}>{v.valid ? "Complete" : "Missing fields"}</span>
-                <button type="button" className="btn btn-outline btn-xs" onClick={() => onEditSection(i)}>Edit</button>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-      <div className="field mt-16">
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontWeight: 500 }}>
-          <input type="checkbox" checked={confirmChecked} onChange={(e) => onConfirmChange(e.target.checked)} style={{ marginTop: 2 }} />
-          I confirm that the information provided is accurate and I am authorized to submit this listing.
-        </label>
-      </div>
+      <StickyFormActions
+        onPrev={goPrev}
+        prevDisabled={stepIndex === 0}
+        onDeleteDraft={deleteThisDraft}
+        onSaveDraft={saveDraftNow}
+        isReviewStep={isReviewStep}
+        canSubmit={confirmChecked && validateSchema(schema, payload)}
+        submitting={submitting}
+        onNext={goNext}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 }
