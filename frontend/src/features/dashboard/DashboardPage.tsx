@@ -222,15 +222,39 @@ function EcosystemSnapshot() {
   );
 }
 
+/** Published, individually-sourced figures on healthcare investment/market
+ * size in Saudi Arabia — external market context, not anything RUWĀD
+ * itself tracks. Shown only until real submitted funding data exists (see
+ * HealthcareInvestments below), each figure links straight to its source
+ * so it's never mistaken for a RUWĀD-verified number. */
+const MARKET_INVESTMENT_STATS = [
+  {
+    value: "$788M", label: "Raised across 3 Saudi healthcare IPOs in 2024 — ~22% of all Gulf IPO proceeds that year",
+    source: "AGBI, Oct 2024", href: "https://www.agbi.com/analysis/health/2024/10/healthcare-sector-next-target-for-saudi-private-equity/",
+  },
+  {
+    value: "$250M", label: "Jada Fund of Funds (PIF-owned) fundraising round to invest in major Saudi healthcare companies, 2024",
+    source: "AGBI, Oct 2024", href: "https://www.agbi.com/analysis/health/2024/10/healthcare-sector-next-target-for-saudi-private-equity/",
+  },
+  {
+    value: "$57B", label: "Saudi government health & social development budget for 2024 (SAR 214B)",
+    source: "AGBI, Oct 2024", href: "https://www.agbi.com/analysis/health/2024/10/healthcare-sector-next-target-for-saudi-private-equity/",
+  },
+  {
+    value: "$4.4B", label: "Saudi digital health market size, 2025 — projected to reach $18.3B by 2032",
+    source: "PS Market Research", href: "https://www.psmarketresearch.com/market-analysis/saudi-arabia-digital-health-market-report",
+  },
+] as const;
+
 function HealthcareInvestments() {
   const { data: STARTUPS } = useStartups();
   const total = STARTUPS.reduce((a, s) => a + s.fundingTotal, 0);
   return (
     <div className="panel mt-32">
-      <div className="panel-head"><h3>Healthcare Ecosystem Investments</h3><span className="sub">Last 90 days</span></div>
+      <div className="panel-head"><h3>Healthcare Ecosystem Investments</h3><span className="sub">{STARTUPS.length === 0 ? "Saudi Arabia market context" : "Last 90 days"}</span></div>
       <div className="panel-pad">
         {STARTUPS.length === 0 ? (
-          <p className="muted small">Not enough data available yet.</p>
+          <MarketInvestmentContext />
         ) : (
           <>
             <EcoStackBar />
@@ -242,6 +266,27 @@ function HealthcareInvestments() {
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function MarketInvestmentContext() {
+  return (
+    <div>
+      <p className="muted small mb-12">
+        RUWĀD doesn&apos;t yet track enough submitted funding data to chart ecosystem investment directly.
+        For context, here is published market data on healthcare investment and market size in Saudi Arabia —
+        not figures RUWĀD has verified itself.
+      </p>
+      <div className="market-stat-grid">
+        {MARKET_INVESTMENT_STATS.map((s) => (
+          <a key={s.value + s.label} href={s.href} target="_blank" rel="noreferrer" className="market-stat">
+            <b className="mono">{s.value}</b>
+            <span>{s.label}</span>
+            <span className="market-stat-src">Source: {s.source}</span>
+          </a>
+        ))}
       </div>
     </div>
   );

@@ -204,6 +204,18 @@
 .trend-co b{font-size:var(--fs-11);display:block}
 .trend-co span{font-size:var(--fs-10);color:var(--muted)}
 
+/* External market-context stat cards (MarketInvestmentContext) — same
+   shape as .trend-co above but each one is a link out to its source. */
+.market-stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.market-stat{
+  display:block;border:1px solid rgba(37,99,166,.4);border-radius:var(--radius-card);padding:14px;
+  color:var(--text);transition:border-color .15s ease;
+}
+.market-stat:hover{border-color:var(--info)}
+.market-stat b{font-size:var(--fs-20);display:block;margin-bottom:6px;color:var(--info)}
+.market-stat span{font-size:var(--fs-12);color:var(--muted);line-height:1.4;display:block}
+.market-stat .market-stat-src{font-size:var(--fs-10);color:var(--faint);margin-top:8px}
+
 /* news */
 .news-item{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)}
 .news-item:last-child{border-bottom:none}
