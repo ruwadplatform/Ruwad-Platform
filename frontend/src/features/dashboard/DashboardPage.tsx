@@ -274,11 +274,6 @@ function HealthcareInvestments() {
 function MarketInvestmentContext() {
   return (
     <div>
-      <p className="muted small mb-12">
-        RUWĀD doesn&apos;t yet track enough submitted funding data to chart ecosystem investment directly.
-        For context, here is published market data on healthcare investment and market size in Saudi Arabia —
-        not figures RUWĀD has verified itself.
-      </p>
       <div className="market-stat-grid">
         {MARKET_INVESTMENT_STATS.map((s) => (
           <a key={s.value + s.label} href={s.href} target="_blank" rel="noreferrer" className="market-stat">
