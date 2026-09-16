@@ -136,6 +136,11 @@
 .ai-upload-benefits li{display:flex;align-items:center;gap:7px}
 .ai-upload-benefits svg{color:var(--green);flex:none}
 
+/* The logo card itself — sits right under the full-width AIAutofillCard
+   but shouldn't stretch to match it; narrow and clearly secondary. */
+.logo-card{max-width:280px}
+@media(max-width:760px){.logo-card{max-width:none}}
+
 /* Compact square-icon variant of .upload-box (below), for CompactLogoUploader
    — the small logo card sitting right under AIAutofillCard, per the
    reference design, instead of the old wide full-row uploader. */

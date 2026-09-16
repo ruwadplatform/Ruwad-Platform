@@ -48,7 +48,7 @@ export function CompactLogoUploader({ value, onChange }: { value: string | undef
   }
 
   return (
-    <div className="panel panel-pad mb-16">
+    <div className="panel panel-pad mb-16 logo-card">
       <b className="fs-13">Company Logo</b>
       <p className="muted fs-12 mt-4">Optional — shown on your directory card and profile once approved.</p>
       <input
