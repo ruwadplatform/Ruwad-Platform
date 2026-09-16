@@ -1,15 +1,22 @@
 /* ============ MULTI-STEP FORM SHELL ============ */
-.form-shell{display:grid;grid-template-columns:240px 1fr;gap:0;background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);overflow:hidden;margin-bottom:70px}
+/* No overflow:hidden here — .form-steps below is a direct child and needs
+   position:sticky; an ancestor with overflow:hidden becomes that sticky
+   element's scroll container, and since .form-shell itself never scrolls,
+   the sidebar would just sit static instead of sticking. Corner-rounding
+   that overflow:hidden used to provide for free is now explicit on
+   .form-steps itself (the only child with a non-white background). */
+.form-shell{display:grid;grid-template-columns:240px 1fr;gap:0;background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);margin-bottom:70px}
 @media(max-width:760px){.form-shell{grid-template-columns:1fr}}
 
 .form-steps{
   background:var(--bg-2);border-right:1px solid var(--border);padding:18px 0;
+  border-top-left-radius:var(--radius-card);border-bottom-left-radius:var(--radius-card);
   /* Sticky while scrolling, per the reference design — pinned just below
      the site header (--header-h, layout.css), capped to the remaining
      viewport height with its own scroll for schemas with many steps. */
   position:sticky;top:var(--header-h);align-self:start;max-height:calc(100vh - var(--header-h));overflow-y:auto;
 }
-@media(max-width:760px){.form-steps{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;padding:10px}}
+@media(max-width:760px){.form-steps{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;padding:10px;border-radius:var(--radius-card) var(--radius-card) 0 0}}
 
 .form-progress{padding:0 18px 16px;margin-bottom:6px;border-bottom:1px solid var(--border)}
 @media(max-width:760px){.form-progress{display:none}}
@@ -66,22 +73,25 @@
 .doc-card .doc-status{font-size:var(--fs-11);color:var(--muted)}
 
 /* ============ SMART PITCH DECK UPLOAD ============ */
+/* Blue (--info/--info-tint) rather than gold — matches the reference
+   design and the rest of the app's informational-blue accents (badges,
+   the form input focus border). */
 .btn-xs{height:24px;padding:0 8px;font-size:var(--fs-11)}
 .ai-upload-panel{
   display:flex;align-items:center;gap:14px;padding:16px 18px;margin-bottom:20px;
-  border:1.5px dashed var(--gold);border-radius:var(--radius-card);background:var(--gold-tint);
+  border:1.5px dashed var(--info);border-radius:var(--radius-card);background:var(--info-tint);
 }
 .ai-upload-panel.drag{border-style:solid;background:var(--green-tint);border-color:var(--green)}
 .ai-upload-panel.ai-error{border-color:var(--crit);background:var(--crit-tint)}
 .ai-upload-icon{
-  flex:none;width:36px;height:36px;border-radius:var(--radius-pill);background:var(--gold);color:#fff;
+  flex:none;width:36px;height:36px;border-radius:var(--radius-pill);background:var(--info);color:#fff;
   display:flex;align-items:center;justify-content:center;
 }
 .ai-upload-icon.ai-error-icon{background:var(--crit)}
 .ai-upload-icon.ai-ok-icon{background:var(--green)}
 .ai-upload-spinner{
   flex:none;width:36px;height:36px;border-radius:var(--radius-pill);border:3px solid var(--border);
-  border-top-color:var(--gold);animation:aiSpin .8s linear infinite;
+  border-top-color:var(--info);animation:aiSpin .8s linear infinite;
 }
 @media (prefers-reduced-motion: reduce){.ai-upload-spinner{animation-duration:2.4s}}
 @keyframes aiSpin{to{transform:rotate(360deg)}}
@@ -93,12 +103,12 @@
   font-size:var(--fs-11);display:flex;align-items:center;gap:6px;
 }
 
-.chip-ai{background:var(--gold-tint);border-color:var(--gold);color:var(--gold-ink);font-size:var(--fs-10);padding:2px 7px;font-weight:700}
-.chip-ai-sm{background:var(--gold-tint);border:1px solid var(--gold);color:var(--gold-ink);font-size:var(--fs-11);padding:2px 8px;border-radius:var(--radius-pill);display:inline-block}
+.chip-ai{background:var(--info-tint);border-color:var(--info);color:var(--info);font-size:var(--fs-10);padding:2px 7px;font-weight:700}
+.chip-ai-sm{background:var(--info-tint);border:1px solid var(--info);color:var(--info);font-size:var(--fs-11);padding:2px 8px;border-radius:var(--radius-pill);display:inline-block}
 .ai-suggest-row{
   display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
-  margin-top:8px;padding:8px 10px;border-radius:var(--radius-md);background:var(--gold-tint);
-  font-size:var(--fs-12);color:var(--text);border:1px solid var(--gold);
+  margin-top:8px;padding:8px 10px;border-radius:var(--radius-md);background:var(--info-tint);
+  font-size:var(--fs-12);color:var(--text);border:1px solid var(--info);
 }
 .ai-suggest-row-array{align-items:flex-start}
 .ai-suggest-row span{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -108,7 +118,7 @@
    form (AIAutofillCard). Reuses the same drag/error states and spinner. */
 .ai-upload-panel-lg{
   padding:22px 24px;margin-bottom:20px;
-  border:1.5px dashed var(--gold);border-radius:var(--radius-card);background:var(--gold-tint);
+  border:1.5px dashed var(--info);border-radius:var(--radius-card);background:var(--info-tint);
 }
 .ai-upload-panel-lg.drag{border-style:solid;background:var(--green-tint);border-color:var(--green)}
 .ai-upload-panel-lg.ai-error{border-color:var(--crit);background:var(--crit-tint)}
