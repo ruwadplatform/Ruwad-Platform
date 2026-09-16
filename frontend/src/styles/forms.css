@@ -18,26 +18,31 @@
 }
 @media(max-width:760px){.form-steps{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;padding:10px;border-radius:var(--radius-card) var(--radius-card) 0 0}}
 
-.form-progress{padding:0 18px 16px;margin-bottom:6px;border-bottom:1px solid var(--border)}
+.form-progress{padding:0 20px 18px;margin-bottom:10px;border-bottom:1px solid var(--border)}
 @media(max-width:760px){.form-progress{display:none}}
-.form-progress .fp-num{font-family:var(--font-mono);font-size:var(--fs-26);font-weight:700;color:var(--green-dark)}
+.form-progress .fp-num{font-family:var(--font-mono);font-size:var(--fs-34);font-weight:700;color:var(--text)}
 .form-progress .fp-label{font-size:var(--fs-11);color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
 .form-progress-track{height:6px;background:var(--border);border-radius:var(--radius-pill);margin-top:10px;overflow:hidden}
 .form-progress-fill{height:100%;background:var(--green);border-radius:var(--radius-pill);transition:width .2s}
 
 .step-item{
-  display:flex;align-items:center;gap:10px;padding:9px 18px;font-size:var(--fs-12);color:var(--muted);
-  border-left:3px solid transparent;white-space:nowrap;
+  display:flex;align-items:center;gap:12px;padding:13px 20px;font-size:var(--fs-13);color:var(--info);
+  /* A plain <button> keeps the browser's own default border/background on
+     every side except the one we set below — that leftover UA chrome is
+     what made the active step look like a boxed card instead of a clean
+     left-accent highlight. Reset both explicitly before re-adding the
+     accent border. */
+  border:none;background:none;border-left:3px solid transparent;white-space:nowrap;
   /* Same fix as .tabs button (components.css): .form-steps scrolls
      horizontally on mobile (overflow-x:auto) — steps must keep their own
      content width so the row scrolls instead of every step shrinking
      below its label and overlapping the next one. */
   flex:none;
 }
-.step-item .si-dot{width:18px;height:18px;border-radius:var(--radius-pill);background:#fff;border:1.5px solid var(--border-strong);display:flex;align-items:center;justify-content:center;font-size:var(--fs-10);font-weight:700;flex:none;color:var(--muted)}
+.step-item .si-dot{width:26px;height:26px;border-radius:var(--radius-pill);background:#fff;border:1.5px solid var(--info);display:flex;align-items:center;justify-content:center;font-size:var(--fs-12);font-weight:700;flex:none;color:var(--info)}
 .step-item.done .si-dot{background:var(--green);border-color:var(--green);color:#fff}
 .step-item.active{color:var(--text);font-weight:700;border-left-color:var(--green);background:#fff}
-.step-item.active .si-dot{border-color:var(--green);color:var(--green-dark)}
+.step-item.active .si-dot{border-color:var(--green);color:var(--green-dark);background:#fff}
 /* A step that's been visited but still fails validation — distinct from
    "not yet visited" (plain) and "visited & valid" (.done above), so the
    sidebar can show current/completed/incomplete/error as four real states. */
