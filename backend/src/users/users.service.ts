@@ -4,6 +4,7 @@ import { Repository } from "typeorm";
 import { User } from "./user.entity";
 import { UserSettings } from "./user-settings.entity";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
+import { UserRole, UserStatus } from "../common/enums";
 import { UpdateSettingsDto } from "./dto/update-settings.dto";
 
 export type PublicUser = Omit<User, "passwordHash">;
@@ -22,6 +23,12 @@ export class UsersService {
 
   findByEmail(email: string): Promise<User | null> {
     return this.users.findOne({ where: { email: email.toLowerCase() } });
+  }
+
+  /** Oldest active admin — the actor recorded for decisions made from the
+   * admin notification email, where nobody is signed in. */
+  findFirstAdmin(): Promise<User | null> {
+    return this.users.findOne({ where: [{ role: UserRole.RUWAD_ADMIN, status: UserStatus.ACTIVE }, { role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE }], order: { createdAt: "ASC" } });
   }
 
   async findByIdOrThrow(id: string): Promise<User> {

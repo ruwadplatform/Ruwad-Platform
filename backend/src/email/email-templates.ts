@@ -45,22 +45,46 @@ function detailsTable(rows: [string, string][]): string {
   </table>`;
 }
 
+const FIELD_LABELS: Record<string, string> = { desc: "Description", hq: "Headquarters", sfda: "SFDA status", fda: "FDA status", ce: "CE status", marketTam: "Market TAM", marketSam: "Market SAM", marketSom: "Market SOM", fundingTotal: "Total funding (SAR)", valuation: "Valuation (SAR)" };
+const HIDDEN_FIELDS = new Set(["logoImageId"]);
+
+function labelFor(key: string): string {
+  return FIELD_LABELS[key] ?? key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+}
+
+function formatValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "";
+  if (Array.isArray(v)) return v.map(formatValue).filter(Boolean).join("; ");
+  if (typeof v === "object") {
+    return Object.entries(v as Record<string, unknown>).map(([k, x]) => [labelFor(k), formatValue(x)]).filter(([, x]) => x).map(([k, x]) => `${k}: ${x}`).join(", ");
+  }
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  return String(v);
+}
+
 export function startupSubmissionReceivedTemplate(p: {
   startupName: string; submitterName: string; submitterEmail: string;
-  category: string; stage: string; submissionId: string; submittedAt: string; reviewUrl: string;
+  submissionId: string; submittedAt: string; payload: Record<string, unknown>;
+  approveUrl: string; rejectUrl: string;
 }): string {
+  const rows: [string, string][] = Object.entries(p.payload)
+    .filter(([k]) => !HIDDEN_FIELDS.has(k))
+    .map(([k, v]): [string, string] => [labelFor(k), formatValue(v)])
+    .filter(([, v]) => v !== "");
+  const button = (url: string, text: string, bg: string) =>
+    `<a href="${url}" style="display:inline-block;background:${bg};color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:6px;font-weight:600;font-size:14px;margin-right:10px;">${escapeHtml(text)}</a>`;
   const body =
-    `<p>A new startup registration has been submitted and is awaiting review.</p>` +
+    `<p>A new startup registration has been submitted and is awaiting your decision.</p>` +
     detailsTable([
-      ["Startup Name", p.startupName],
-      ["Submitter", p.submitterName],
-      ["Submitter Email", p.submitterEmail],
-      ["Healthcare Sector", p.category],
-      ["Stage", p.stage],
-      ["Submission ID", p.submissionId],
+      ["Submitted by", `${p.submitterName} (${p.submitterEmail})`],
       ["Submitted", p.submittedAt],
-    ]);
-  return layout("New Startup Submission", body, { text: "Review Submission", url: p.reviewUrl });
+      ["Submission ID", p.submissionId],
+    ]) +
+    `<h2 style="margin:24px 0 0;font-size:15px;">Submission details</h2>` +
+    detailsTable(rows) +
+    `<div style="margin-top:28px;">${button(p.approveUrl, "Accept", "#128A45")}${button(p.rejectUrl, "Reject", "#C0392B")}</div>` +
+    `<p style="margin-top:14px;font-size:12px;color:#8B978E;">Each button opens a confirmation page before anything is changed. Links expire in 7 days.</p>`;
+  return layout(`New Startup Submission: ${p.startupName}`, body);
 }
 
 export function dataRoomRequestedTemplate(p: {

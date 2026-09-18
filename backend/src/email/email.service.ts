@@ -8,6 +8,7 @@ import {
   dataRoomReviewedTemplate,
   introductionStatusChangedTemplate,
 } from "./email-templates";
+import { signEmailAction } from "./email-action-token";
 
 const ENTITY_PATH: Record<EntityKind, string> = {
   [EntityKind.STARTUP]: "startups",
@@ -34,6 +35,8 @@ export class EmailService {
   private readonly from: string;
   private readonly appUrl: string;
   private readonly adminEmail: string;
+  private readonly apiUrl: string;
+  private readonly actionSecret: string;
 
   constructor(config: ConfigService) {
     const apiKey = config.get<string>("RESEND_API_KEY");
@@ -41,6 +44,9 @@ export class EmailService {
     this.from = config.get<string>("EMAIL_FROM") ?? "RUWĀD <onboarding@resend.dev>";
     this.appUrl = (config.get<string>("APP_URL") ?? "http://localhost:5174").replace(/\/+$/, "");
     this.adminEmail = config.get<string>("ADMIN_NOTIFICATION_EMAIL") ?? "";
+    // Render injects RENDER_EXTERNAL_URL for every web service; PUBLIC_API_URL overrides it.
+    this.apiUrl = (config.get<string>("PUBLIC_API_URL") ?? config.get<string>("RENDER_EXTERNAL_URL") ?? "http://localhost:4000").replace(/\/+$/, "").replace(/\/api$/, "");
+    this.actionSecret = config.get<string>("JWT_SECRET") ?? "";
     if (!apiKey) this.logger.warn("RESEND_API_KEY not set — email notifications are disabled (attempts will be logged only).");
   }
 
@@ -74,21 +80,23 @@ export class EmailService {
    * administrative workflow notification, not a personal one). */
   async sendStartupSubmissionReceived(p: {
     startupName: string; submitterName: string; submitterEmail: string;
-    category: string; stage: string; submissionId: string; submittedAt: Date;
+    submissionId: string; submittedAt: Date; payload: Record<string, unknown>;
   }): Promise<void> {
     if (!this.adminEmail) {
       this.logger.warn("ADMIN_NOTIFICATION_EMAIL not set — skipping startup submission notification email.");
       return;
     }
+    const actionUrl = (act: "approve" | "reject") =>
+      `${this.apiUrl}/api/email-actions/submission?token=${signEmailAction(p.submissionId, act, this.actionSecret)}`;
     const html = startupSubmissionReceivedTemplate({
       startupName: p.startupName,
       submitterName: p.submitterName,
       submitterEmail: p.submitterEmail,
-      category: p.category,
-      stage: p.stage,
       submissionId: p.submissionId,
       submittedAt: formatDate(p.submittedAt),
-      reviewUrl: `${this.appUrl}/admin/submissions/${p.submissionId}`,
+      payload: p.payload,
+      approveUrl: actionUrl("approve"),
+      rejectUrl: actionUrl("reject"),
     });
     await this.send(this.adminEmail, `New Startup Submission: ${p.startupName}`, html);
   }

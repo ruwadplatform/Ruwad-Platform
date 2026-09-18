@@ -4,6 +4,7 @@ import { Submission } from "./submission.entity";
 import { SubmissionReviewEvent } from "./submission-review-event.entity";
 import { SubmissionsService } from "./submissions.service";
 import { SubmissionsController } from "./submissions.controller";
+import { SubmissionEmailActionController } from "./submission-email-action.controller";
 import { StartupSubmissionPublisher } from "./publishers/startup-submission.publisher";
 import { InvestorSubmissionPublisher } from "./publishers/investor-submission.publisher";
 import { HubSubmissionPublisher } from "./publishers/hub-submission.publisher";
@@ -27,7 +28,7 @@ import { EmailModule } from "../email/email.module";
     SubmissionAutofillService,
     StartupSubmissionPublisher, InvestorSubmissionPublisher, HubSubmissionPublisher, ResearchSubmissionPublisher, MultinationalSubmissionPublisher,
   ],
-  controllers: [SubmissionsController],
+  controllers: [SubmissionEmailActionController, SubmissionsController],
   exports: [SubmissionsService],
 })
 export class SubmissionsModule {}

@@ -175,10 +175,9 @@ export class SubmissionsService {
           startupName: (typeof saved.payload.name === "string" && saved.payload.name) || saved.title || "Untitled Startup",
           submitterName: `${submitter.firstName} ${submitter.lastName}`,
           submitterEmail: submitter.email,
-          category: typeof saved.payload.category === "string" ? saved.payload.category : "—",
-          stage: typeof saved.payload.stage === "string" ? saved.payload.stage : "—",
           submissionId: saved.id,
           submittedAt: saved.submittedAt ?? new Date(),
+          payload: saved.payload,
         });
       } catch (e) {
         this.logger.error(`Startup submission notification failed for submission ${saved.id}: ${e instanceof Error ? e.message : "unknown error"}`);
@@ -261,6 +260,17 @@ export class SubmissionsService {
 
     await this.activity.log(item.userId, ActivityType.SUBMISSION_APPROVED, `"${saved.title ?? "Your listing"}" was approved and published`, "/my-organizations");
     return saved;
+  }
+
+  /** Decision made from the Accept/Reject buttons in the admin email. Goes
+   * through the same startReview/approve/reject methods as the admin UI, so
+   * every validation, transition rule and side effect is identical. */
+  async decideFromEmail(adminUserId: string, id: string, action: "approve" | "reject", reason?: string): Promise<Submission> {
+    const item = await this.findOneAdmin(id);
+    if (item.status === SubmissionStatus.SUBMITTED) await this.startReview(adminUserId, id);
+    return action === "approve"
+      ? this.approve(adminUserId, id)
+      : this.reject(adminUserId, id, { reason: reason?.trim() || "Not approved after review." });
   }
 
   // ------------------------------------------------------------- internals
