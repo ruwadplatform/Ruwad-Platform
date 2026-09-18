@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { ProvenanceStrip } from "@/components/shared/ProvenanceStrip";
+import { DataRoomTab } from "@/components/shared/DataRoomTab";
 import { ContactLock } from "@/components/shared/ContactLock";
 import { LockedTeaser } from "@/components/shared/LockedTeaser";
 import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
@@ -186,19 +187,7 @@ function TabBody({ tab, m, loggedIn }: { tab: Tab; m: Multinational; loggedIn: b
         </div>
       );
     case "Documents":
-      return (
-        <div className="panel panel-pad">
-          <div className="flex gap-8" style={{ flexWrap: "wrap" }}>
-            {m.documents.map((d) => (
-              <div className="doc-card" key={d.n}>
-                <div className="doc-icon"><RuwadIcon name="doc" size={16} /></div>
-                <b>{d.n}</b>
-                <span className="doc-status">{d.ok ? "On file" : "Not provided"}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
+      return <DataRoomTab kind="multinational" entityId={m.entityId} />;
     case "Analytics":
       return (
         <div className="traction-grid">

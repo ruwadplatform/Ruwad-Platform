@@ -20,9 +20,16 @@ export class DataRoomController {
     return this.dataRoomService.findForUser(user.userId);
   }
 
+  /** Requests targeting entities the caller OWNS (EntityMembership role =
+   * OWNER) — scoped server-side, so it never lists anyone else's. */
+  @Get("owner/requests")
+  findOwnerRequests(@CurrentUser() user: AuthUser) {
+    return this.dataRoomService.findOwnerRequests(user.userId);
+  }
+
   @Get("status")
   status(@CurrentUser() user: AuthUser, @Query("kind") kind: EntityKind, @Query("entityId") entityId: string) {
-    return this.dataRoomService.status(user.userId, kind, entityId);
+    return this.dataRoomService.status(user, kind, entityId);
   }
 
   @Post("request")
@@ -37,10 +44,19 @@ export class DataRoomController {
     return this.dataRoomService.findAllPending();
   }
 
+  /** Owner-or-admin review. Any authenticated user can reach this route —
+   * the service resolves the request's entity and returns 403 unless the
+   * caller is that entity's OWNER or a platform admin. */
+  @Patch(":id/review")
+  review(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: ReviewAccessDto) {
+    return this.dataRoomService.review(user, id, dto.status);
+  }
+
+  /** Kept for existing admin callers — same service method, same checks. */
   @Patch("admin/:id/review")
   @UseGuards(RolesGuard)
   @Roles(UserRole.RUWAD_ADMIN, UserRole.SUPER_ADMIN)
-  review(@Param("id") id: string, @Body() dto: ReviewAccessDto) {
-    return this.dataRoomService.review(id, dto.status);
+  reviewAsAdmin(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: ReviewAccessDto) {
+    return this.dataRoomService.review(user, id, dto.status);
   }
 }

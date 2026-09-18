@@ -61,7 +61,7 @@ export function StartupProfilePage({ startup }: { startup: Startup }) {
           <button className="btn btn-outline" onClick={() => toggleSaved("startups", startup.id)}><RuwadIcon name="star" size={14} /> {saved ? "Saved" : "Save"}</button>
           <button className="btn btn-outline" onClick={() => toast(`Now following ${startup.name}`)}>Follow</button>
           <button className="btn btn-primary" onClick={() => { if (requireAuth("intro", { startupName: startup.name })) openModal(<RequestIntroModal startupName={startup.name} />); }}>Request Introduction</button>
-          <DataRoomButton companyId={startup.id} />
+          <DataRoomButton companyId={startup.id} kind="STARTUP" entityId={startup.entityId} />
           <button className="btn btn-outline" onClick={() => { if (requireAuth("compare", { id: startup.id })) openModal(<CompareModal initialId={startup.id} />, "xwide"); }}>Compare</button>
           <button className="btn btn-outline" onClick={shareLink}>Share</button>
           <ClaimCta startupId={startup.id} startupName={startup.name} verified={startup.verified} loggedIn={loggedIn} />
@@ -347,7 +347,7 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
         </div>
       );
     case "Data Room":
-      return <DataRoomTab kind="startup" />;
+      return <DataRoomTab kind="startup" entityId={s.entityId} />;
     default:
       return null;
   }

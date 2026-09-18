@@ -12,7 +12,9 @@ import { ListingStatusBadge } from "@/components/workspace/ListingStatusBadge";
 import { useSession, useMyStartupId, useOwnedListings } from "@/hooks/use-store";
 import { startupCompleteness } from "@/lib/completeness";
 import { fetchStartupBySlug } from "@/lib/api/startups";
+import { fetchDataRoomStatus, type DataRoomStatusResponse } from "@/lib/api/data-room";
 import { useKeyedResource } from "@/hooks/use-async-resource";
+import { useEffect, useState } from "react";
 
 /** Unlike the directory-wide useStartups() hook (list summaries, cheap for
  * a grid), the founder/admin view needs full detail — team, rounds,
@@ -26,6 +28,17 @@ export function MyStartupPage() {
   const toast = useToast();
 
   const { data: s, loading, error } = useKeyedResource(startupId, fetchStartupBySlug);
+
+  // Document metadata is no longer part of the public profile payload — the
+  // owner's checklist comes from the protected Data Room endpoint, which the
+  // backend only answers with documents for this entity's OWNER (or admin).
+  const [room, setRoom] = useState<DataRoomStatusResponse | null>(null);
+  const entityId = s?.entityId;
+  useEffect(() => {
+    if (!entityId) return;
+    fetchDataRoomStatus("STARTUP", entityId).then(setRoom).catch(() => setRoom(null));
+  }, [entityId]);
+  const documents = room?.documents ?? [];
 
   if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;
@@ -58,10 +71,10 @@ export function MyStartupPage() {
   }
 
   const listing = listings.find((l) => l.id === s.id);
-  const checks = startupCompleteness(s);
+  const checks = startupCompleteness(s, documents);
   const warnings: string[] = [];
   if (!s.regulatory.clinical || s.regulatory.clinical === "N/A") warnings.push("No clinical validation status on file — this affects investor visibility.");
-  if (!s.documents.find((d) => d.n === "Certifications")?.ok) warnings.push("Certifications document is missing.");
+  if (room && !documents.find((d) => d.name === "Certifications")?.onFile) warnings.push("Certifications document is missing.");
   if (s.team.length < 2) warnings.push("Team profile lists fewer than 2 members.");
 
   return (
@@ -172,11 +185,11 @@ export function MyStartupPage() {
       <div className="panel panel-pad mt-20">
         <h3 className="fs-13 mb-12">Documents Status</h3>
         <div className="flex gap-8" style={{ flexWrap: "wrap" }}>
-          {s.documents.map((d) => (
-            <div className="doc-card" key={d.n}>
+          {documents.map((d) => (
+            <div className="doc-card" key={d.id}>
               <div className="doc-icon"><RuwadIcon name="doc" size={16} /></div>
-              <b>{d.n}</b>
-              <span className="doc-status">{d.ok ? "On file" : "Not provided"}</span>
+              <b>{d.name}</b>
+              <span className="doc-status">{d.onFile ? "On file" : "Not provided"}</span>
             </div>
           ))}
         </div>

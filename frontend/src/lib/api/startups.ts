@@ -27,7 +27,6 @@ interface RawStartup {
   sectors?: string[];
   team?: { name: string; title: string; isFounder: boolean }[];
   rounds?: Startup["rounds"];
-  documents?: { name: string; onFile: boolean }[];
   investorIds?: string[];
 }
 
@@ -36,6 +35,7 @@ const emptyTraction = (): Startup["traction"] => ({ revenue: "—", growth: "—
 function mapStartup(r: RawStartup): Startup {
   return {
     id: r.slug,
+    entityId: r.id,
     name: r.name,
     category: r.category,
     subsector: r.subsector ?? "",
@@ -74,7 +74,6 @@ function mapStartup(r: RawStartup): Startup {
     phone: r.phone ?? "",
     linkedin: r.linkedin ?? "",
     registrationNumber: r.registrationNumber ?? "",
-    documents: (r.documents ?? []).map((d) => ({ n: d.name, ok: d.onFile })),
     newsItems: r.newsItems ?? [],
     verified: r.verified ?? "unclaimed",
     provenance: { lastUpdated: r.provenanceLastUpdated, sources: r.provenanceSources ?? [], confidence: r.provenanceConfidence ?? "Medium" },

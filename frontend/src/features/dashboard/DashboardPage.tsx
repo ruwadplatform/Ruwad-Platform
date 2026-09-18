@@ -181,7 +181,7 @@ function FeaturedProfiles() {
   const items = [
     ...STARTUPS.slice(0, 4).map((s) => ({ n: s.name, route: "/startups/" + s.id })),
     ...INVESTORS.slice(0, 4).map((v) => ({ n: v.name, route: "/investors/" + v.id })),
-    ...(HUBS_ENABLERS.length ? HUBS_ENABLERS.slice(0, 2).map(() => ({ n: HUBS_ENABLERS[0].name, route: "/hubs" })) : []),
+    ...HUBS_ENABLERS.slice(0, 2).map((h) => ({ n: h.name, route: "/hubs/" + h.id })),
   ];
   if (!items.length) return null;
   return (

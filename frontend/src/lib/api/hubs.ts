@@ -12,7 +12,6 @@ interface RawHub {
   programs?: Hub["programs"]; programCount?: number;
   portfolio?: HubPortfolioItem[]; portfolioCount?: number;
   partnerships?: { type: string; partnerName: string; description: string }[];
-  documents?: { name: string; onFile: boolean }[];
   contact?: { mainContact?: string; email?: string; phone?: string; website?: string; linkedin?: string; extra?: { hq?: string; applicationLink?: string } } | null;
 }
 
@@ -25,6 +24,7 @@ const emptyApplication = (): Hub["application"] => ({ status: "—", opens: "—
 function mapHub(r: RawHub): Hub {
   return {
     id: r.slug,
+    entityId: r.id,
     name: r.name,
     type: r.type,
     city: r.city,
@@ -48,7 +48,6 @@ function mapHub(r: RawHub): Hub {
     fundingType: r.fundingType ?? "—",
     portfolio: r.portfolio ?? new Array(r.portfolioCount ?? 0).fill(null).map(placeholderPortfolioItem),
     partnerships: (r.partnerships ?? []).map((p) => ({ type: p.type, partner: p.partnerName, desc: p.description })),
-    documents: (r.documents ?? []).map((d) => ({ n: d.name, ok: d.onFile })),
     application: r.application ?? emptyApplication(),
     contacts: {
       programContact: r.contact?.mainContact ?? "—",

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
 import { ProvenanceStrip } from "@/components/shared/ProvenanceStrip";
+import { DataRoomTab } from "@/components/shared/DataRoomTab";
 import { ContactLock } from "@/components/shared/ContactLock";
 import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
 import { useToast } from "@/components/shell/ToastProvider";
@@ -168,16 +169,7 @@ function TabBody({ tab, h, loggedIn }: { tab: Tab; h: Hub; loggedIn: boolean }) 
         </div>
       );
     case "Documents":
-      if (!loggedIn) return <div className="panel panel-pad"><span className="muted small"><ContactLock /></span></div>;
-      return (
-        <div className="panel panel-pad">
-          {h.documents.map((d) => (
-            <div className="upload-tile-row" key={d.n}>
-              <div className="doc-card"><div className="doc-icon"><RuwadIcon name="doc" size={16} /></div><b>{d.n}</b><span className="doc-status">{d.ok ? "On file" : "Not provided"}</span></div>
-            </div>
-          ))}
-        </div>
-      );
+      return <DataRoomTab kind="hub" entityId={h.entityId} />;
     case "Analytics":
       return (
         <div className="traction-grid">

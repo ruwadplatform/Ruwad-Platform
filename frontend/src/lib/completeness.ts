@@ -10,7 +10,10 @@ import type { ResolvedEntity, ResolvableKind } from "@/lib/entity-resolve";
  * their public directory records don't carry an equivalent submission
  * shape (Investor/Hub/Research/Multinational profiles are curated data,
  * not self-reported drafts). */
-export function startupCompleteness(s: Startup): CompletenessCheck[] {
+/** `documents` comes from the protected Data Room endpoint (owner view only) —
+ * public profile payloads no longer carry document metadata, so callers with
+ * no authorized document list (e.g. directory cards) get "Pitch Deck" = missing. */
+export function startupCompleteness(s: Startup, documents: { name: string; onFile: boolean }[] = []): CompletenessCheck[] {
   return [
     { label: "Logo", ok: !!s.logo },
     { label: "Description", ok: !!s.desc && s.desc.length > 20 },
@@ -23,7 +26,7 @@ export function startupCompleteness(s: Startup): CompletenessCheck[] {
     { label: "Founders", ok: s.team.some((t) => t.founder) },
     { label: "Product Details", ok: !!s.problem && !!s.solution && !!s.advantage },
     { label: "Market Information", ok: !!s.market.tam && s.market.competitors.length > 0 },
-    { label: "Pitch Deck", ok: !!s.documents.find((d) => d.n === "Pitch Deck")?.ok },
+    { label: "Pitch Deck", ok: !!documents.find((d) => d.name === "Pitch Deck")?.onFile },
   ];
 }
 

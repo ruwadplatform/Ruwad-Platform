@@ -71,9 +71,8 @@ export class DirectorySharedService {
   setDocuments(entityType: EntityKind, entityId: string, docs: { name: string; onFile: boolean }[]) {
     return this.replace(this.documents, entityType, entityId, docs.map((d) => ({ entityType, entityId, ...d })));
   }
-  getDocuments(entityType: EntityKind, entityId: string) {
-    return this.documents.find({ where: { entityType, entityId } });
-  }
+  // No public getter on purpose: reading document rows goes through
+  // DataRoomService.status(), the single owner/admin/APPROVED-gated path.
 
   async setContact(entityType: EntityKind, entityId: string, data: Partial<Contact>): Promise<Contact> {
     let contact = await this.contacts.findOne({ where: { entityType, entityId } });

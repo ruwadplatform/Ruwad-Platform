@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository } from "typeorm";
 import { plainToInstance } from "class-transformer";
@@ -22,6 +22,8 @@ import { CreateHubDto } from "../hubs/dto/create-hub.dto";
 import { CreateResearchDto } from "../research/dto/create-research.dto";
 import { CreateMultinationalDto } from "../multinationals/dto/create-multinational.dto";
 import { SubmissionAutofillService } from "./submission-autofill.service";
+import { UsersService } from "../users/users.service";
+import { EmailService } from "../email/email.service";
 
 /** DRAFT and CHANGES_REQUESTED are the only two states a user may edit or
  * submit from — every other transition below is admin-only and enforced
@@ -45,6 +47,7 @@ const VALIDATION_DTO: Record<EntityKind, new () => object> = {
 
 @Injectable()
 export class SubmissionsService {
+  private readonly logger = new Logger(SubmissionsService.name);
   private publishersByKind: Map<EntityKind, SubmissionPublisher>;
 
   constructor(
@@ -53,6 +56,8 @@ export class SubmissionsService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly activity: ActivityService,
     private readonly autofillService: SubmissionAutofillService,
+    private readonly usersService: UsersService,
+    private readonly emailService: EmailService,
     startupPublisher: StartupSubmissionPublisher,
     investorPublisher: InvestorSubmissionPublisher,
     hubPublisher: HubSubmissionPublisher,
@@ -157,6 +162,29 @@ export class SubmissionsService {
     }));
     await this.activity.log(userId, wasResubmit ? ActivityType.SUBMISSION_RESUBMITTED : ActivityType.SUBMISSION_SENT,
       `${wasResubmit ? "Resubmitted" : "Submitted"} "${saved.title ?? "a listing"}" for review`, "/submissions");
+
+    // Phase 1 of email notifications only covers new Startup registrations —
+    // an admin-workflow notification, so it's never gated by the
+    // submitter's own emailNotifications preference. Wrapped so a failure
+    // anywhere in here (lookup or send) can never fail the submission
+    // itself, which has already saved successfully above.
+    if (!wasResubmit && item.kind === EntityKind.STARTUP) {
+      try {
+        const submitter = await this.usersService.findByIdOrThrow(userId);
+        await this.emailService.sendStartupSubmissionReceived({
+          startupName: (typeof saved.payload.name === "string" && saved.payload.name) || saved.title || "Untitled Startup",
+          submitterName: `${submitter.firstName} ${submitter.lastName}`,
+          submitterEmail: submitter.email,
+          category: typeof saved.payload.category === "string" ? saved.payload.category : "—",
+          stage: typeof saved.payload.stage === "string" ? saved.payload.stage : "—",
+          submissionId: saved.id,
+          submittedAt: saved.submittedAt ?? new Date(),
+        });
+      } catch (e) {
+        this.logger.error(`Startup submission notification failed for submission ${saved.id}: ${e instanceof Error ? e.message : "unknown error"}`);
+      }
+    }
+
     return saved;
   }
 

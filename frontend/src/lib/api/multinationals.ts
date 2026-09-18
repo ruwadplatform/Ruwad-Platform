@@ -17,7 +17,6 @@ interface RawMultinational {
   provenanceConfidence?: Multinational["provenance"]["confidence"]; provenanceLastUpdated: string; provenanceSources?: string[];
   products?: Multinational["products"]; productCount?: number;
   partnerships?: { type: string; partnerName: string; description: string }[];
-  documents?: { name: string; onFile: boolean }[];
 }
 
 const placeholderProduct = (): Multinational["products"][number] => ({ name: "", category: "", description: "" });
@@ -25,6 +24,7 @@ const placeholderProduct = (): Multinational["products"][number] => ({ name: "",
 function mapMultinational(r: RawMultinational): Multinational {
   return {
     id: r.slug,
+    entityId: r.id,
     name: r.name,
     category: r.category,
     subsector: r.subsector,
@@ -67,7 +67,6 @@ function mapMultinational(r: RawMultinational): Multinational {
     email: r.email,
     phone: r.phone,
     linkedin: r.linkedin,
-    documents: (r.documents ?? []).map((d) => ({ n: d.name, ok: d.onFile })),
     newsItems: r.newsItems ?? [],
     provenance: { lastUpdated: r.provenanceLastUpdated, sources: r.provenanceSources ?? [], confidence: r.provenanceConfidence ?? "High" },
   };

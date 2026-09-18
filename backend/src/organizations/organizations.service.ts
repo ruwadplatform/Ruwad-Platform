@@ -69,6 +69,38 @@ export class OrganizationsService {
     return this.repo.exists({ where: { userId, kind, entityId } });
   }
 
+  /** Strict variant of isOwner(): requires role = OWNER, not just any
+   * membership row (an ADMIN/EDITOR/VIEWER member of an entity must not be
+   * able to act as its owner for Data Room review). */
+  async isEntityOwner(userId: string, kind: EntityKind, entityId: string): Promise<boolean> {
+    return this.repo.exists({ where: { userId, kind, entityId, role: MembershipRole.OWNER } });
+  }
+
+  /** Every entity this user is the OWNER of, with its display name. */
+  async findOwnedEntityRefs(userId: string): Promise<{ kind: EntityKind; entityId: string; name: string; slug: string }[]> {
+    const memberships = await this.repo.find({ where: { userId, role: MembershipRole.OWNER } });
+    const refs: { kind: EntityKind; entityId: string; name: string; slug: string }[] = [];
+    for (const m of memberships) {
+      const entity = await this.repoForKind(m.kind).findOne({ where: { id: m.entityId } as any });
+      if (entity) refs.push({ kind: m.kind, entityId: m.entityId, name: (entity as any).name, slug: (entity as any).slug });
+    }
+    return refs;
+  }
+
+  /** Resolves who owns a given directory entity and its display name — the
+   * single authoritative lookup for both, used by email notifications so
+   * they never need to duplicate this join or guess an owner column that
+   * doesn't exist on the entity itself (ownership only lives in
+   * EntityMembership, see the class comment above). Either field is null
+   * if no OWNER membership row or no matching entity exists. */
+  async findOwnerAndEntity(kind: EntityKind, entityId: string): Promise<{ ownerUserId: string | null; name: string | null }> {
+    const [membership, entity] = await Promise.all([
+      this.repo.findOne({ where: { kind, entityId, role: MembershipRole.OWNER } }),
+      this.repoForKind(kind).findOne({ where: { id: entityId } as any }),
+    ]);
+    return { ownerUserId: membership?.userId ?? null, name: (entity as any)?.name ?? null };
+  }
+
   create(dto: CreateMembershipDto): Promise<EntityMembership> {
     return this.repo.save(this.repo.create({ ...dto, role: dto.role ?? MembershipRole.OWNER }));
   }

@@ -48,11 +48,6 @@ export interface Market {
   competitors: string[];
 }
 
-export interface DocumentRef {
-  n: string;
-  ok: boolean;
-}
-
 export interface NewsItem {
   date: string;
   headline: string;
@@ -63,6 +58,8 @@ export type VerificationTier = "verified" | "self-reported" | "unclaimed";
 
 export interface Startup {
   id: string;
+  /** Backend UUID — used by Data Room endpoints (id above is the slug). */
+  entityId?: string;
   name: string;
   category: string;
   subsector: string;
@@ -106,7 +103,6 @@ export interface Startup {
   phone: string;
   linkedin: string;
   registrationNumber: string;
-  documents: DocumentRef[];
   newsItems: NewsItem[];
   verified: VerificationTier;
   provenance: Provenance;
@@ -126,6 +122,8 @@ export interface RecentDeal {
 
 export interface Investor {
   id: string;
+  /** Backend UUID — used by Data Room endpoints (id above is the slug). */
+  entityId?: string;
   name: string;
   short: string;
   type: string;
@@ -224,6 +222,8 @@ export interface HubContacts {
 }
 export interface Hub {
   id: string;
+  /** Backend UUID — used by Data Room endpoints (id above is the slug). */
+  entityId?: string;
   name: string;
   type: string;
   city: string;
@@ -247,7 +247,6 @@ export interface Hub {
   fundingType: string;
   portfolio: HubPortfolioItem[];
   partnerships: HubPartnership[];
-  documents: DocumentRef[];
   application: HubApplication;
   contacts: HubContacts;
   logo: string;
@@ -410,6 +409,8 @@ export interface MncStartupProgram {
 export type CompanySize = "Large Enterprise (10,000+)" | "Enterprise (1,000-9,999)" | "Mid-size (100-999)";
 export interface Multinational {
   id: string;
+  /** Backend UUID — used by Data Room endpoints (id above is the slug). */
+  entityId?: string;
   name: string;
   category: string;
   subsector: string;
@@ -448,7 +449,6 @@ export interface Multinational {
   email: string;
   phone: string;
   linkedin: string;
-  documents: DocumentRef[];
   newsItems: NewsItem[];
   provenance: Provenance;
 }

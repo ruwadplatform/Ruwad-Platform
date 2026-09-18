@@ -105,12 +105,12 @@ export class HubsService {
   async findBySlugOrThrow(slug: string): Promise<Record<string, unknown>> {
     const hub = await this.repo.findOne({ where: { slug } });
     if (!hub) throw new NotFoundException("Hub not found");
-    const [sectors, programs, portfolioItems, partnerships, documents, contact] = await Promise.all([
+    // No `documents` in the public payload — see DataRoomService.status().
+    const [sectors, programs, portfolioItems, partnerships, contact] = await Promise.all([
       this.shared.getSectorNames(EntityKind.HUB, hub.id),
       this.programs.find({ where: { hubId: hub.id } }),
       this.portfolio.find({ where: { hubId: hub.id } }),
       this.shared.getPartnerships(EntityKind.HUB, hub.id),
-      this.shared.getDocuments(EntityKind.HUB, hub.id),
       this.shared.getContact(EntityKind.HUB, hub.id),
     ]);
     const portfolioResolved = await Promise.all(portfolioItems.map(async (p) => {
@@ -120,6 +120,6 @@ export class HubsService {
         ...(startup ? { startupId: startup.id, startupSlug: startup.slug, startupLogo: initials(startup.name), startupScore: startup.score, startupCategory: startup.category, startupTagline: startup.tagline } : {}),
       };
     }));
-    return { ...hub, logo: initials(hub.name), sectors, programs, portfolio: portfolioResolved, partnerships, documents, contact };
+    return { ...hub, logo: initials(hub.name), sectors, programs, portfolio: portfolioResolved, partnerships, contact };
   }
 }

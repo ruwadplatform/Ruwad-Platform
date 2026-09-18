@@ -42,7 +42,7 @@ export function InvestorProfilePage({ investor: v }: { investor: Investor }) {
         <div className="profile-actions">
           <button className="btn btn-outline" onClick={() => toggleSaved("investors", v.id)}><RuwadIcon name="star" size={14} /> {saved ? "Saved" : "Save"}</button>
           <button className="btn btn-primary btn-lg" onClick={() => { if (requireAuth("intro", { investorName: v.name })) openModal(<RequestIntroModal investorName={v.name} />); }}>Request Warm Introduction</button>
-          <DataRoomButton companyId={v.id} />
+          <DataRoomButton companyId={v.id} kind="INVESTOR" entityId={v.entityId} />
         </div>
       </div>
       <div className="profile-tabs-wrap">
@@ -167,7 +167,7 @@ function TabBody({ tab, v, loggedIn }: { tab: Tab; v: Investor; loggedIn: boolea
         </div>
       );
     case "Data Room":
-      return <DataRoomTab kind="investor" />;
+      return <DataRoomTab kind="investor" entityId={v.entityId} />;
     default:
       return null;
   }

@@ -91,12 +91,12 @@ export class MultinationalsService {
   async findBySlugOrThrow(slug: string): Promise<Record<string, unknown>> {
     const m = await this.repo.findOne({ where: { slug } });
     if (!m) throw new NotFoundException("Multinational not found");
-    const [products, partnerships, documents, contact] = await Promise.all([
+    // No `documents` in the public payload — see DataRoomService.status().
+    const [products, partnerships, contact] = await Promise.all([
       this.shared.getProducts(EntityKind.MULTINATIONAL, m.id),
       this.shared.getPartnerships(EntityKind.MULTINATIONAL, m.id),
-      this.shared.getDocuments(EntityKind.MULTINATIONAL, m.id),
       this.shared.getContact(EntityKind.MULTINATIONAL, m.id),
     ]);
-    return { ...m, logo: initials(m.name), products, partnerships, documents, contact };
+    return { ...m, logo: initials(m.name), products, partnerships, contact };
   }
 }

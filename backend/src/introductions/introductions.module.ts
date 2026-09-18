@@ -4,9 +4,11 @@ import { Introduction } from "./introduction.entity";
 import { IntroductionsService } from "./introductions.service";
 import { IntroductionsController } from "./introductions.controller";
 import { ActivityModule } from "../activity/activity.module";
+import { UsersModule } from "../users/users.module";
+import { EmailModule } from "../email/email.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Introduction]), ActivityModule],
+  imports: [TypeOrmModule.forFeature([Introduction]), ActivityModule, UsersModule, EmailModule],
   providers: [IntroductionsService],
   controllers: [IntroductionsController],
   exports: [IntroductionsService],

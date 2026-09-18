@@ -127,11 +127,13 @@ export class StartupsService {
   }
 
   async toDetail(s: Startup) {
-    const [sectors, team, rounds, documents, products, contact, investorLinks] = await Promise.all([
+    // Deliberately no `documents` here: this is the PUBLIC profile payload, and
+    // Data Room document metadata (names, on-file flags…) is only ever served by
+    // DataRoomService.status() after an owner/admin/APPROVED check.
+    const [sectors, team, rounds, products, contact, investorLinks] = await Promise.all([
       this.shared.getSectorNames(EntityKind.STARTUP, s.id),
       this.shared.getTeamMembers(EntityKind.STARTUP, s.id),
       this.rounds.find({ where: { startupId: s.id }, order: { date: "ASC" } }),
-      this.shared.getDocuments(EntityKind.STARTUP, s.id),
       this.shared.getProducts(EntityKind.STARTUP, s.id),
       this.shared.getContact(EntityKind.STARTUP, s.id),
       this.investments.findForTarget(EntityKind.STARTUP, s.id),
@@ -142,7 +144,7 @@ export class StartupsService {
     return {
       ...s,
       fundingTotal: Number(s.fundingTotal), valuation: Number(s.valuation),
-      logo: initials(s.name), sectors, team, rounds, documents, products, contact,
+      logo: initials(s.name), sectors, team, rounds, products, contact,
       investorIds: investorRows.map((v) => v.slug),
       sub: { growth: s.scoreGrowth, financial: s.scoreFinancial, market: s.scoreMarket, team: s.scoreTeam, regulatory: s.scoreRegulatory, tech: s.scoreTech },
     };

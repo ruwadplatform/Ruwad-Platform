@@ -21,6 +21,7 @@ function mapInvestor(r: RawInvestor): Investor {
   const portfolio = r.portfolio ?? [];
   return {
     id: r.slug,
+    entityId: r.id,
     name: r.name,
     short: r.short,
     type: r.type,
