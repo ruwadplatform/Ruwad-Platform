@@ -7,6 +7,7 @@ import {
   dataRoomRequestedTemplate,
   dataRoomReviewedTemplate,
   introductionStatusChangedTemplate,
+  passwordResetTemplate,
 } from "./email-templates";
 import { signEmailAction } from "./email-action-token";
 
@@ -139,5 +140,15 @@ export class EmailService {
       introUrl: `${this.appUrl}/introductions`,
     });
     await this.send(p.to, `Introduction Request ${p.statusLabel}: ${p.targetName}`, html);
+  }
+
+  /** Security email: never gated by the user's notification preferences.
+   * The raw token only ever appears in the link and is not logged. */
+  async sendPasswordReset(p: { to: string; firstName: string; token: string }): Promise<void> {
+    const html = passwordResetTemplate({
+      firstName: p.firstName,
+      resetUrl: `${this.appUrl}/reset-password?token=${encodeURIComponent(p.token)}`,
+    });
+    await this.send(p.to, "Reset your RUWĀD password", html);
   }
 }

@@ -51,7 +51,7 @@ export function LoginPage() {
             <label className="fs-12" style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember me
             </label>
-            <button type="button" className="small" style={{ fontWeight: 700, color: "var(--green-dark)", background: "none", border: "none", cursor: "pointer" }} onClick={() => toast("Password reset — demo only")}>Forgot your password?</button>
+            <Link href="/forgot-password" className="small" style={{ fontWeight: 700, color: "var(--green-dark)" }}>Forgot your password?</Link>
           </div>
           <button className="btn btn-primary btn-lg" style={{ alignSelf: "flex-start", padding: "0 32px" }} onClick={doLogin} disabled={submitting}>{submitting ? "Logging in…" : "Log in"}</button>
         </div>

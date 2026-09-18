@@ -124,3 +124,12 @@ export function introductionStatusChangedTemplate(p: {
   const body = `<p>Your introduction request status has been updated.</p>` + detailsTable(rows);
   return layout("Introduction Request Update", body, { text: "View Introduction Requests", url: p.introUrl });
 }
+
+export function passwordResetTemplate(p: { firstName: string; resetUrl: string }): string {
+  const body =
+    `<p>Hi ${escapeHtml(p.firstName)},</p>` +
+    `<p>We received a request to reset the password for your RUWĀD account. Use the button below to choose a new one.</p>` +
+    `<p style="margin-top:16px;"><b>This link will expire in 30 minutes.</b></p>` +
+    `<p style="color:#5C6B62;">If you did not request a password reset, you can ignore this email.</p>`;
+  return layout("Reset your RUWĀD password", body, { text: "Reset Password", url: p.resetUrl });
+}

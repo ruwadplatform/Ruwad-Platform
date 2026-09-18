@@ -6,6 +6,7 @@ import type { Response } from "express";
 import { AuthService } from "./auth.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
+import { ForgotPasswordDto, ResetPasswordDto } from "./dto/password-reset.dto";
 import { UsersService } from "../users/users.service";
 import { JwtAuthGuard } from "./jwt-auth.guard";
 import { CurrentUser, AuthUser } from "../common/decorators/current-user.decorator";
@@ -60,6 +61,26 @@ export class AuthController {
     const token = this.auth.signToken(user);
     this.setAuthCookie(res, token);
     return this.users.toPublic(user);
+  }
+
+  @Post("forgot-password")
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    // Deliberately not awaited: the lookup, token write and email send take
+    // noticeably longer for a real account, and awaiting them would let a
+    // caller tell whether an address is registered from response time alone.
+    // requestPasswordReset() catches and logs every failure itself.
+    void this.auth.requestPasswordReset(dto.email);
+    return { message: "If an account exists for this email, a password reset link has been sent." };
+  }
+
+  @Post("reset-password")
+  @HttpCode(200)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.auth.resetPassword(dto);
+    return { message: "Your password has been reset successfully." };
   }
 
   @Get("me")

@@ -5,11 +5,16 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
 import { JwtStrategy } from "./jwt.strategy";
+import { TypeOrmModule } from "@nestjs/typeorm";
 import { UsersModule } from "../users/users.module";
+import { EmailModule } from "../email/email.module";
+import { PasswordResetToken } from "./password-reset-token.entity";
 
 @Module({
   imports: [
     UsersModule,
+    EmailModule,
+    TypeOrmModule.forFeature([PasswordResetToken]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

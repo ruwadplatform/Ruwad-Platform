@@ -15,6 +15,14 @@ export function login(email: string, password: string): Promise<ApiUser> {
   return api.post<ApiUser>("/auth/login", { email, password });
 }
 
+export function forgotPassword(email: string): Promise<{ message: string }> {
+  return api.post<{ message: string }>("/auth/forgot-password", { email });
+}
+
+export function resetPassword(token: string, password: string, confirmPassword: string): Promise<{ message: string }> {
+  return api.post<{ message: string }>("/auth/reset-password", { token, password, confirmPassword });
+}
+
 export function me(): Promise<ApiUser> {
   return api.get<ApiUser>("/auth/me");
 }

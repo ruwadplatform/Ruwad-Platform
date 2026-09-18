@@ -1,4 +1,7 @@
-import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
+import { DataSource, IsNull, MoreThan, Repository } from "typeorm";
+import { createHash, randomBytes } from "crypto";
 import { JwtService } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 import { UsersService } from "../users/users.service";
@@ -6,14 +9,29 @@ import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
 import { UserRole } from "../common/enums";
 import { User } from "../users/user.entity";
+import { PasswordResetToken } from "./password-reset-token.entity";
+import { ResetPasswordDto } from "./dto/password-reset.dto";
+import { EmailService } from "../email/email.service";
 
 const SALT_ROUNDS = 12;
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
+// A second request for the same account inside this window is answered
+// generically but sends nothing: a per-account brake on top of the per-IP
+// throttle, so one address cannot be used to spam an inbox.
+const RESET_RESEND_COOLDOWN_MS = 60 * 1000;
+
+const hashResetToken = (raw: string) => createHash("sha256").update(raw).digest("hex");
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly users: UsersService,
     private readonly jwt: JwtService,
+    private readonly email: EmailService,
+    @InjectRepository(PasswordResetToken) private readonly resetTokens: Repository<PasswordResetToken>,
+    @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
   async register(dto: RegisterDto): Promise<User> {
@@ -52,5 +70,47 @@ export class AuthService {
 
   signToken(user: User): string {
     return this.jwt.sign({ sub: user.id, email: user.email, role: user.role });
+  }
+
+  /** Always resolves without revealing whether the account exists. Any
+   * failure (lookup, DB, email provider) is logged and swallowed so the
+   * caller's response is identical in every case. */
+  async requestPasswordReset(rawEmail: string): Promise<void> {
+    try {
+      const user = await this.users.findByEmail(rawEmail.trim());
+      if (!user) return;
+
+      const recent = await this.resetTokens.findOne({ where: { userId: user.id, createdAt: MoreThan(new Date(Date.now() - RESET_RESEND_COOLDOWN_MS)) } });
+      if (recent) return;
+
+      const rawToken = randomBytes(32).toString("base64url");
+      await this.dataSource.transaction(async (m) => {
+        const repo = m.getRepository(PasswordResetToken);
+        // Supersede every earlier outstanding link: only the newest works.
+        await repo.update({ userId: user.id, usedAt: IsNull() }, { usedAt: new Date() });
+        await repo.save(repo.create({ userId: user.id, tokenHash: hashResetToken(rawToken), expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS) }));
+      });
+      await this.email.sendPasswordReset({ to: user.email, firstName: user.firstName, token: rawToken });
+    } catch (e) {
+      this.logger.error(`Password reset request failed: ${e instanceof Error ? e.message : "unknown error"}`);
+    }
+  }
+
+  async resetPassword(dto: ResetPasswordDto): Promise<void> {
+    const invalid = () => new BadRequestException("This password reset link is invalid or has expired.");
+    if (dto.password !== dto.confirmPassword) throw new BadRequestException("Passwords do not match.");
+
+    const record = await this.resetTokens.findOne({ where: { tokenHash: hashResetToken(dto.token), usedAt: IsNull(), expiresAt: MoreThan(new Date()) } });
+    if (!record) throw invalid();
+
+    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    await this.dataSource.transaction(async (m) => {
+      // Claim the token first: the conditional update succeeds only once, so
+      // two simultaneous submissions cannot both reset the password.
+      const claimed = await m.getRepository(PasswordResetToken).update({ id: record.id, usedAt: IsNull() }, { usedAt: new Date() });
+      if (!claimed.affected) throw invalid();
+      await m.getRepository(User).update({ id: record.userId }, { passwordHash });
+      await m.getRepository(PasswordResetToken).update({ userId: record.userId, usedAt: IsNull() }, { usedAt: new Date() });
+    });
   }
 }
