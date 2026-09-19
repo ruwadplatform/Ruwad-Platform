@@ -42,13 +42,16 @@ export class EmailService {
   constructor(config: ConfigService) {
     const apiKey = config.get<string>("RESEND_API_KEY");
     this.client = apiKey ? new Resend(apiKey) : null;
-    this.from = config.get<string>("EMAIL_FROM") ?? "RUWĀD <onboarding@resend.dev>";
+    // No fallback sender on purpose: every email must come from the verified
+    // address configured in EMAIL_FROM. Without it, sends are skipped (see send()).
+    this.from = (config.get<string>("EMAIL_FROM") ?? "").trim();
     this.appUrl = (config.get<string>("APP_URL") ?? "http://localhost:5174").replace(/\/+$/, "");
     this.adminEmail = config.get<string>("ADMIN_NOTIFICATION_EMAIL") ?? "";
     // Render injects RENDER_EXTERNAL_URL for every web service; PUBLIC_API_URL overrides it.
     this.apiUrl = (config.get<string>("PUBLIC_API_URL") ?? config.get<string>("RENDER_EXTERNAL_URL") ?? "http://localhost:4000").replace(/\/+$/, "").replace(/\/api$/, "");
     this.actionSecret = config.get<string>("JWT_SECRET") ?? "";
     if (!apiKey) this.logger.warn("RESEND_API_KEY not set — email notifications are disabled (attempts will be logged only).");
+    if (!this.from) this.logger.warn("EMAIL_FROM not set — email notifications are disabled until a verified sender is configured.");
   }
 
   private async send(to: string, subject: string, html: string): Promise<void> {
@@ -56,8 +59,8 @@ export class EmailService {
       this.logger.warn(`Email skipped (no recipient resolved): "${subject}"`);
       return;
     }
-    if (!this.client) {
-      this.logger.warn(`Email skipped (Resend not configured): "${subject}" -> ${to}`);
+    if (!this.client || !this.from) {
+      this.logger.warn(`Email skipped (${!this.client ? "Resend not configured" : "EMAIL_FROM not set"}): "${subject}" -> ${to}`);
       return;
     }
     try {
