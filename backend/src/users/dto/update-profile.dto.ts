@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsOptional, IsString, MaxLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
 
 export class UpdateProfileDto {
   @IsOptional() @IsString() @MaxLength(80)
@@ -39,6 +39,10 @@ export class UpdateProfileDto {
 
   @IsOptional() @IsString() @MaxLength(200)
   linkedin?: string;
+
+  /** Id returned by POST /uploads/avatar; null removes the photo. */
+  @IsOptional() @IsUUID()
+  profileImageId?: string | null;
 
   @IsOptional() @IsArray() @ArrayMaxSize(40) @IsString({ each: true })
   interests?: string[];

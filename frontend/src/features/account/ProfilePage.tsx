@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession } from "@/hooks/use-store";
-import { updateProfile } from "@/lib/store";
+import { UserAvatar } from "@/components/shared/UserAvatar";
+import { ApiError } from "@/lib/api/client";
+import { uploadAvatar } from "@/lib/api/uploads";
+import { updateProfile, updateProfilePhoto } from "@/lib/store";
+
+const PHOTO_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
 
 /** Simplified port of "My Profile" (js/settings.js) — same account fields,
  * a plain edit form instead of the old app's draft/dirty/sticky-save-bar/
@@ -23,6 +29,9 @@ export function ProfilePage() {
   const [city, setCity] = useState(user?.city ?? "");
   const [bio, setBio] = useState(user?.bio ?? "");
   const [saving, setSaving] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState("");
 
   if (!hydrated) return <SessionLoading />;
   if (!loggedIn || !user) return <WorkspaceGate title="Sign in to view your profile" body="Sign in to see and manage your RUWĀD account profile." />;
@@ -31,6 +40,36 @@ export function ProfilePage() {
     setFirstName(user!.firstName); setLastName(user!.lastName); setJobTitle(user!.jobTitle ?? "");
     setOrgName(user!.org?.name ?? ""); setCity(user!.city ?? ""); setBio(user!.bio ?? "");
     setEditing(true);
+  }
+  async function onPhotoPicked(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow picking the same file again
+    if (!file) return;
+    if (!PHOTO_TYPES.includes(file.type)) { setPhotoError("Unsupported file type. Please choose a PNG, JPG or WebP image."); return; }
+    if (file.size > PHOTO_MAX_BYTES) { setPhotoError("Profile photo must be 2 MB or smaller."); return; }
+    setPhotoError("");
+    setPhotoBusy(true);
+    try {
+      const { id } = await uploadAvatar(file);
+      await updateProfilePhoto(id);
+      toast("Profile photo updated");
+    } catch (err) {
+      setPhotoError(err instanceof ApiError ? err.message : "Couldn't upload your photo — please try again.");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+  async function removePhoto() {
+    setPhotoError("");
+    setPhotoBusy(true);
+    try {
+      await updateProfilePhoto(null);
+      toast("Profile photo removed");
+    } catch {
+      setPhotoError("Couldn't remove your photo — please try again.");
+    } finally {
+      setPhotoBusy(false);
+    }
   }
   async function save() {
     setSaving(true);
@@ -57,7 +96,7 @@ export function ProfilePage() {
       />
 
       <div className="profile-head mt-20">
-        <div className="plogo">{(user.firstName[0] ?? "") + (user.lastName[0] ?? "")}</div>
+        <UserAvatar user={user} size={80} className="user-avatar-solid" />
         <div className="profile-head-main">
           <h1>{user.firstName} {user.lastName}</h1>
           <div className="ptagline">{user.jobTitle || user.accountType}{user.org?.name ? ` · ${user.org.name}` : ""}</div>
@@ -66,6 +105,24 @@ export function ProfilePage() {
             {user.city && <span><RuwadIcon name="map" size={13} /> {user.city}{user.country ? `, ${user.country}` : ""}</span>}
             <span><RuwadIcon name="user" size={13} /> {user.accountType}</span>
           </div>
+        </div>
+      </div>
+
+      <div className="panel panel-pad mt-20">
+        <h3 className="fs-13 mb-16">Profile Photo</h3>
+        <div className="flex gap-16" style={{ alignItems: "center", flexWrap: "wrap" }}>
+          <UserAvatar user={user} size={96} className="user-avatar-solid" />
+          <div>
+            <div className="flex gap-8" style={{ flexWrap: "wrap" }}>
+              <button className="btn btn-primary" onClick={() => fileInput.current?.click()} disabled={photoBusy}>
+                <RuwadIcon name="upload" size={13} /> {photoBusy ? "Uploading…" : user.profileImageId ? "Change Photo" : "Upload Photo"}
+              </button>
+              {user.profileImageId && <button className="btn btn-outline" onClick={removePhoto} disabled={photoBusy}>Remove Photo</button>}
+            </div>
+            <p className="small muted mt-8">PNG, JPG or WebP. Maximum 2 MB.</p>
+            {photoError && <p className="small mt-8" role="alert" style={{ color: "var(--crit)" }}>{photoError}</p>}
+          </div>
+          <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={onPhotoPicked} hidden />
         </div>
       </div>
 

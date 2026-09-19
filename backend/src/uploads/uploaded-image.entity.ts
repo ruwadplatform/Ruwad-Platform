@@ -21,4 +21,10 @@ export class UploadedImage extends BaseEntity {
 
   @Column({ type: "uuid" })
   uploadedByUserId!: string;
+
+  /** LOGO (directory logos) or AVATAR (user profile photos). Lets a profile
+   * photo reference only images that were uploaded as avatars, and lets an
+   * old avatar be deleted without ever touching a logo. */
+  @Column({ default: "LOGO" })
+  purpose!: string;
 }

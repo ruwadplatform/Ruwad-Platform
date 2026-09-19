@@ -5,6 +5,7 @@ import { User } from "./user.entity";
 import { UserSettings } from "./user-settings.entity";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { UserRole, UserStatus } from "../common/enums";
+import { UploadsService } from "../uploads/uploads.service";
 import { UpdateSettingsDto } from "./dto/update-settings.dto";
 
 export type PublicUser = Omit<User, "passwordHash">;
@@ -14,6 +15,7 @@ export class UsersService {
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
     @InjectRepository(UserSettings) private readonly settingsRepo: Repository<UserSettings>,
+    private readonly uploads: UploadsService,
   ) {}
 
   toPublic(user: User): PublicUser {
@@ -44,8 +46,15 @@ export class UsersService {
 
   async updateProfile(id: string, dto: UpdateProfileDto): Promise<User> {
     const user = await this.findByIdOrThrow(id);
+    const previousImageId = user.profileImageId ?? null;
+    if (dto.profileImageId) await this.uploads.assertOwnAvatar(dto.profileImageId, id);
     Object.assign(user, dto);
-    return this.users.save(user);
+    const saved = await this.users.save(user);
+    // Drop the superseded/removed photo so replaced uploads don't pile up.
+    if (dto.profileImageId !== undefined && previousImageId && previousImageId !== (dto.profileImageId ?? null)) {
+      await this.uploads.deleteOwnAvatar(previousImageId, id);
+    }
+    return saved;
   }
 
   async getOrCreateSettings(userId: string): Promise<UserSettings> {

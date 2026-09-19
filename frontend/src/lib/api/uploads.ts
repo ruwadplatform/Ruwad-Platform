@@ -20,6 +20,26 @@ export async function uploadLogo(file: File): Promise<{ id: string }> {
   return res.json();
 }
 
+/** Profile photo upload (PNG/JPEG/WebP, 2 MB) — the server re-checks type and
+ * size from the file's actual bytes, so this is only the friendly-error layer. */
+export async function uploadAvatar(file: File): Promise<{ id: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${API_BASE}/uploads/avatar`, { method: "POST", credentials: "include", body: form });
+  if (!res.ok) {
+    if (res.status === 413) throw new ApiError(413, "Profile photo must be 2 MB or smaller.");
+    let message = res.statusText || `Upload failed (${res.status})`;
+    try {
+      const body = await res.json();
+      if (body?.message) message = Array.isArray(body.message) ? body.message.join(", ") : body.message;
+    } catch {
+      // no JSON body — keep the status-text fallback
+    }
+    throw new ApiError(res.status, message);
+  }
+  return res.json();
+}
+
 /** Resolves a stored logo's id to its servable URL — null/undefined in,
  * null out, so callers can feed this straight into an <img src> guard. */
 export function logoUrl(id: string | null | undefined): string | null {

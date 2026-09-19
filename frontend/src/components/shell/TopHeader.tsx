@@ -7,7 +7,7 @@ import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { visibleTopNav, activeNavGroup, type NavChild, type NavGroup } from "@/lib/nav-config";
 import { useSession, useNotifications, notifyStoreChange } from "@/hooks/use-store";
 import { requireAuth, markAllNotificationsRead } from "@/lib/store";
-import { initials } from "@/lib/scoring";
+import { UserAvatar } from "@/components/shared/UserAvatar";
 
 /** Ported from sharedTopHeaderHtml()/hdrNavHtml()/hdrDropdownContentHtml()
  * (js/nav.js) — same markup/classes (.hdr-brand/.hdr-search/.hdr-nav/
@@ -114,7 +114,7 @@ export function TopHeader({ isPublic = false, onMenuClick, hidden = false }: { i
           <>
             <AddButton />
             <NotifMenu open={notifOpen} setOpen={setNotifOpen} />
-            <UserMenu open={userMenuOpen} setOpen={setUserMenuOpen} name={user ? initials(user.firstName + " " + user.lastName) : "?"} />
+            <UserMenu open={userMenuOpen} setOpen={setUserMenuOpen} />
           </>
         ) : (
           <HeaderActionsSkeleton />
@@ -222,7 +222,7 @@ function NotifMenu({ open, setOpen }: { open: boolean; setOpen: (v: boolean) => 
   );
 }
 
-function UserMenu({ open, setOpen, name }: { open: boolean; setOpen: (v: boolean) => void; name: string }) {
+function UserMenu({ open, setOpen }: { open: boolean; setOpen: (v: boolean) => void }) {
   const { user, loggedIn } = useSession();
   const pathname = usePathname();
   const router = useRouter();
@@ -235,15 +235,18 @@ function UserMenu({ open, setOpen, name }: { open: boolean; setOpen: (v: boolean
 
   return (
     <div style={{ position: "relative" }}>
-      <button className="hdr-avatar" id="userAvatarBtn" onClick={() => setOpen(!open)}>{name}</button>
-      <div className={`dropdown-panel${open ? " open" : ""}`} id="userMenuPanel" style={{ width: 200, right: 0, top: 40 }}>
+      <button className="hdr-avatar" id="userAvatarBtn" aria-label="Account menu" onClick={() => setOpen(!open)}><UserAvatar user={user} /></button>
+      <div className={`dropdown-panel${open ? " open" : ""}`} id="userMenuPanel" style={{ width: 240, right: 0, top: 40 }}>
         {!loggedIn || !user ? (
           <div style={{ padding: 8 }}><Link href="/login" className="btn btn-primary btn-block">Log in</Link></div>
         ) : (
           <>
-            <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
-              <b className="fs-13" style={{ color: "#111827" }}>{user.firstName} {user.lastName}</b><br />
-              <span className="small" style={{ color: "var(--muted)" }}>{user.email}</span>
+            <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+              <UserAvatar user={user} size={40} className="user-avatar-solid" />
+              <div style={{ minWidth: 0 }}>
+                <b className="fs-13" style={{ color: "#111827", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.firstName} {user.lastName}</b>
+                <span className="small" style={{ color: "var(--muted)", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.email}</span>
+              </div>
             </div>
             <div style={{ padding: 6 }}>
               <div className="dropdown-menu-label">Profile</div>

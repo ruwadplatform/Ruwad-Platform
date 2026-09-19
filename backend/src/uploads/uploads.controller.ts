@@ -19,6 +19,14 @@ export class UploadsController {
     return this.uploadsService.saveLogo(file, user.userId);
   }
 
+  @Post("avatar")
+  @ApiCookieAuth()
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 2 * 1024 * 1024 } }))
+  uploadAvatar(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: AuthUser) {
+    return this.uploadsService.saveAvatar(file, user.userId);
+  }
+
   /** Public and unauthenticated — a published logo is meant to be visible
    * to every visitor, same as any other directory-listing field. Immutable
    * once uploaded (a re-upload gets a new id, never overwrites this one),

@@ -55,6 +55,11 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   linkedin?: string;
 
+  /** Optional profile photo: the id of an `uploaded_images` row with
+   * purpose AVATAR (same storage as directory logos). Null = initials. */
+  @Column({ type: "uuid", nullable: true })
+  profileImageId?: string | null;
+
   @Column({ type: "enum", enum: UserRole, default: UserRole.USER })
   role!: UserRole;
 

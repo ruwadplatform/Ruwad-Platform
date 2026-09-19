@@ -19,6 +19,7 @@ export interface ApiUser {
   city: string | null;
   bio: string | null;
   linkedin: string | null;
+  profileImageId: string | null;
   interests: string[];
   role: UserRole;
   createdAt: string;

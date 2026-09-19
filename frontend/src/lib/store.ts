@@ -138,6 +138,8 @@ export interface Account {
   linkedin?: string;
   bio?: string;
   interests?: string[];
+  /** Uploaded profile photo id; absent/null means show initials. */
+  profileImageId?: string | null;
   createdAt: number;
   isAdmin?: boolean;
 }
@@ -172,6 +174,7 @@ function toAccount(u: ApiUser): Account {
     linkedin: u.linkedin ?? undefined,
     bio: u.bio ?? undefined,
     interests: u.interests ?? [],
+    profileImageId: u.profileImageId ?? null,
     createdAt: Date.parse(u.createdAt),
     isAdmin: u.role === "RUWAD_ADMIN" || u.role === "SUPER_ADMIN",
   };
@@ -252,6 +255,15 @@ export async function updateProfile(patch: Partial<Pick<Account, "firstName" | "
     organizationCategory: patch.org?.category, organizationCity: patch.org?.city, organizationType: patch.org?.type,
     interests: patch.interests,
   });
+  sessionUser = u;
+  notifyStoreChange();
+}
+
+/** Sets (or, with null, removes) the profile photo and pushes the updated
+ * user through the same session store the header/dropdown/profile page read
+ * from, so all of them re-render immediately — no refresh needed. */
+export async function updateProfilePhoto(profileImageId: string | null): Promise<void> {
+  const u = await authApi.updateProfile({ profileImageId });
   sessionUser = u;
   notifyStoreChange();
 }

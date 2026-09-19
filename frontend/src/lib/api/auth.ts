@@ -31,7 +31,7 @@ export function logout(): Promise<{ success: boolean }> {
   return api.post<{ success: boolean }>("/auth/logout");
 }
 
-export function updateProfile(patch: Partial<Pick<ApiUser, "firstName" | "lastName" | "jobTitle" | "organization" | "organizationWebsite" | "organizationStage" | "organizationCategory" | "organizationCity" | "organizationType" | "country" | "city" | "bio" | "linkedin" | "interests">>): Promise<ApiUser> {
+export function updateProfile(patch: Partial<Pick<ApiUser, "firstName" | "lastName" | "jobTitle" | "organization" | "organizationWebsite" | "organizationStage" | "organizationCategory" | "organizationCity" | "organizationType" | "country" | "city" | "bio" | "linkedin" | "interests" | "profileImageId">>): Promise<ApiUser> {
   return api.patch<ApiUser>("/users/me", patch);
 }
 
