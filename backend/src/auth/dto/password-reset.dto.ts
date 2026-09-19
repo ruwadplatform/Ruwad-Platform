@@ -1,12 +1,15 @@
-import { IsEmail, IsString, MaxLength, MinLength } from "class-validator";
+import { IsEmail, IsString, MaxLength } from "class-validator";
 
 export class ForgotPasswordDto {
   @IsEmail() @MaxLength(254) email!: string;
 }
 
-/** Same password rule as RegisterDto (8–200 chars). */
+/** Only shape/size is checked here. The password rules, token validity and
+ * "different from current password" checks live in AuthService so each
+ * failure returns its own specific message instead of a generic
+ * validation-pipe error. */
 export class ResetPasswordDto {
-  @IsString() @MinLength(20) @MaxLength(200) token!: string;
-  @IsString() @MinLength(8) @MaxLength(200) password!: string;
+  @IsString() @MaxLength(200) token!: string;
+  @IsString() @MaxLength(200) password!: string;
   @IsString() @MaxLength(200) confirmPassword!: string;
 }

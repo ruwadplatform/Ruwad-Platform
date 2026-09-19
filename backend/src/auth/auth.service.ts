@@ -12,6 +12,7 @@ import { User } from "../users/user.entity";
 import { PasswordResetToken } from "./password-reset-token.entity";
 import { ResetPasswordDto } from "./dto/password-reset.dto";
 import { EmailService } from "../email/email.service";
+import { isStrongPassword } from "./password-policy";
 
 const SALT_ROUNDS = 12;
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
@@ -97,11 +98,25 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto): Promise<void> {
-    const invalid = () => new BadRequestException("This password reset link is invalid or has expired.");
+    const invalid = () => new BadRequestException("This password reset link is invalid. Please request a new one.");
     if (dto.password !== dto.confirmPassword) throw new BadRequestException("Passwords do not match.");
 
-    const record = await this.resetTokens.findOne({ where: { tokenHash: hashResetToken(dto.token), usedAt: IsNull(), expiresAt: MoreThan(new Date()) } });
-    if (!record) throw invalid();
+    // Unknown, already-used and superseded links are all "invalid"; only a
+    // link that was genuine and simply ran out of time reads as "expired".
+    const record = await this.resetTokens.findOne({ where: { tokenHash: hashResetToken(dto.token) } });
+    if (!record || record.usedAt) throw invalid();
+    if (record.expiresAt.getTime() <= Date.now()) throw new BadRequestException("This password reset link has expired. Please request a new one.");
+
+    if (!isStrongPassword(dto.password)) throw new BadRequestException("Your password does not meet the required security requirements.");
+
+    // Same bcrypt comparison login uses: the candidate is hashed against the
+    // stored hash's own salt, so plain text is never compared or stored. A
+    // rejection here happens before the token is claimed, so the user can
+    // retry with the same link.
+    const user = await this.users.findByIdOrThrow(record.userId);
+    if (await bcrypt.compare(dto.password, user.passwordHash)) {
+      throw new BadRequestException("Please choose a password different from your existing password.");
+    }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
     await this.dataSource.transaction(async (m) => {

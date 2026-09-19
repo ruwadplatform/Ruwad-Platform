@@ -80,7 +80,7 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     await this.auth.resetPassword(dto);
-    return { message: "Your password has been reset successfully." };
+    return { message: "Your password has been reset successfully. You can now sign in with your new password." };
   }
 
   @Get("me")
