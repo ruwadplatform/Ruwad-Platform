@@ -71,24 +71,33 @@ export interface NewsArticle {
   sector: string;
   geography: string;
   summary: string;
+  /** The ORIGINAL article — the app links out to it. */
   sourceUrl: string;
+  imageUrl?: string | null;
   relatedEntities: RelatedEntity[];
 }
 
-export type EventRegistrationStatus = "Open" | "Closed" | "Coming Soon";
+export type EventStatus = "ONGOING" | "UPCOMING" | "PAST";
 
 export interface EventItem {
   id: string;
   name: string;
-  date: string;
+  startDate: string;
+  endDate: string;
+  status: EventStatus;
   location: string;
   country: string;
+  city: string | null;
+  venue: string | null;
   type: string;
+  /** Healthcare category. */
   sector: string;
   organizer: string;
   description: string;
-  registrationStatus: EventRegistrationStatus;
+  /** The event's own page. */
   url: string;
+  registrationUrl: string | null;
+  imageUrl: string | null;
 }
 
 export interface DashboardMeta {

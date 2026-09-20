@@ -1,4 +1,4 @@
-import { IsArray, IsDateString, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsArray, IsBoolean, IsDateString, IsOptional, IsString, IsUrl, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { EntityKind } from "../../common/enums";
 
@@ -18,6 +18,9 @@ export class CreateNewsDto {
   @IsString() geography!: string;
   @IsString() summary!: string;
   @IsString() sourceUrl!: string;
+  @IsOptional() @IsUrl() imageUrl?: string;
+  @IsOptional() @IsBoolean() isPublished?: boolean;
+  @IsOptional() @IsBoolean() isFeatured?: boolean;
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => RelatedEntityDto)
   relatedEntities?: RelatedEntityDto[];
 }

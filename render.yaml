@@ -38,6 +38,25 @@ services:
       # without it.
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Automatic healthcare news & events (Serper.dev). BACKEND ONLY — set in
+      # the Render dashboard, never in the frontend service. Without the key
+      # the app keeps serving whatever was collected before. The token is the
+      # shared secret for POST /api/content-refresh/{news|events|all} if you
+      # drive refreshes from an external scheduler instead of the built-in
+      # 6h/12h timer (see backend/scripts/content-refresh.js).
+      - key: SERPER_API_KEY
+        sync: false
+      - key: CONTENT_REFRESH_TOKEN
+        sync: false
+      # Google Calendar direct-add (OAuth). BACKEND ONLY; set in the dashboard.
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
       - key: PORT
         value: "4000"
       # The frontend's real Render URL, known from its own first deploy

@@ -9,7 +9,7 @@ interface RawRelatedEntity { entityType: string; entityId: string; entitySlug?: 
 
 interface RawNewsArticle {
   id: string; title: string; source: string; publishedDate: string; category: string; sector: string; geography: string;
-  summary: string; sourceUrl: string; relatedEntities?: RawRelatedEntity[];
+  summary: string; sourceUrl: string; imageUrl?: string | null; relatedEntities?: RawRelatedEntity[];
 }
 
 function mapNews(r: RawNewsArticle): NewsArticle {
@@ -23,6 +23,7 @@ function mapNews(r: RawNewsArticle): NewsArticle {
     geography: r.geography,
     summary: r.summary,
     sourceUrl: r.sourceUrl,
+    imageUrl: r.imageUrl ?? null,
     relatedEntities: (r.relatedEntities ?? [])
       .filter((e) => e.entitySlug && TYPE_MAP[e.entityType])
       .map((e) => ({ type: TYPE_MAP[e.entityType], id: e.entitySlug!, name: e.name })),

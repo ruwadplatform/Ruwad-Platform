@@ -48,11 +48,11 @@ export const REPORT_CATEGORIES = [
 ] as const;
 
 export const NEWS_CATEGORIES = [
-  "Funding", "Partnerships", "Regulation", "Research", "Market Expansion",
-  "Product Launches", "M&A", "Healthcare Policy", "Innovation",
+  "Healthcare", "Biotechnology", "MedTech", "Digital Health", "AI Healthcare", "Genomics", "Diagnostics",
+  "Pharmaceuticals", "Medical Devices", "Precision Medicine", "Healthcare Investment", "Research",
 ] as const;
 
 export const EVENT_TYPES = [
-  "Conference", "Exhibition", "Investor Event", "Demo Day", "Healthcare Summit",
-  "Biotechnology Conference", "MedTech Conference", "Research Symposium", "Regulatory Workshop",
+  "Conference", "Summit", "Hackathon", "Workshop", "Webinar", "Startup Competition",
+  "Investor Event", "Exhibition", "Networking Event", "Research Event",
 ] as const;

@@ -1,32 +1,32 @@
 "use client";
 
-import { useToast } from "@/components/shell/ToastProvider";
+import { AddToCalendar } from "@/components/intelligence/AddToCalendar";
+import { eventStatusOf, formatEventDatesShort, safeHttpUrl } from "@/lib/content-format";
 import type { EventItem } from "@/types/intelligence";
 
-const STATUS_CLASS: Record<EventItem["registrationStatus"], string> = {
-  Open: "badge-good", Closed: "badge-neutral", "Coming Soon": "badge-info",
-};
-
-/** Ported from eventCard() (js/widgets.js:139-147) — reuses `.entity-card`
- * with `.edesc`/`.emeta`/`.eyebrow` (same base classes as `.events-grid`),
- * extended with country/organizer/type and a registration-status badge. */
+/** One collected event, in the original RUWĀD card style: type label, title,
+ * short description, date + place, then "Add to Calendar". "View Event →"
+ * opens the event's own page in a new tab (only the link does — the card
+ * itself isn't clickable, so it never competes with the calendar menu). */
 export function EventCard({ event: e }: { event: EventItem }) {
-  const toast = useToast();
+  const status = eventStatusOf(e.startDate, e.endDate); // recomputed for the viewer's today
+  const view = safeHttpUrl(e.url);
+  const place = [e.city, e.country].filter(Boolean).join(", ") || e.location;
+
   return (
     <div className="entity-card" style={{ cursor: "default" }}>
-      <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
         <div className="eyebrow brand">{e.type}</div>
-        <span className={`badge ${STATUS_CLASS[e.registrationStatus]}`}>{e.registrationStatus}</span>
+        {status === "ONGOING" && <span className="badge badge-good">ONGOING</span>}
       </div>
       <b className="fs-13">{e.name}</b>
-      <div className="edesc">{e.description}</div>
+      {e.description && <div className="edesc">{e.description}</div>}
       <div className="emeta">
-        <span className="tag">{e.date}</span>
-        <span className="tag">{e.location}, {e.country}</span>
-        <span className="tag">{e.sector}</span>
+        <span className="tag">{formatEventDatesShort(e.startDate, e.endDate)}</span>
+        {place && <span className="tag">{place}</span>}
       </div>
-      <div className="small muted mt-8">Organized by {e.organizer}</div>
-      <button className="btn btn-outline btn-sm mt-8" onClick={() => toast("Added to calendar — demo only")}>Add to Calendar</button>
+      <AddToCalendar event={e} />
+      {view && <a className="ev-view" href={view} target="_blank" rel="noopener noreferrer">View Event →</a>}
     </div>
   );
 }

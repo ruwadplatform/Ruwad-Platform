@@ -8,7 +8,8 @@ import { EntityCard } from "@/components/shared/EntityCard";
 import { LockedTeaser } from "@/components/shared/LockedTeaser";
 import { useSession, useWatchlist, useIntros, useOwnedListings } from "@/hooks/use-store";
 import { requireAuth } from "@/lib/store";
-import { useToast } from "@/components/shell/ToastProvider";
+import { compareEvents, eventStatusOf, formatEventDates, safeHttpUrl } from "@/lib/content-format";
+import { AddToCalendar } from "@/components/intelligence/AddToCalendar";
 import { useStartups, useInvestors, useHubs, useNews, useEvents, useReports } from "@/hooks/use-directory-data";
 import { initials } from "@/lib/scoring";
 import { regBadgeClass } from "@/lib/widgets";
@@ -310,19 +311,28 @@ function EcosystemDashboard({ loggedIn }: { loggedIn: boolean }) {
   const { data: EVENTS } = useEvents();
   const { data: NEWS } = useNews();
   const { hydrated } = useSession();
+  // Same source as the News & Events page; anything already over is left out.
+  const current = EVENTS.filter((e) => eventStatusOf(e.startDate, e.endDate) !== "PAST").sort(compareEvents);
+  const latestNews = [...NEWS].sort((a, b) => (a.publishedDate < b.publishedDate ? 1 : -1));
   return (
     <div className="intel-grid mt-16">
       <div className="panel intel-events">
         <div className="panel-head"><h3>Upcoming Events</h3></div>
         <div className="panel-pad">
-          {EVENTS.slice(0, 3).map((e) => (
+          {current.length === 0 && <div className="small muted">No upcoming events yet.</div>}
+          {current.slice(0, 3).map((e) => (
             <div className="event-item" key={e.id}>
-              <div className="ev-cat">{e.type}</div><h5>{e.name}</h5>
-              <div className="ev-meta"><span>{e.date}</span><span>·</span><span>{e.location}</span></div>
-              <div className="ev-meta">{e.description}</div>
-              <AddToCalendarLink />
+              <div className="ev-cat">{e.type}{eventStatusOf(e.startDate, e.endDate) === "ONGOING" ? " · ONGOING" : ""}</div>
+              <h5>{safeHttpUrl(e.url) ? <a href={safeHttpUrl(e.url)!} target="_blank" rel="noopener noreferrer" className="news-title-link">{e.name}</a> : e.name}</h5>
+              <div className="ev-meta"><span>{formatEventDates(e.startDate, e.endDate)}</span>{(e.city || e.country) && <><span>·</span><span>{[e.city, e.country].filter(Boolean).join(", ")}</span></>}</div>
+              {e.description && <div className="ev-meta ev-desc">{e.description}</div>}
+              <div className="ev-actions">
+                <AddToCalendar event={e} variant="link" />
+                {safeHttpUrl(e.url) && <a className="ev-link" href={safeHttpUrl(e.url)!} target="_blank" rel="noopener noreferrer">View Event →</a>}
+              </div>
             </div>
           ))}
+          <Link href="/news" className="ev-link">View All Events →</Link>
         </div>
       </div>
 
@@ -352,21 +362,21 @@ function EcosystemDashboard({ loggedIn }: { loggedIn: boolean }) {
       <div className="panel intel-news">
         <div className="panel-head"><h3>Latest Healthcare News</h3></div>
         <div className="panel-pad">
-          {NEWS.slice(0, 6).map((n) => (
+          {NEWS.length === 0 && <div className="small muted">No news yet.</div>}
+          {latestNews.slice(0, 6).map((n) => (
             <div className="news-item" key={n.id}>
               <div className="n-date">{n.publishedDate.slice(5).replace("-", "/")}</div>
-              <div><h5>{n.title}</h5><div className="n-src">{n.source}</div></div>
+              <div>
+                <h5>{safeHttpUrl(n.sourceUrl) ? <a href={safeHttpUrl(n.sourceUrl)!} target="_blank" rel="noopener noreferrer" className="news-title-link">{n.title}</a> : n.title}</h5>
+                <div className="n-src">{n.source}</div>
+              </div>
             </div>
           ))}
+          <Link href="/news" className="ev-link">View All News →</Link>
         </div>
       </div>
     </div>
   );
-}
-
-function AddToCalendarLink() {
-  const toast = useToast();
-  return <a className="ev-link" href="javascript:void(0)" onClick={() => toast("Added to calendar")}>+ Add to Calendar</a>;
 }
 
 function RecommendedPanels() {

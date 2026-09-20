@@ -6,7 +6,7 @@
  * (directory pages, profile pages, cross-entity joins, search, analytics).
  * Because the cache returns a stable reference until a fetch resolves,
  * useSyncExternalStore can read it directly with no snapshot memoization. */
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useReducer, useSyncExternalStore } from "react";
 import { createResourceCache, subscribeStoreChange } from "@/lib/api/resource-cache";
 import { fetchStartups } from "@/lib/api/startups";
 import { fetchInvestors } from "@/lib/api/investors";
@@ -43,6 +43,10 @@ function makeHook<T>(fetcher: () => Promise<T[]>) {
     // — no separate literal needed (a fresh `() => []` here would make
     // useSyncExternalStore think the snapshot changes every render).
     const data = useSyncExternalStore(subscribeStoreChange, cache.get, cache.get);
+    // A failed fetch leaves `data` untouched, so the snapshot above never
+    // changes; re-render on every store change so loading/error still update.
+    const [, rerender] = useReducer((n: number) => n + 1, 0);
+    useEffect(() => subscribeStoreChange(rerender), []);
     return { data, loading: cache.isLoading() && !cache.isLoaded(), error: cache.error() };
   };
 }

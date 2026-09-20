@@ -222,3 +222,8 @@
 .news-item .n-date{font-size:var(--fs-10);color:var(--faint);font-weight:700;white-space:nowrap;width:44px;flex:none;padding-top:1px}
 .news-item h5{font-size:var(--fs-12);line-height:1.4;font-weight:600}
 .news-item .n-src{font-size:var(--fs-11);color:var(--muted);margin-top:4px}
+
+.event-item .ev-actions{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.event-item .ev-actions .ev-link{margin-top:0}
+.event-item .ev-actions .cal-link{font-size:var(--fs-11);font-weight:700;color:var(--green-dark)}
+.event-item .ev-desc{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}

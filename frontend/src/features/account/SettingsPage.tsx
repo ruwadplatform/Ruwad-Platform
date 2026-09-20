@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
@@ -9,8 +9,10 @@ import { useSession, useSettings } from "@/hooks/use-store";
 import { clearSession } from "@/lib/store";
 import { useRouter } from "next/navigation";
 import type { AccountSettings } from "@/lib/store";
+import { ConnectedApps } from "@/features/account/ConnectedApps";
+import { readUrlFlash } from "@/hooks/use-google-calendar";
 
-const TABS = ["Account", "Notifications", "Privacy", "Appearance"] as const;
+const TABS = ["Account", "Notifications", "Privacy", "Connected Apps", "Appearance"] as const;
 type Tab = (typeof TABS)[number];
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
@@ -27,6 +29,8 @@ export function SettingsPage() {
   const toast = useToast();
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("Account");
+  // Back from Google after connecting here: open Connected Apps, where the result is shown.
+  useEffect(() => { if (readUrlFlash()) queueMicrotask(() => setTab("Connected Apps")); }, []);
 
   if (!hydrated) return <SessionLoading />;
   if (!loggedIn || !user) return <WorkspaceGate title="Sign in to view settings" body="Sign in to manage your account, notification and privacy settings." />;
@@ -97,6 +101,8 @@ export function SettingsPage() {
           </div>
         </div>
       )}
+
+      {tab === "Connected Apps" && <ConnectedApps />}
 
       {tab === "Appearance" && (
         <div className="panel panel-pad">

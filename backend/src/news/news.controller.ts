@@ -3,7 +3,7 @@ import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
 import { NewsService } from "./news.service";
 import { CreateNewsDto } from "./dto/create-news.dto";
 import { UpdateNewsDto } from "./dto/update-news.dto";
-import { PaginationQueryDto } from "../common/pagination.dto";
+import { NewsQueryDto } from "./dto/news-query.dto";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { Roles } from "../common/decorators/roles.decorator";
@@ -14,7 +14,7 @@ import { UserRole } from "../common/enums";
 export class NewsController {
   constructor(private readonly service: NewsService) {}
 
-  @Get() findAll(@Query() query: PaginationQueryDto & { category?: string }) { return this.service.findAll(query); }
+  @Get() findAll(@Query() query: NewsQueryDto) { return this.service.findAll(query); }
   @Get(":id") findOne(@Param("id") id: string) { return this.service.findByIdOrThrow(id); }
 
   @Post()

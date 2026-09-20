@@ -3,7 +3,7 @@ import { ApiTags } from "@nestjs/swagger";
 import { EventsService } from "./events.service";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
-import { PaginationQueryDto } from "../common/pagination.dto";
+import { EventsQueryDto } from "./dto/events-query.dto";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { Roles } from "../common/decorators/roles.decorator";
@@ -15,13 +15,13 @@ export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
   @Get()
-  findAll(@Query() query: PaginationQueryDto & { country?: string; type?: string }) {
+  findAll(@Query() query: EventsQueryDto) {
     return this.eventsService.findAll(query);
   }
 
   @Get(":id")
   findOne(@Param("id") id: string) {
-    return this.eventsService.findEntityOrThrow(id);
+    return this.eventsService.findPublishedOrThrow(id);
   }
 
   @Post()

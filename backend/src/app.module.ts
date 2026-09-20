@@ -17,6 +17,8 @@ import { MultinationalsModule } from "./multinationals/multinationals.module";
 import { ReportsModule } from "./reports/reports.module";
 import { NewsModule } from "./news/news.module";
 import { EventsModule } from "./events/events.module";
+import { CalendarModule } from "./calendar/calendar.module";
+import { ContentModule } from "./content/content.module";
 import { WatchlistsModule } from "./watchlists/watchlists.module";
 import { SavedSearchesModule } from "./saved-searches/saved-searches.module";
 import { IntroductionsModule } from "./introductions/introductions.module";
@@ -46,6 +48,8 @@ import { AnalyticsModule } from "./analytics/analytics.module";
     ReportsModule,
     NewsModule,
     EventsModule,
+    ContentModule,
+    CalendarModule,
     WatchlistsModule,
     SavedSearchesModule,
     IntroductionsModule,
