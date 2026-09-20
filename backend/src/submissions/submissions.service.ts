@@ -22,6 +22,7 @@ import { CreateHubDto } from "../hubs/dto/create-hub.dto";
 import { CreateResearchDto } from "../research/dto/create-research.dto";
 import { CreateMultinationalDto } from "../multinationals/dto/create-multinational.dto";
 import { SubmissionAutofillService } from "./submission-autofill.service";
+import { validateHubPayload } from "./hub-types";
 import { UsersService } from "../users/users.service";
 import { EmailService } from "../email/email.service";
 
@@ -285,6 +286,13 @@ export class SubmissionsService {
    * lives only in the frontend, and runs again here at approval time so a
    * payload edited/corrupted between submit and approve can't slip through. */
   private async assertPayloadValid(kind: EntityKind, payload: Record<string, unknown>): Promise<void> {
+    if (kind === EntityKind.HUB) {
+      // Hub requirements depend on the selected Type, which a DTO can't
+      // express — see submissions/hub-types.ts.
+      const problems = validateHubPayload(payload);
+      if (problems.length) throw new BadRequestException({ message: problems, error: "Bad Request", statusCode: 400 });
+      return;
+    }
     const dtoClass = VALIDATION_DTO[kind];
     const instance = plainToInstance(dtoClass, payload);
     const errors = await validate(instance, { skipMissingProperties: false, whitelist: false });

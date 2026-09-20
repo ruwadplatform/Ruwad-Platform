@@ -82,6 +82,7 @@ export function completionPercentage(schema: EntitySchema, payload: Payload): nu
     for (const section of step.sections) {
       for (const f of section.fields) {
         if (f.type === "repeater" || !f.required) continue;
+        if (f.condition && !f.condition(payload)) continue; // hidden fields never count
         total += 1;
         if (!fieldError(f, payload[f.name], payload)) done += 1;
       }

@@ -13,18 +13,23 @@ export function formatValue(field: FieldDef, value: unknown): string {
   return String(value);
 }
 
+const unanswered = (v: unknown) => v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
+
 /** Read-only grouped-by-step rendering of a submission payload — shared by
  * the user-facing submission detail page and the admin review page so the
  * two never drift into separate "what does this payload mean" logic. */
-export function PayloadSummary({ schema, payload }: { schema: EntitySchema; payload: Payload }) {
+export function PayloadSummary({ schema, payload, hideEmpty }: { schema: EntitySchema; payload: Payload; hideEmpty?: boolean }) {
   return (
     <div>
       {schema.steps.map((step) => (
         <div className="form-section-block" key={step.id}>
           <h4>{step.label}</h4>
-          {step.sections.map((section, si) => (
+          {step.sections.map((section, si) => {
+            const shown = section.fields.filter((f) => (!f.condition || f.condition(payload)) && (!hideEmpty || !unanswered(payload[f.name])));
+            if (hideEmpty && shown.length === 0) return null;
+            return (
             <div key={si} className="stat-mini-row mb-12">
-              {section.fields.filter((f) => !f.condition || f.condition(payload)).map((f) => {
+              {shown.map((f) => {
                 if (f.type === "image-upload") {
                   const url = logoUrl(payload[f.name] as string | undefined);
                   return (
@@ -42,7 +47,8 @@ export function PayloadSummary({ schema, payload }: { schema: EntitySchema; payl
                 );
               })}
             </div>
-          ))}
+            );
+          })}
         </div>
       ))}
     </div>

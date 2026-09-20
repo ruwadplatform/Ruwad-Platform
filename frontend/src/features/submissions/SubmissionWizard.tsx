@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon, type RuwadIconName } from "@/components/icons/ruwad-icon";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
@@ -13,7 +13,8 @@ import { createDraftSubmission, saveSubmissionDraft, submitSubmissionForReview, 
 import { fetchMySubmissions } from "@/lib/api/submissions";
 import { ApiError } from "@/lib/api/client";
 import type { ApiSubmission, ApiSubmissionKind } from "@/lib/api/types";
-import { SCHEMAS } from "./schemas";
+import { schemaFor } from "./schemas";
+import { adaptHubExtraction, hubKeysRemovedByTypeChange, isHubType, normalizeHubPayload, pruneHiddenHubFields } from "./schemas/hub";
 import { validateStep, validateSchema, completionPercentage } from "./validate";
 import { allFields } from "./schema-types";
 import type { EntitySchema } from "./schema-types";
@@ -36,16 +37,23 @@ function isEmptyValue(v: unknown): boolean {
   return false;
 }
 
+function withRemovals(payload: Payload, removed: Set<string>): Payload {
+  const out: Payload = { ...payload };
+  removed.forEach((k) => { if (!(k in out)) out[k] = null; });
+  return out;
+}
+
 export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
   const { loggedIn, hydrated } = useSession();
   const router = useRouter();
   const toast = useToast();
   const { openModal, closeModal } = useModal();
-  const schema = SCHEMAS[kind];
-
   const [submission, setSubmission] = useState<ApiSubmission | null>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [payload, setPayload] = useState<Payload>({});
+  // Hub / Enabler steps depend on the selected Type; every other kind is static.
+  const typeValue = payload.type;
+  const schema = useMemo(() => schemaFor(kind, { type: typeValue }), [kind, typeValue]);
   const [stepIndex, setStepIndex] = useState(0);
   const [touchedSteps, setTouchedSteps] = useState<Set<number>>(new Set());
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
@@ -57,6 +65,10 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(false);
+  // Keys removed locally (type change / hidden answers). The server merges
+  // payloads shallowly, so a removal is sent as an explicit null or it would
+  // come back on the next load.
+  const removedRef = useRef<Set<string>>(new Set());
   const initStarted = useRef(false);
 
   // Resolve-or-create the draft once the session is known. Guarded by
@@ -77,8 +89,12 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
         const existing = mine.find((x) => x.kind === kind && (x.status === "DRAFT" || x.status === "CHANGES_REQUESTED")) ?? null;
         const s = existing ?? (await createDraftSubmission(kind));
         setSubmission(s);
-        setPayload(s.payload ?? {});
-        const stepIdx = schema.steps.findIndex((st) => st.id === s.currentStep);
+        // Nulls are removals from an earlier type change — drop them; and map
+        // older hub drafts (free-text funding) onto the current fields.
+        const loaded = Object.fromEntries(Object.entries(s.payload ?? {}).filter(([, v]) => v !== null));
+        const initial = kind === "HUB" ? normalizeHubPayload(loaded) : loaded;
+        setPayload(initial);
+        const stepIdx = schemaFor(kind, initial).steps.findIndex((st) => st.id === s.currentStep);
         setStepIndex(stepIdx >= 0 ? stepIdx : 0);
       } catch (e) {
         setInitError(e instanceof ApiError ? e.message : "Couldn't start your submission.");
@@ -90,12 +106,13 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
   const persist = useCallback((nextPayload: Payload, stepId: string, silent = false) => {
     if (!submission) return;
     if (!silent) setSaveStatus("saving");
+    const sentRemovals = new Set(removedRef.current);
     saveSubmissionDraft(submission.id, {
-      payload: nextPayload,
+      payload: withRemovals(nextPayload, sentRemovals),
       currentStep: stepId,
       completionPercentage: completionPercentage(schema, nextPayload),
     })
-      .then((saved) => { setSubmission(saved); setSaveStatus("saved"); dirtyRef.current = false; })
+      .then((saved) => { setSubmission(saved); setSaveStatus("saved"); dirtyRef.current = false; sentRemovals.forEach((k) => removedRef.current.delete(k)); })
       .catch(() => setSaveStatus("error"));
   }, [submission, schema]);
 
@@ -110,7 +127,49 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payload]);
 
+  /** Applies a new payload, dropping answers hidden by their controlling
+   * question (Hub forms only) and remembering what was dropped. */
+  function commit(next: Payload): Payload {
+    if (kind !== "HUB") return next;
+    const { payload: cleaned, removed } = pruneHiddenHubFields(next);
+    removed.forEach((k) => removedRef.current.add(k));
+    return cleaned;
+  }
+
+  function changeType(newType: string) {
+    dirtyRef.current = true;
+    setSaveStatus("idle");
+    setTouchedSteps(new Set());
+    setStepIndex(0); // the Type field lives on the first step
+    setPayload((p) => {
+      const drop = hubKeysRemovedByTypeChange(p.type, newType);
+      const next: Payload = { ...p, type: newType };
+      for (const k of drop) if (k in next) { delete next[k]; removedRef.current.add(k); }
+      return commit(next);
+    });
+  }
+
+  function requestTypeChange(newType: string) {
+    const old = payload.type;
+    if (newType === old) return;
+    const holdsData = isHubType(old) && hubKeysRemovedByTypeChange(old, newType).some((k) => {
+      const v = payload[k];
+      return !(isEmptyValue(v) || v === false);
+    });
+    if (!holdsData) { changeType(newType); return; }
+    openModal(
+      <ConfirmModal
+        title="Change organization type?"
+        body="Changing the organization type may remove information entered in type-specific sections. Do you want to continue?"
+        confirmLabel="Change Type"
+        onCancel={closeModal}
+        onConfirm={() => { changeType(newType); closeModal(); }}
+      />,
+    );
+  }
+
   function updateField(name: string, value: unknown) {
+    if (kind === "HUB" && name === "type") { requestTypeChange(String(value ?? "")); return; }
     dirtyRef.current = true;
     setSaveStatus("idle");
     setTouchedFields((s) => new Set(s).add(name));
@@ -118,7 +177,7 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
     // "AI filled" badge is only meaningful until the user has looked at
     // and touched that field.
     setAiFilledFields((s) => { if (!s.has(name)) return s; const next = new Set(s); next.delete(name); return next; });
-    setPayload((p) => ({ ...p, [name]: value }));
+    setPayload((p) => commit({ ...p, [name]: value }));
   }
 
   /** Called by AIAutofillCard once a document has been analyzed. Never
@@ -128,7 +187,10 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
    * as manual entry, with no separate code path. A field the user has
    * already edited (and is non-empty) is never silently overwritten —
    * conflicts route through the existing ConfirmModal instead. */
-  function applyAiAutofill(extracted: Record<string, unknown>) {
+  function applyAiAutofill(rawExtracted: Record<string, unknown>) {
+    // For hubs, fit the extraction to the form first (canonical Type, only
+    // fields that exist for that type).
+    const extracted = kind === "HUB" ? adaptHubExtraction(rawExtracted, payload) : rawExtracted;
     const safe: Record<string, unknown> = {};
     const conflictingNames: string[] = [];
     for (const [name, value] of Object.entries(extracted)) {
@@ -144,7 +206,7 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
       dirtyRef.current = true;
       setSaveStatus("idle");
       setAiFilledFields((s) => new Set([...s, ...Object.keys(fields)]));
-      setPayload((p) => ({ ...p, ...fields }));
+      setPayload((p) => commit({ ...p, ...fields }));
     };
 
     if (conflictingNames.length === 0) {
@@ -216,7 +278,7 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
     if (!allValid || !confirmChecked) return;
     setSubmitting(true);
     try {
-      await saveSubmissionDraft(submission.id, { payload, currentStep: "review", completionPercentage: 100 });
+      await saveSubmissionDraft(submission.id, { payload: withRemovals(payload, removedRef.current), currentStep: "review", completionPercentage: 100 });
       const result = await submitSubmissionForReview(submission.id);
       setDone(result);
     } catch (e) {
@@ -283,6 +345,7 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
           <ReviewSection
             schema={schema}
             payload={payload}
+            hideEmpty={kind === "HUB"}
             onEditSection={(i) => setStepIndex(i)}
             confirmChecked={confirmChecked}
             onConfirmChange={setConfirmChecked}

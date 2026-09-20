@@ -26,6 +26,18 @@ export class Hub extends BaseEntity {
   @Column() fundingAvailable!: string;
   @Column() fundingType!: string;
 
+  /** Filterable yes/no behind fundingAvailable's free text; null on hubs
+   * created before the type-specific form (or via the admin API). */
+  @Column({ type: "boolean", nullable: true })
+  hasFunding?: boolean | null;
+
+  /** Answers that only exist for some hub types (venture-studio model,
+   * research capabilities, membership, ...), whitelisted per type by
+   * submissions/hub-types.ts. Anything that needs filtering lives in a
+   * typed column above instead. */
+  @Column({ type: "jsonb", nullable: true })
+  typeDetails?: Record<string, unknown> | null;
+
   @Column({ type: "varchar", default: "Medium" })
   provenanceConfidence!: "High" | "Medium" | "Low";
   @Column({ type: "date" })

@@ -8,7 +8,7 @@ import { SubmissionStatusBadge } from "@/components/workspace/SubmissionStatusBa
 import { useSession, useOwnedListings } from "@/hooks/use-store";
 import { useKeyedResource } from "@/hooks/use-async-resource";
 import { fetchSubmission, fetchSubmissionHistory } from "@/lib/api/submissions";
-import { SCHEMAS } from "./schemas";
+import { schemaFor } from "./schemas";
 import { PayloadSummary } from "./PayloadSummary";
 import { ReviewHistory } from "./ReviewHistory";
 
@@ -27,7 +27,7 @@ export function SubmissionDetailPage({ id }: { id: string }) {
   if (loading) return <div className="mt-20"><EmptyState icon="doc" title="Loading submission…" body="" /></div>;
   if (error || !submission) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load this submission" body={error ?? "It may not exist, or you may not have access to it."} /></div>;
 
-  const schema = SCHEMAS[submission.kind];
+  const schema = schemaFor(submission.kind, submission.payload);
   const publishedListing = submission.publishedEntityId ? listings.find((l) => l.entityId === submission.publishedEntityId) : undefined;
 
   return (
@@ -55,7 +55,7 @@ export function SubmissionDetailPage({ id }: { id: string }) {
 
       <div className="insight-row mt-20" style={{ gridTemplateColumns: "1fr 320px" }}>
         <div className="panel panel-pad">
-          <PayloadSummary schema={schema} payload={submission.payload} />
+          <PayloadSummary schema={schema} payload={submission.payload} hideEmpty={submission.kind === "HUB"} />
         </div>
         <div className="panel panel-pad">
           <h3 className="fs-13 mb-12">Review History</h3>

@@ -49,6 +49,10 @@
 .step-item.error{color:var(--crit);border-left-color:var(--crit)}
 .step-item.error .si-dot{background:var(--crit-tint);border-color:var(--crit);color:var(--crit)}
 .step-item .si-req{margin-left:auto;font-size:var(--fs-10);color:var(--faint)}
+/* Long step names (e.g. "Collaboration & Commercialization" on the Research
+   Center form) wrap in the desktop sidebar instead of being cut off; on mobile
+   the row scrolls sideways, so nowrap stays there. */
+@media(min-width:761px){.step-item{white-space:normal;text-align:left;line-height:1.3}}
 @media(max-width:760px){.step-item{border-left:none;border-bottom:3px solid transparent}.step-item.active{border-bottom-color:var(--green)}.step-item.error{border-bottom-color:var(--crit)}}
 
 .form-main{padding:32px 36px 44px;min-width:0}

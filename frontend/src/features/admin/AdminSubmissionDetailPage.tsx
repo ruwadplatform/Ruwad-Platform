@@ -16,7 +16,7 @@ import {
 import { resolveEntitySlug } from "@/lib/api/entity-lookup";
 import { ApiError } from "@/lib/api/client";
 import type { ApiSubmission, ApiSubmissionReviewEvent } from "@/lib/api/types";
-import { SCHEMAS } from "@/features/submissions/schemas";
+import { SCHEMAS, schemaFor } from "@/features/submissions/schemas";
 import { PayloadSummary } from "@/features/submissions/PayloadSummary";
 import { ReviewHistory } from "@/features/submissions/ReviewHistory";
 
@@ -62,7 +62,7 @@ export function AdminSubmissionDetailPage({ id }: { id: string }) {
   if (error) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load this submission" body={error} /></div>;
   if (!submission) return <div className="mt-20"><EmptyState icon="reports" title="Loading submission…" body="" /></div>;
 
-  const schema = SCHEMAS[submission.kind];
+  const schema = schemaFor(submission.kind, submission.payload);
 
   async function handleStartReview() {
     setBusy(true);

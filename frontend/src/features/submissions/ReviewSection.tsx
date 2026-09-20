@@ -11,9 +11,11 @@ type Payload = Record<string, unknown>;
  * formatValue/image-upload logic instead of reimplementing it) and, for an
  * incomplete step, an itemized list of exactly which required fields are
  * missing/invalid instead of just a generic badge. */
-export function ReviewSection({ schema, payload, onEditSection, confirmChecked, onConfirmChange }: {
+export function ReviewSection({ schema, payload, hideEmpty, onEditSection, confirmChecked, onConfirmChange }: {
   schema: EntitySchema;
   payload: Payload;
+  /** Skip unanswered fields (and sections with nothing answered). */
+  hideEmpty?: boolean;
   onEditSection: (stepIndex: number) => void;
   confirmChecked: boolean;
   onConfirmChange: (v: boolean) => void;
@@ -42,13 +44,15 @@ export function ReviewSection({ schema, payload, onEditSection, confirmChecked, 
               </div>
             )}
 
-            {step.sections.map((section, si) => (
-              <div key={si} className="stat-mini-row mb-12">
-                {section.fields.filter((f) => !f.condition || f.condition(payload)).map((f) => (
-                  <ReviewFieldValue key={f.name} field={f} value={payload[f.name]} />
-                ))}
-              </div>
-            ))}
+            {step.sections.map((section, si) => {
+              const shown = section.fields.filter((f) => (!f.condition || f.condition(payload)) && (!hideEmpty || !isUnanswered(payload[f.name])));
+              if (hideEmpty && shown.length === 0) return null;
+              return (
+                <div key={si} className="stat-mini-row mb-12">
+                  {shown.map((f) => <ReviewFieldValue key={f.name} field={f} value={payload[f.name]} />)}
+                </div>
+              );
+            })}
           </div>
         );
       })}
@@ -61,6 +65,8 @@ export function ReviewSection({ schema, payload, onEditSection, confirmChecked, 
     </div>
   );
 }
+
+const isUnanswered = (v: unknown) => v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
 
 function ReviewFieldValue({ field, value }: { field: FieldDef; value: unknown }) {
   if (field.type === "image-upload") {
