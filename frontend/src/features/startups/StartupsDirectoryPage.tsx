@@ -163,7 +163,7 @@ export function StartupsDirectoryPage() {
 function AddStartupButton() {
   const router = useRouter();
   return (
-    <button className="btn btn-primary" onClick={() => { if (requireAuth("route", { label: "add" })) router.push("/submit/startup"); }}>
+    <button className="btn btn-primary" onClick={() => { if (requireAuth("route", { label: "add" }, "/submit/startup")) router.push("/submit/startup"); }}>
       <RuwadIcon name="plus" size={14} /> Add Startup
     </button>
   );

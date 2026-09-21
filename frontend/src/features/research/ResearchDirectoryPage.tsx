@@ -121,7 +121,7 @@ export function ResearchDirectoryPage() {
 function AddResearchButton() {
   const router = useRouter();
   return (
-    <button className="btn btn-primary" onClick={() => { if (requireAuth("route", { label: "add" })) router.push("/submit/research"); }}>
+    <button className="btn btn-primary" onClick={() => { if (requireAuth("route", { label: "add" }, "/submit/research")) router.push("/submit/research"); }}>
       <RuwadIcon name="plus" size={14} /> Add Institution
     </button>
   );

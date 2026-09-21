@@ -478,9 +478,9 @@ export interface PendingAction {
   payload: unknown;
   route: string;
 }
-export function requireAuth(actionType: string, payload: unknown): boolean {
+export function requireAuth(actionType: string, payload: unknown, returnTo?: string): boolean {
   if (isLoggedIn()) return true;
-  const pending: PendingAction = { type: actionType, payload, route: isBrowser() ? window.location.pathname : "" };
+  const pending: PendingAction = { type: actionType, payload, route: returnTo ?? (isBrowser() ? window.location.pathname : "") };
   lsSet(PENDING_ACTION_KEY, pending);
   // This is a plain module with no access to next/navigation's router (it's
   // called from outside React, e.g. non-hook store functions) — a full

@@ -104,7 +104,7 @@ function DashboardIntro({ loggedIn, firstName }: { loggedIn: boolean; firstName?
             <p>Explore startups, investors, technologies, research organizations and healthcare innovation opportunities across the region.</p>
             <div className="eco-hero-cta">
               <Link href="/ecosystem" className="btn btn-primary">Explore Ecosystem</Link>
-              <button className="btn" style={{ background: "rgba(255,255,255,.12)", color: "#fff" }} onClick={() => { if (requireAuth("route", { label: "list" })) router.push("/submit/startup"); }}>List Your Startup</button>
+              <button className="btn" style={{ background: "rgba(255,255,255,.12)", color: "#fff" }} onClick={() => { if (requireAuth("route", { label: "list" }, "/submit/startup")) router.push("/submit/startup"); }}>List Your Startup</button>
             </div>
           </div>
           {latestReport && (

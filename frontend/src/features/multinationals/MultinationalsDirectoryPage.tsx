@@ -121,7 +121,7 @@ export function MultinationalsDirectoryPage() {
 function AddMultinationalButton() {
   const router = useRouter();
   return (
-    <button className="btn btn-primary" onClick={() => { if (requireAuth("route", { label: "add" })) router.push("/submit/multinational"); }}>
+    <button className="btn btn-primary" onClick={() => { if (requireAuth("route", { label: "add" }, "/submit/multinational")) router.push("/submit/multinational"); }}>
       <RuwadIcon name="plus" size={14} /> Add Company
     </button>
   );

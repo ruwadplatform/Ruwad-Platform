@@ -116,7 +116,7 @@ export function HubsDirectoryPage() {
 function AddHubButton() {
   const router = useRouter();
   return (
-    <button className="btn btn-primary" onClick={() => { if (requireAuth("route", { label: "add" })) router.push("/submit/hub"); }}>
+    <button className="btn btn-primary" onClick={() => { if (requireAuth("route", { label: "add" }, "/submit/hub")) router.push("/submit/hub"); }}>
       <RuwadIcon name="plus" size={14} /> Add Hub
     </button>
   );

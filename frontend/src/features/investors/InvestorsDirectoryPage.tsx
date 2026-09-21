@@ -128,7 +128,7 @@ export function InvestorsDirectoryPage() {
 function AddInvestorButton() {
   const router = useRouter();
   return (
-    <button className="btn btn-primary" onClick={() => { if (requireAuth("route", { label: "add" })) router.push("/submit/investor"); }}>
+    <button className="btn btn-primary" onClick={() => { if (requireAuth("route", { label: "add" }, "/submit/investor")) router.push("/submit/investor"); }}>
       <RuwadIcon name="plus" size={14} /> Add Investor
     </button>
   );
