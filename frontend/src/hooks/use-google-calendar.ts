@@ -5,6 +5,7 @@
  * it never creates or changes anything in anyone's calendar. */
 import { useEffect, useSyncExternalStore } from "react";
 import { getGoogleCalendarStatus } from "@/lib/api/calendar";
+import { GOOGLE_CALENDAR_DIRECT } from "@/lib/feature-flags";
 
 export type ConnectResult = "connected" | "denied" | "email_mismatch" | "error";
 export interface CalendarFlash { result: ConnectResult; eventId: string | null }
@@ -32,6 +33,7 @@ let urlFlash: CalendarFlash | null | undefined; // undefined = URL not read yet
 
 /** Reads (once) the ?calendar=… result Google's round trip leaves in the URL, and removes it. */
 export function readUrlFlash(): CalendarFlash | null {
+  if (!GOOGLE_CALENDAR_DIRECT) return null;
   if (urlFlash !== undefined) return urlFlash;
   urlFlash = null;
   if (typeof window === "undefined") return null;
@@ -80,6 +82,7 @@ export function clearFlash() {
 
 export function useGoogleCalendar(loggedIn: boolean): State {
   useEffect(() => {
+    if (!GOOGLE_CALENDAR_DIRECT) return; // feature off: never touch the calendar API
     if (loggedIn) ensureLoaded();
     else if (state.status !== "idle") set({ status: "idle", configured: false, connected: false, needsReconnect: false, email: null, added: new Set(), flash: null }); // signed out: forget the previous user
   }, [loggedIn]);

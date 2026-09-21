@@ -11,9 +11,12 @@ import { useRouter } from "next/navigation";
 import type { AccountSettings } from "@/lib/store";
 import { ConnectedApps } from "@/features/account/ConnectedApps";
 import { readUrlFlash } from "@/hooks/use-google-calendar";
+import { GOOGLE_CALENDAR_DIRECT } from "@/lib/feature-flags";
 
-const TABS = ["Account", "Notifications", "Privacy", "Connected Apps", "Appearance"] as const;
-type Tab = (typeof TABS)[number];
+const ALL_TABS = ["Account", "Notifications", "Privacy", "Connected Apps", "Appearance"] as const;
+// "Connected Apps" only exists while direct Google Calendar add is switched on (lib/feature-flags.ts).
+const TABS = ALL_TABS.filter((t) => t !== "Connected Apps" || GOOGLE_CALENDAR_DIRECT);
+type Tab = (typeof ALL_TABS)[number];
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return <button type="button" className={`toggle${on ? " on" : ""}`} role="switch" aria-checked={on} onClick={onClick} />;

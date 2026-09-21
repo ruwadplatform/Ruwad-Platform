@@ -5,6 +5,7 @@ import { useSession } from "@/hooks/use-store";
 import { clearFlash, markEventAdded, refreshGoogleCalendarStatus, rememberPendingEvent, useGoogleCalendar } from "@/hooks/use-google-calendar";
 import { addEventToGoogleCalendar, startGoogleCalendarConnect } from "@/lib/api/calendar";
 import { ApiError } from "@/lib/api/client";
+import { GOOGLE_CALENDAR_DIRECT } from "@/lib/feature-flags";
 import { downloadIcs, googleCalendarUrl, outlookCalendarUrl, type CalendarEvent } from "@/lib/calendar";
 
 type Panel = "none" | "connect" | "confirm" | "reconnect" | "mismatch" | "denied" | "connect-error" | "add-error" | "links";
@@ -26,7 +27,7 @@ const MSG_ADD_FAILED = "We couldn't add this event to your Google Calendar. Plea
 export function AddToCalendar({ event, variant = "button" }: { event: CalendarEvent & { id?: string }; variant?: "button" | "link" }) {
   const { loggedIn } = useSession();
   const g = useGoogleCalendar(loggedIn);
-  const direct = loggedIn && g.status === "ready" && g.configured && !!event.id;
+  const direct = GOOGLE_CALENDAR_DIRECT && loggedIn && g.status === "ready" && g.configured && !!event.id;
   const eventId = event.id;
 
   const [panel, setPanel] = useState<Panel>("none");
