@@ -14,6 +14,8 @@ import { SubmissionAutofillService } from "./submission-autofill.service";
 import { ActivityModule } from "../activity/activity.module";
 import { UsersModule } from "../users/users.module";
 import { EmailModule } from "../email/email.module";
+import { ContentModule } from "../content/content.module";
+import { CompanyEnrichmentService } from "./company-enrichment.service";
 
 /** The five publishers below reach every directory/child entity purely
  * through `manager.getRepository(X)` inside the approval transaction — not
@@ -22,10 +24,11 @@ import { EmailModule } from "../email/email.module";
  * to the DataSource app-wide; forFeature is only for constructor-injected
  * repos, and this module only injects its own two entities below). */
 @Module({
-  imports: [TypeOrmModule.forFeature([Submission, SubmissionReviewEvent]), ActivityModule, UsersModule, EmailModule],
+  imports: [TypeOrmModule.forFeature([Submission, SubmissionReviewEvent]), ActivityModule, UsersModule, EmailModule, ContentModule],
   providers: [
     SubmissionsService,
     SubmissionAutofillService,
+    CompanyEnrichmentService,
     StartupSubmissionPublisher, InvestorSubmissionPublisher, HubSubmissionPublisher, ResearchSubmissionPublisher, MultinationalSubmissionPublisher,
   ],
   controllers: [SubmissionEmailActionController, SubmissionsController],

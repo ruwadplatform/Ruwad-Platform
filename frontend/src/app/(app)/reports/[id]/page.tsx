@@ -1,5 +1,4 @@
-import { notFound } from "next/navigation";
-import { ReportDetailPage } from "@/features/reports/ReportDetailPage";
+import { ReportView, AdminReportLoader } from "@/features/reports/ReportView";
 import { fetchReportBySlug } from "@/lib/api/reports";
 import { EmptyState } from "@/components/shared/EmptyState";
 
@@ -15,6 +14,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       </div>
     );
   }
-  if (!report) notFound();
-  return <ReportDetailPage report={report} />;
+  // Not public: it may be a draft an admin can open, so the browser checks with the admin's own session.
+  if (!report) return <AdminReportLoader slug={id} />;
+  return <ReportView report={report} />;
 }

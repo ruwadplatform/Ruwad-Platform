@@ -16,13 +16,13 @@ import type { ApiSubmission, ApiSubmissionKind } from "@/lib/api/types";
 import { schemaFor } from "./schemas";
 import { adaptHubExtraction, hubKeysRemovedByTypeChange, isHubType, normalizeHubPayload, pruneHiddenHubFields } from "./schemas/hub";
 import { validateStep, validateSchema, completionPercentage } from "./validate";
-import { allFields } from "./schema-types";
 import type { EntitySchema } from "./schema-types";
 import { SubmissionLayout } from "./SubmissionLayout";
 import { SubmissionSection } from "./SubmissionSection";
 import { StickyFormActions } from "./StickyFormActions";
 import { ReviewSection } from "./ReviewSection";
 import { AIAutofillCard } from "./AIAutofillCard";
+import { coerceExtracted } from "./autofill-map";
 import { CompactLogoUploader } from "./CompactLogoUploader";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -35,6 +35,12 @@ function isEmptyValue(v: unknown): boolean {
   if (typeof v === "string") return v.trim() === "";
   if (Array.isArray(v)) return v.length === 0;
   return false;
+}
+
+/** Empty, or a list whose rows are all blank (a repeater the user opened but didn't fill). */
+function isBlankValue(v: unknown): boolean {
+  if (isEmptyValue(v)) return true;
+  return Array.isArray(v) && v.every((row) => row && typeof row === "object" && Object.values(row as Record<string, unknown>).every((x) => isEmptyValue(x) || x === false));
 }
 
 function withRemovals(payload: Payload, removed: Set<string>): Payload {
@@ -180,50 +186,29 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
     setPayload((p) => commit({ ...p, [name]: value }));
   }
 
-  /** Called by AIAutofillCard once a document has been analyzed. Never
-   * writes anywhere but `payload` — the same setPayload → debounced
-   * persist() → PATCH /api/submissions/:id path every manual edit already
-   * goes through, so AI-extracted values get exactly the same validation
-   * as manual entry, with no separate code path. A field the user has
-   * already edited (and is non-empty) is never silently overwritten —
-   * conflicts route through the existing ConfirmModal instead. */
-  function applyAiAutofill(rawExtracted: Record<string, unknown>) {
-    // For hubs, fit the extraction to the form first (canonical Type, only
-    // fields that exist for that type).
-    const extracted = kind === "HUB" ? adaptHubExtraction(rawExtracted, payload) : rawExtracted;
+  /** Called by AIAutofillCard once a document has been analyzed. Never writes anywhere but `payload` — the same
+   * setPayload → debounced persist() → PATCH /api/submissions/:id path every manual edit already goes through, so
+   * AI-extracted values get exactly the same validation and autosave as manual entry. Only fields that are currently
+   * EMPTY are filled: anything the user (or an earlier autosave) already put there is kept exactly as it is. */
+  function applyAiAutofill(rawExtracted: Record<string, unknown>): { filled: number; kept: number } {
+    // Fit the extraction to the form first: dropdown answers must match a real option, numbers and lengths must fit.
+    // (Hubs keep their own adapter — it also resolves which type-specific fields exist.)
+    const extracted = kind === "HUB" ? adaptHubExtraction(rawExtracted, payload) : coerceExtracted(schema, rawExtracted);
     const safe: Record<string, unknown> = {};
-    const conflictingNames: string[] = [];
+    let kept = 0;
     for (const [name, value] of Object.entries(extracted)) {
-      if (touchedFields.has(name) && !isEmptyValue(payload[name])) {
-        conflictingNames.push(name);
-      } else {
-        safe[name] = value;
-      }
+      const current = payload[name];
+      // A toggle still at its default "off" that the user never touched counts as empty; anything else with content is theirs.
+      const theirs = !isBlankValue(current) && !(current === false && !touchedFields.has(name));
+      if (theirs) kept++; else safe[name] = value;
     }
-
-    const merge = (fields: Record<string, unknown>) => {
-      if (Object.keys(fields).length === 0) return;
+    if (Object.keys(safe).length > 0) {
       dirtyRef.current = true;
       setSaveStatus("idle");
-      setAiFilledFields((s) => new Set([...s, ...Object.keys(fields)]));
-      setPayload((p) => commit({ ...p, ...fields }));
-    };
-
-    if (conflictingNames.length === 0) {
-      merge(safe);
-      return;
+      setAiFilledFields((s) => new Set([...s, ...Object.keys(safe)]));
+      setPayload((p) => commit({ ...p, ...safe }));
     }
-
-    const labels = allFields(schema).filter((f) => conflictingNames.includes(f.name)).map((f) => f.label);
-    openModal(
-      <ConfirmModal
-        title="Some fields you've already edited"
-        body={`The document also has values for: ${labels.join(", ")}. Click Cancel to keep your own edits for those fields, or Overwrite to replace them with the AI-extracted values. Every other extracted field will be filled in either way.`}
-        confirmLabel="Overwrite with AI Values"
-        onCancel={() => { merge(safe); closeModal(); }}
-        onConfirm={() => { merge({ ...safe, ...Object.fromEntries(conflictingNames.map((n) => [n, extracted[n]])) }); closeModal(); }}
-      />,
-    );
+    return { filled: Object.keys(safe).length, kept };
   }
 
   const isReviewStep = stepIndex === schema.steps.length;

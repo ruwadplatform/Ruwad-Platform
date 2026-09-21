@@ -1,8 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UploadedFile, UseFilters, UseGuards, UseInterceptors } from "@nestjs/common";
+import { promises as fsp } from "fs";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Throttle } from "@nestjs/throttler";
 import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
 import { SubmissionsService } from "./submissions.service";
+import { PitchDeckUploadFilter, pitchDeckUploadOptions } from "./pitch-deck-upload";
 import { CreateSubmissionDto } from "./dto/create-submission.dto";
 import { UpdateSubmissionDto, RequestChangesDto, RejectDto, FindSubmissionsQueryDto } from "./dto/update-submission.dto";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -120,8 +122,14 @@ export class SubmissionsController {
    * throttled to match. */
   @Post(":id/autofill")
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 5 * 1024 * 1024 } }))
-  autofill(@CurrentUser() user: AuthUser, @Param("id") id: string, @UploadedFile() file: Express.Multer.File) {
-    return this.submissionsService.autofill(user.userId, id, file);
+  @UseFilters(PitchDeckUploadFilter)
+  @UseInterceptors(FileInterceptor("file", pitchDeckUploadOptions())) // PDF / PPTX, up to 100 MB, streamed to a private temp file
+  async autofill(@CurrentUser() user: AuthUser, @Param("id") id: string, @UploadedFile() file: Express.Multer.File) {
+    try {
+      return await this.submissionsService.autofill(user.userId, id, file);
+    } finally {
+      // The uploaded deck is never kept: remove the temp file whatever the outcome.
+      if (file?.path) await fsp.unlink(file.path).catch(() => undefined);
+    }
   }
 }

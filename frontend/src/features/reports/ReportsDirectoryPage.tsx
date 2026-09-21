@@ -10,6 +10,7 @@ import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
 import { useSession } from "@/hooks/use-store";
 import { capForGuest } from "@/lib/auth-gate";
 import { useReports } from "@/hooks/use-directory-data";
+import { ReportAdminPanel } from "./ReportAdminPanel";
 import { REPORT_CATEGORIES } from "@/data/reference";
 
 type SortKey = "newest" | "pages" | "title";
@@ -42,6 +43,8 @@ export function ReportsDirectoryPage() {
   return (
     <div className="reports-page">
       <IntelligencePageHeader title="Reports" description="Market intelligence, funding and sector reports across Saudi, GCC and MENA healthcare." />
+
+      <ReportAdminPanel />
 
       {loading ? (
         <div className="empty-state mt-20 mb-24"><RuwadIcon name="search" size={30} /><h4>Loading reports…</h4></div>

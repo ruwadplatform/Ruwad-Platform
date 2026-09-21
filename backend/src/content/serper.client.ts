@@ -2,7 +2,10 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 export interface SerperNewsItem { title: string; link: string; snippet?: string; date?: string; source?: string; imageUrl?: string }
-export interface SerperOrganicItem { title: string; link: string; snippet?: string; date?: string }
+export interface SerperOrganicItem { title: string; link: string; snippet?: string; date?: string; position?: number }
+/** Google's "knowledge panel" block, when Serper returns one for a query. */
+export interface SerperKnowledgeGraph { title?: string; type?: string; website?: string; description?: string; attributes?: Record<string, string> }
+export interface SerperSearchResult { organic: SerperOrganicItem[]; knowledgeGraph: SerperKnowledgeGraph | null }
 
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -22,7 +25,7 @@ export class SerperClient {
     // Overridable only outside production (tests point this at a local fake).
     const override = config.get<string>("SERPER_BASE_URL");
     this.baseUrl = (config.get<string>("NODE_ENV") !== "production" && override ? override : "https://google.serper.dev").replace(/\/+$/, "");
-    if (!this.apiKey) this.logger.warn("SERPER_API_KEY not set — automatic news/events collection is disabled.");
+    if (!this.apiKey) this.logger.warn("SERPER_API_KEY not set — automatic news/events collection and report/pitch-deck research are disabled.");
   }
 
   get enabled(): boolean { return this.apiKey.length > 0; }
@@ -37,6 +40,28 @@ export class SerperClient {
     const body = await this.post("/search", { q, gl, hl: "en", num: opts.num ?? 10 });
     const items = Array.isArray(body?.organic) ? body.organic : [];
     return items.filter((i: SerperOrganicItem) => i && typeof i.title === "string" && typeof i.link === "string");
+  }
+
+  /** Same /search request as search(), but also returns result positions and the knowledge-graph block.
+   * Used by the reports and pitch-deck research; search() itself is unchanged (events collection uses it). */
+  async searchDetailed(q: string, gl: string, opts: { num?: number; tbs?: string } = {}): Promise<SerperSearchResult> {
+    const payload: Record<string, unknown> = { q, gl, hl: "en", num: opts.num ?? 10 };
+    if (opts.tbs) payload.tbs = opts.tbs;
+    const body = await this.post("/search", payload);
+    const organic = (Array.isArray(body?.organic) ? body.organic : []).filter((i: SerperOrganicItem) => i && typeof i.title === "string" && typeof i.link === "string");
+    const kg = body?.knowledgeGraph;
+    const knowledgeGraph: SerperKnowledgeGraph | null = kg && typeof kg === "object"
+      ? {
+          title: typeof kg.title === "string" ? kg.title : undefined,
+          type: typeof kg.type === "string" ? kg.type : undefined,
+          website: typeof kg.website === "string" ? kg.website : undefined,
+          description: typeof kg.description === "string" ? kg.description : undefined,
+          attributes: kg.attributes && typeof kg.attributes === "object"
+            ? Object.fromEntries(Object.entries(kg.attributes).filter(([, v]) => typeof v === "string")) as Record<string, string>
+            : undefined,
+        }
+      : null;
+    return { organic, knowledgeGraph };
   }
 
   private async post(path: string, payload: Record<string, unknown>): Promise<any> {

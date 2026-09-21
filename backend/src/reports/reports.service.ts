@@ -17,7 +17,7 @@ export class ReportsService {
     private readonly investors: InvestorsService,
   ) {}
 
-  private async uniqueSlug(title: string, excludeId?: string): Promise<string> {
+  async uniqueSlug(title: string, excludeId?: string): Promise<string> {
     const base = slugify(title);
     let slug = base;
     let n = 2;
@@ -59,17 +59,41 @@ export class ReportsService {
   async findAll(query: PaginationQueryDto & { category?: string }): Promise<PaginatedResult<Report>> {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
-    const qb = this.repo.createQueryBuilder("r");
+    const qb = this.repo.createQueryBuilder("r").where("r.isPublished = true");
     if (query.search) qb.andWhere("r.title ILIKE :q", { q: `%${query.search}%` });
     if (query.category) qb.andWhere("r.category = :category", { category: query.category });
     qb.orderBy("r.publicationDate", "DESC");
     qb.skip((page - 1) * limit).take(limit);
     const [rows, total] = await qb.getManyAndCount();
-    return paginate(rows, total, page, limit);
+    return paginate(rows.map((r) => this.slim(r)), total, page, limit);
+  }
+
+  /** Lists don't need the heavy generated payload (statistics, saved sources). */
+  private slim(r: Report): Report {
+    return { ...r, internalStats: undefined, externalSources: [], researchQueries: [], generated: undefined, aiOverview: undefined } as Report;
+  }
+
+  /** Admin view: drafts and published reports alike. */
+  async findAllAdmin(): Promise<Report[]> {
+    const rows = await this.repo.find({ order: { updatedAt: "DESC" } });
+    return rows.map((r) => this.slim(r));
+  }
+
+  async findBySlugAdmin(slug: string): Promise<Report> {
+    const report = await this.repo.findOne({ where: { slug } });
+    if (!report) throw new NotFoundException("Report not found");
+    return report;
+  }
+
+  async setPublished(id: string, published: boolean): Promise<Report> {
+    const report = await this.findEntityOrThrow(id);
+    report.isPublished = published;
+    if (published) report.publishedAt = new Date();
+    return this.repo.save(report);
   }
 
   async findBySlugOrThrow(slug: string): Promise<Record<string, unknown>> {
-    const report = await this.repo.findOne({ where: { slug } });
+    const report = await this.repo.findOne({ where: { slug, isPublished: true } }); // drafts and unpublished reports are not public
     if (!report) throw new NotFoundException("Report not found");
 
     const [relatedCompanies, relatedInvestors, relatedReports] = await Promise.all([

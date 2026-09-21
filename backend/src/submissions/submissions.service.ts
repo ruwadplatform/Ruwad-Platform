@@ -21,7 +21,7 @@ import { CreateInvestorDto } from "../investors/dto/create-investor.dto";
 import { CreateHubDto } from "../hubs/dto/create-hub.dto";
 import { CreateResearchDto } from "../research/dto/create-research.dto";
 import { CreateMultinationalDto } from "../multinationals/dto/create-multinational.dto";
-import { SubmissionAutofillService } from "./submission-autofill.service";
+import { SubmissionAutofillService, type AutofillMeta } from "./submission-autofill.service";
 import { validateHubPayload } from "./hub-types";
 import { UsersService } from "../users/users.service";
 import { EmailService } from "../email/email.service";
@@ -132,13 +132,12 @@ export class SubmissionsService {
    * client-side, and the actual write goes through update() (PATCH :id)
    * so AI-extracted values get exactly the same treatment as manual
    * entry, with no separate validation path. */
-  async autofill(userId: string, id: string, file: Express.Multer.File | undefined): Promise<{ fields: Record<string, unknown> }> {
+  async autofill(userId: string, id: string, file: Express.Multer.File | undefined): Promise<{ fields: Record<string, unknown>; meta: AutofillMeta }> {
     const item = await this.findOneForUser(userId, id);
     if (item.status !== SubmissionStatus.DRAFT && item.status !== SubmissionStatus.CHANGES_REQUESTED) {
       throw new BadRequestException(`Cannot edit a submission with status ${item.status}`);
     }
-    const fields = await this.autofillService.extract(item.kind, file);
-    return { fields };
+    return this.autofillService.extract(item.kind, file);
   }
 
   async remove(userId: string, id: string): Promise<void> {

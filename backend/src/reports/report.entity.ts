@@ -1,5 +1,6 @@
 import { Column, Entity, Index } from "typeorm";
 import { BaseEntity } from "../common/base.entity";
+import type { ExternalSource, GeneratedContent, InternalStats, QueryLog, ReportScope } from "./report-types";
 
 @Entity("reports")
 export class Report extends BaseEntity {
@@ -36,6 +37,22 @@ export class Report extends BaseEntity {
   provenanceConfidence!: "High" | "Medium" | "Low";
   @Column({ type: "date", nullable: true })
   provenanceLastUpdated?: string;
+
+  /** Public visibility. Hand-written reports default to published; generated reports start as drafts until an admin publishes. */
+  @Column({ default: true }) isPublished!: boolean;
+  /** Set only for reports produced by the generator (see report-generator.service.ts). */
+  @Column({ type: "varchar", nullable: true }) reportKind?: string | null;
+  @Column({ type: "jsonb", nullable: true }) scope?: ReportScope | null;
+  /** Statistics computed from the RUWĀD database — never from web pages. */
+  @Column({ type: "jsonb", nullable: true }) internalStats?: InternalStats | null;
+  /** Web sources kept as evidence, saved with the report so viewing it never searches again. */
+  @Column({ type: "jsonb", default: [] }) externalSources!: ExternalSource[];
+  @Column({ type: "jsonb", default: [] }) researchQueries!: QueryLog[];
+  @Column({ type: "timestamptz", nullable: true }) researchedAt?: Date | null;
+  /** "no-ai" (facts assembled from data + sources) or "ai" (an AI-written overview was added and verified). */
+  @Column({ type: "varchar", nullable: true }) generationMode?: string | null;
+  @Column({ type: "jsonb", nullable: true }) generated?: GeneratedContent | null;
+  @Column({ type: "text", nullable: true }) aiOverview?: string | null;
   @Column("text", { array: true, default: [] })
   provenanceSources!: string[];
 }

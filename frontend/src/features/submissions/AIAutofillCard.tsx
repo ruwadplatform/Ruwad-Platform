@@ -2,12 +2,9 @@
 
 import { useRef, useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
-import { autofillSubmission } from "@/lib/api/submission-autofill";
+import { autofillSubmission, checkPitchDeck, type AutofillMeta } from "@/lib/api/submission-autofill";
 import { ApiError } from "@/lib/api/client";
 import type { ApiSubmissionKind } from "@/lib/api/types";
-
-const ALLOWED_TYPES = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-const MAX_BYTES = 5 * 1024 * 1024;
 
 interface AutofillCopy {
   title: string;
@@ -16,10 +13,7 @@ interface AutofillCopy {
   extracts: string[];
 }
 
-/** Per-kind copy for the card — exact wording per the product spec. PDF/DOCX
- * only (matches the backend's actual extraction support): pdf-parse/mammoth
- * can't read native .pptx, so the copy says "PDF or Word document" with a
- * one-line export hint rather than implying .pptx support outright. */
+/** Per-kind copy for the card — exact wording per the product spec. Every kind accepts PDF or PPTX, up to 100 MB. */
 const AI_AUTOFILL_COPY: Record<ApiSubmissionKind, AutofillCopy> = {
   STARTUP: {
     title: "Submit Your Pitch",
@@ -53,7 +47,11 @@ const AI_AUTOFILL_COPY: Record<ApiSubmissionKind, AutofillCopy> = {
   },
 };
 
-type UploadState = "idle" | "analyzing" | "done" | "error";
+type UploadState = "idle" | "uploading" | "extracting" | "analyzing" | "populating" | "done" | "error";
+const BUSY: UploadState[] = ["uploading", "extracting", "analyzing", "populating"];
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export interface AutofillSummary { filled: number; kept: number }
 
 /** The prominent AI-autofill upload card at the top of every submission
  * form, built on the pre-existing "Smart Pitch Deck Upload" CSS
@@ -65,39 +63,52 @@ type UploadState = "idle" | "analyzing" | "done" | "error";
 export function AIAutofillCard({ kind, submissionId, onExtracted }: {
   kind: ApiSubmissionKind;
   submissionId: string;
-  onExtracted: (fields: Record<string, unknown>) => void;
+  onExtracted: (fields: Record<string, unknown>) => AutofillSummary;
 }) {
   const copy = AI_AUTOFILL_COPY[kind];
   const [state, setState] = useState<UploadState>("idle");
   const [fileName, setFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filledCount, setFilledCount] = useState(0);
+  const [summary, setSummary] = useState<AutofillSummary>({ filled: 0, kept: 0 });
+  const [meta, setMeta] = useState<AutofillMeta | null>(null);
+  const [progress, setProgress] = useState(0);
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  async function handleFile(file: File | undefined) {
-    if (!file) return;
+  const busy = BUSY.includes(state);
+  const profileWord = kind === "STARTUP" ? "startup profile" : "profile";
+
+  async function handleFile(picked: File | undefined) {
+    if (!picked || busy) return; // one upload at a time
     setError(null);
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const check = await checkPitchDeck(picked);
+    if (!check.ok) {
       setState("error");
-      setError("Please upload a PDF or Word (.docx) document. Export your deck to PDF for best results.");
+      setError(check.message);
       return;
     }
-    if (file.size > MAX_BYTES) {
-      setState("error");
-      setError("File must be 5MB or smaller.");
-      return;
-    }
-    setFileName(file.name);
-    setState("analyzing");
+    setFileName(check.file.name);
+    setProgress(0);
+    setMeta(null);
+    setState("uploading");
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const fields = await autofillSubmission(submissionId, file);
-      setFilledCount(Object.keys(fields).length);
+      const result = await autofillSubmission(submissionId, check.file, {
+        onUploadProgress: setProgress,
+        // The server reads the text, then asks the AI — show that as it happens (the request is one round trip).
+        onUploaded: () => { setState("extracting"); timer = setTimeout(() => setState((s) => (s === "extracting" ? "analyzing" : s)), 2500); },
+      });
+      clearTimeout(timer);
+      setState("populating");
+      await wait(350);
+      const applied = onExtracted(result.fields);
+      setSummary(applied);
+      setMeta(result.meta);
       setState("done");
-      onExtracted(fields);
     } catch (e) {
+      clearTimeout(timer);
       setState("error");
-      setError(e instanceof ApiError ? e.message : "Couldn't analyze that file — please fill in the form manually.");
+      setError(e instanceof ApiError ? e.message : "Unable to analyze the pitch deck.");
     }
   }
 
@@ -105,7 +116,9 @@ export function AIAutofillCard({ kind, submissionId, onExtracted }: {
     setState("idle");
     setFileName(null);
     setError(null);
-    setFilledCount(0);
+    setSummary({ filled: 0, kept: 0 });
+    setMeta(null);
+    setProgress(0);
   }
 
   return (
@@ -113,11 +126,11 @@ export function AIAutofillCard({ kind, submissionId, onExtracted }: {
       className={`ai-upload-panel-lg${drag ? " drag" : ""}${state === "error" ? " ai-error" : ""}`}
       onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
       onDragLeave={() => setDrag(false)}
-      onDrop={(e) => { e.preventDefault(); setDrag(false); handleFile(e.dataTransfer.files?.[0]); }}
+      onDrop={(e) => { e.preventDefault(); setDrag(false); void handleFile(e.dataTransfer.files?.[0]); }}
     >
       <input
-        ref={inputRef} type="file" accept=".pdf,.docx" style={{ display: "none" }}
-        onChange={(e) => handleFile(e.target.files?.[0])}
+        ref={inputRef} type="file" accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation" style={{ display: "none" }}
+        onChange={(e) => { void handleFile(e.target.files?.[0]); e.target.value = ""; }}
       />
 
       <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
@@ -132,28 +145,37 @@ export function AIAutofillCard({ kind, submissionId, onExtracted }: {
       <div className="flex" style={{ gap: 20, alignItems: "center", flexWrap: "wrap", marginTop: 14 }}>
         <div
           className={`ai-upload-dropzone${state === "analyzing" ? " analyzing" : ""}`}
-          style={{ flex: "1 1 260px", cursor: state === "analyzing" ? "default" : "pointer" }}
-          onClick={() => state !== "analyzing" && inputRef.current?.click()}
+          style={{ flex: "1 1 260px", cursor: busy ? "default" : "pointer" }}
+          aria-busy={busy}
+          onClick={() => !busy && inputRef.current?.click()}
         >
-          {state === "analyzing" ? (
+          {busy ? (
             <>
               <div className="ai-upload-spinner" />
-              <div className="ai-upload-text"><b>Analyzing your document…</b><span>{fileName}</span></div>
+              <div className="ai-upload-text" role="status">
+                <b>
+                  {state === "uploading" ? `Uploading pitch deck… ${Math.round(progress * 100)}%`
+                    : state === "extracting" ? "Extracting document content…"
+                    : state === "analyzing" ? "Analyzing pitch deck with AI…"
+                    : `Populating your ${profileWord}…`}
+                </b>
+                <span>{fileName}</span>
+              </div>
             </>
           ) : state === "done" ? (
             <>
               <div className="ai-upload-icon ai-ok-icon"><RuwadIcon name="check" size={18} /></div>
-              <div className="ai-upload-text"><b>AI analysis complete</b><span>{filledCount} field{filledCount === 1 ? "" : "s"} filled</span></div>
+              <div className="ai-upload-text" role="status"><b>Pitch deck analyzed successfully.</b><span>{summary.filled} field{summary.filled === 1 ? "" : "s"} filled</span></div>
             </>
           ) : state === "error" ? (
             <>
               <div className="ai-upload-icon ai-error-icon"><RuwadIcon name="help" size={18} /></div>
-              <div className="ai-upload-text"><b>Couldn&apos;t read that file</b><span>{error}</span></div>
+              <div className="ai-upload-text" role="alert"><b>Couldn&apos;t analyze that file</b><span>{error}</span></div>
             </>
           ) : (
             <>
               <div className="ai-upload-icon"><RuwadIcon name="upload" size={18} /></div>
-              <div className="ai-upload-text"><b>{copy.uploadLabel}</b><span>PDF, Word — up to 5MB</span></div>
+              <div className="ai-upload-text"><b>{copy.uploadLabel}</b><span>PDF or PPTX — up to 100 MB</span></div>
             </>
           )}
         </div>
@@ -165,9 +187,20 @@ export function AIAutofillCard({ kind, submissionId, onExtracted }: {
         </ul>
       </div>
 
+      {state === "done" && (
+        <p className="fs-13 mt-12" role="status">
+          Pitch deck analyzed successfully. Please review the autofilled information before submitting.
+          {summary.kept > 0 && <> {summary.kept} field{summary.kept === 1 ? "" : "s"} you had already filled in {summary.kept === 1 ? "was" : "were"} left as you entered {summary.kept === 1 ? "it" : "them"}.</>}
+          {meta?.mode === "local" && <> AI reading isn&apos;t available right now, so only clearly labelled details were picked up — please fill in the rest.</>}
+          {!!meta?.enrichment?.fields.length && <> {meta.enrichment.fields.length} field{meta.enrichment.fields.length === 1 ? "" : "s"} ({meta.enrichment.fields.join(", ")}) came from public web sources rather than your deck — please verify {meta.enrichment.fields.length === 1 ? "it" : "them"}.</>}
+          {meta?.partial && <> Some parts of a long deck couldn&apos;t be fully analyzed, so please check the details.</>}
+        </p>
+      )}
+      {state === "error" && <p className="fs-13 mt-12">You can still complete the form manually.</p>}
+
       {(state === "done" || state === "error") && (
         <div className="flex gap-8 mt-12">
-          <button type="button" className="btn btn-outline btn-xs" onClick={() => inputRef.current?.click()}>Replace File</button>
+          <button type="button" className="btn btn-outline btn-xs" disabled={busy} onClick={() => inputRef.current?.click()}>Replace File</button>
           <button type="button" className="btn btn-outline btn-xs" onClick={reset}>Remove</button>
         </div>
       )}
