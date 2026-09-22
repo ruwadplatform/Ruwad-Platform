@@ -6,6 +6,7 @@ import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSavedSearchActions } from "@/hooks/use-store";
 import type { SavedSearch } from "@/lib/store";
+import { startupsUrl } from "@/lib/startup-category";
 
 const ENTITY_ROUTES: Record<string, string> = {
   startups: "/startups", investors: "/investors", hubs: "/hubs", research: "/research", multinationals: "/multinationals",
@@ -31,7 +32,7 @@ export function SavedSearchCard({ search: s }: { search: SavedSearch }) {
     markRun(s.id);
     const base = ENTITY_ROUTES[s.entityType] ?? "/startups";
     const categoryFilter = s.filters.category;
-    const url = s.entityType === "startups" && categoryFilter?.length === 1 ? `${base}?cat=${encodeURIComponent(categoryFilter[0])}` : base;
+    const url = s.entityType === "startups" && categoryFilter?.length === 1 ? startupsUrl(categoryFilter) : base;
     if (url === base && filterEntries.length > 0) toast(`Showing the ${ENTITY_LABELS[s.entityType] ?? s.entityType} directory — reapply the filters shown below`);
     router.push(url);
   }

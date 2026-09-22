@@ -1,4 +1,5 @@
 import type { RuwadIconName } from "@/components/icons/ruwad-icon";
+import { categoriesFromParams, startupsUrl } from "@/lib/startup-category";
 
 export interface NavChild {
   label: string;
@@ -26,9 +27,9 @@ export const TOP_NAV: NavGroup[] = [
       { label: "Healthcare Ecosystem", icon: "ecosystem", route: "/ecosystem" },
       { label: "Market Map", icon: "bi", route: "/market-map" },
       { label: "Opportunities Marketplace", icon: "hubs", route: "/opportunities" },
-      { label: "Biotechnology", icon: "research", route: "/startups?cat=Biotechnology" },
-      { label: "MedTech", icon: "settings", route: "/startups?cat=MedTech" },
-      { label: "Digital Health", icon: "cloud", route: "/startups?cat=Digital+Health" },
+      { label: "Biotechnology", icon: "research", route: startupsUrl(["Biotechnology"]) },
+      { label: "MedTech", icon: "settings", route: startupsUrl(["MedTech"]) },
+      { label: "Digital Health", icon: "cloud", route: startupsUrl(["Digital Health"]) },
     ],
   },
   {
@@ -86,8 +87,8 @@ const ROUTE_TO_NAV_GROUP: Record<string, string> = {
 export function activeNavGroup(pathname: string, search: string): string | null {
   const seg = pathname.split("/").filter(Boolean)[0] || "dashboard";
   if (seg === "startups") {
-    const cat = new URLSearchParams(search).get("cat");
-    return cat === "Biotechnology" || cat === "MedTech" || cat === "Digital Health" ? "discover" : "explore";
+    const cats = categoriesFromParams(new URLSearchParams(search));
+    return cats.length === 1 && ["Biotechnology", "MedTech", "Digital Health"].includes(cats[0]) ? "discover" : "explore";
   }
   return ROUTE_TO_NAV_GROUP[seg] || (seg === "dashboard" ? "dashboard" : null);
 }

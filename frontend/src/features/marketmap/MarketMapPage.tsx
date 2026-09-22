@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useStartups, useInvestors, useHubs, useResearchInstitutions, useMultinationals } from "@/hooks/use-directory-data";
 import { HC_CATEGORIES } from "@/data/reference";
+import { startupsUrl } from "@/lib/startup-category";
 import type { Startup, Investor, Hub, ResearchInstitution, Multinational } from "@/types/entities";
 
 interface MarketMapRow {
@@ -61,7 +62,7 @@ export function MarketMapPage() {
           const pct = Math.round((r.total / maxTotal) * 100);
           const segments = r.breakdown.filter((b) => b.count > 0);
           return (
-            <button key={r.category} className={`mm-tile${r.total === 0 ? " empty" : ""}`} onClick={() => router.push(`/startups?cat=${encodeURIComponent(r.category)}`)}>
+            <button key={r.category} className={`mm-tile${r.total === 0 ? " empty" : ""}`} onClick={() => router.push(startupsUrl([r.category]))}>
               <div className="mm-tile-head"><h4>{r.category}</h4><b className="mono">{r.total}</b></div>
               <div className="mm-bar"><div className="mm-bar-fill" style={{ width: `${pct}%` }} /></div>
               <div className="mm-breakdown">

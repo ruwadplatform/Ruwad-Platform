@@ -13,6 +13,7 @@ import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
 import { requireAuth } from "@/lib/store";
 import { matchSearchTokens } from "@/lib/search";
 import { capForGuest } from "@/lib/auth-gate";
+import { categoriesFromParams, sameCategory, startupsUrl } from "@/lib/startup-category";
 import { regBadgeClass } from "@/lib/widgets";
 import { useStartups } from "@/hooks/use-directory-data";
 import { HC_CATEGORIES, CITIES, STAGES, STATUSES } from "@/data/reference";
@@ -49,13 +50,27 @@ const SORTERS: Record<SortKey, (a: Startup, b: Startup) => number> = {
 
 export function StartupsDirectoryPage() {
   const searchParams = useSearchParams();
-  const catParam = searchParams.get("cat");
+  // The URL is the source of truth for the category filter (?category=…; legacy ?cat=… is read too).
+  const urlCategories = categoriesFromParams(searchParams);
+  const urlKey = urlCategories.join("|");
+  const router = useRouter();
   const { loggedIn, hydrated } = useSession();
   const { data: STARTUPS, loading, error } = useStartups();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("score");
   const [view, setView] = useState<ViewMode>("table");
-  const [filters, setFilters] = useState<Filters>(() => (catParam ? { ...EMPTY_FILTERS, category: [catParam] } : EMPTY_FILTERS));
+  const [filters, setFilters] = useState<Filters>(() => ({ ...EMPTY_FILTERS, category: urlCategories }));
+  // Client-side navigation keeps this component mounted, so follow the URL whenever its category changes
+  // (Discover → MedTech, → Startups, browser Back/Forward…). Other filters are left alone.
+  const [syncedKey, setSyncedKey] = useState(urlKey);
+  if (syncedKey !== urlKey) {
+    setSyncedKey(urlKey);
+    setFilters((f) => ({ ...f, category: urlCategories }));
+  }
+  /** Category edits (chip ×, filter drawer, clear) are written back to the URL so URL, chip and results always agree. */
+  function pushCategories(next: string[]) {
+    if (next.join("|") !== urlKey) router.replace(startupsUrl(next), { scroll: false });
+  }
   const { openDrawer, closeDrawer } = useFilterDrawer();
   const { openModal } = useModal();
 
@@ -64,7 +79,7 @@ export function StartupsDirectoryPage() {
     let list = STARTUPS.filter((s) => {
       if (remainder && !s.name.toLowerCase().includes(remainder.toLowerCase())) return false;
       if (matches.some((t) => !startupTokenMatches(s, t.key, t.value))) return false;
-      if (filters.category.length && !filters.category.includes(s.category)) return false;
+      if (filters.category.length && !filters.category.some((c) => sameCategory(c, s.category))) return false;
       if (filters.stage.length && !filters.stage.includes(s.stage)) return false;
       if (filters.status.length && !filters.status.includes(s.status)) return false;
       if (filters.location.length && !filters.location.some((l) => s.city === l || s.country.includes(l))) return false;
@@ -82,6 +97,7 @@ export function StartupsDirectoryPage() {
 
   function removeFilter(k: keyof Filters, v: string) {
     setFilters((f) => ({ ...f, [k]: (f[k] as string[]).filter((x) => x !== v) }));
+    if (k === "category") pushCategories(filters.category.filter((x) => x !== v));
   }
 
   function openFilters() {
@@ -89,8 +105,8 @@ export function StartupsDirectoryPage() {
       <StartupFilterDrawer
         filters={filters}
         loggedIn={loggedIn}
-        onApply={(f) => { setFilters(f); closeDrawer(); }}
-        onClear={() => { setFilters(EMPTY_FILTERS); closeDrawer(); }}
+        onApply={(f) => { setFilters(f); pushCategories(f.category); closeDrawer(); }}
+        onClear={() => { setFilters(EMPTY_FILTERS); pushCategories([]); closeDrawer(); }}
         onClose={closeDrawer}
       />,
     );

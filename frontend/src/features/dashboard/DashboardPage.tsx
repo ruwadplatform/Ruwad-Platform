@@ -13,6 +13,7 @@ import { AddToCalendar } from "@/components/intelligence/AddToCalendar";
 import { useStartups, useInvestors, useHubs, useNews, useEvents, useReports } from "@/hooks/use-directory-data";
 import { initials } from "@/lib/scoring";
 import { regBadgeClass } from "@/lib/widgets";
+import { startupsUrl } from "@/lib/startup-category";
 
 const PERSONAS = ["For Investors", "For Startups", "For Corporations", "For Researchers"] as const;
 type Persona = (typeof PERSONAS)[number];
@@ -23,7 +24,7 @@ const PERSONA_INSIGHTS: Record<Persona, Insight[]> = {
     { icon: "startups", h: "Find recently updated healthcare startups", p: "Explore companies updated this month.", route: "/startups" },
     { icon: "investors", h: "Benchmark against active investors", p: "See who else is deploying capital nearby.", route: "/investors" },
     { icon: "lock", h: "Request secure Data Room access", p: "Sign an NDA in-platform and unlock verified financials and clinical data.", route: "/startups" },
-    { icon: "research", h: "Biotechnology landscape", p: "View Saudi biotechnology companies.", route: "/startups?cat=Biotechnology" },
+    { icon: "research", h: "Biotechnology landscape", p: "View Saudi biotechnology companies.", route: startupsUrl(["Biotechnology"]) },
   ],
   "For Startups": [
     { icon: "investors", h: "Discover active healthcare investors", p: "View investors actively deploying capital.", route: "/investors" },
@@ -38,10 +39,10 @@ const PERSONA_INSIGHTS: Record<Persona, Insight[]> = {
     { icon: "hubs", h: "Explore innovation hubs", p: "Where corporate-startup pilots start.", route: "/hubs" },
   ],
   "For Researchers": [
-    { icon: "research", h: "Biotechnology landscape", p: "View Saudi biotechnology companies.", route: "/startups?cat=Biotechnology" },
-    { icon: "startups", h: "Genomics & diagnostics ventures", p: "Companies translating research to market.", route: "/startups?cat=Genomics" },
+    { icon: "research", h: "Biotechnology landscape", p: "View Saudi biotechnology companies.", route: startupsUrl(["Biotechnology"]) },
+    { icon: "startups", h: "Genomics & diagnostics ventures", p: "Companies translating research to market.", route: startupsUrl(["Genomics"]) },
     { icon: "reports", h: "Read the latest ecosystem report", p: "Sector trends and regulatory landscape.", route: "/reports" },
-    { icon: "bi", h: "AI in Saudi Healthcare", p: "Explore AI startups and technologies.", route: "/startups?cat=AI Healthcare" },
+    { icon: "bi", h: "AI in Saudi Healthcare", p: "Explore AI startups and technologies.", route: startupsUrl(["AI Healthcare"]) },
   ],
 };
 
