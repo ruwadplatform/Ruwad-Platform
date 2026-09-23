@@ -5,9 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { RuwadIcon, type RuwadIconName } from "@/components/icons/ruwad-icon";
 import { PasswordInput } from "@/components/shared/PasswordInput";
+import { PhoneInput } from "@/components/shared/PhoneInput";
 import { registerAccount, consumePendingAction, ApiError } from "@/lib/store";
 import { parseResume } from "@/lib/api/resume-parse";
 import { ALL_COUNTRIES } from "@/data/reference";
+import { dialCodeForCountry } from "@/data/phone-codes";
+import { toE164, splitE164ForAutofill } from "@/lib/phone";
 
 const ALLOWED_RESUME_TYPES = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
 const MAX_RESUME_BYTES = 5 * 1024 * 1024;
@@ -85,6 +88,12 @@ export function SignupPage() {
   const [jobTitle, setJobTitle] = useState("");
   const [country, setCountry] = useState("Saudi Arabia");
   const [city, setCity] = useState("");
+  const [phoneIso2, setPhoneIso2] = useState(dialCodeForCountry("Saudi Arabia")?.iso2 ?? "SA");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  // Once the user has picked a phone country themselves (directly, or indirectly by already having
+  // a number filled in), changing the Country field stops moving the phone selector along with it —
+  // matching how résumé autofill never overwrites a value the user already entered.
+  const [phoneCountryTouched, setPhoneCountryTouched] = useState(false);
   const [agree, setAgree] = useState(false);
   const [org, setOrg] = useState<OrgData>({ name: "", website: "", stage: STAGES[0], category: HC_CATEGORIES[0], city: "", type: INVESTOR_TYPES[0] });
   const [interests, setInterests] = useState<string[]>([]);
@@ -108,6 +117,23 @@ export function SignupPage() {
   function fillIfEmpty(setter: (v: (prev: string) => string) => void, value: string | undefined) {
     if (!value) return;
     setter((prev) => (prev.trim() ? prev : value));
+  }
+
+  /** Country change from the Country field itself: also moves the phone dial-code along, unless the
+   * user has already chosen a phone country of their own. */
+  function changeCountry(next: string) {
+    setCountry(next);
+    if (!phoneCountryTouched) {
+      const match = dialCodeForCountry(next);
+      if (match) setPhoneIso2(match.iso2);
+    }
+  }
+
+  /** Phone country changed directly (the dial-code dropdown itself) — from here on, Country no
+   * longer drags the phone selector along with it. */
+  function changePhoneIso2(iso2: string) {
+    setPhoneIso2(iso2);
+    setPhoneCountryTouched(true);
   }
 
   async function handleResumeFile(file: File | undefined) {
@@ -136,6 +162,16 @@ export function SignupPage() {
       const country = fields.country ? ALL_COUNTRIES.find((c) => c.toLowerCase() === fields.country!.toLowerCase()) : undefined;
       fillIfEmpty(setCountry, country);
       fillIfEmpty(setCity, fields.city);
+      if (fields.phone && !phoneNumber.trim()) {
+        const split = splitE164ForAutofill(fields.phone);
+        if (split) {
+          setPhoneNumber(split.number);
+          if (!phoneCountryTouched) setPhoneIso2(split.iso2);
+        } else {
+          // A local-format number with no dialing code — fill the digits, leave the country selector alone.
+          setPhoneNumber(fields.phone.replace(/[^\d\s()-]/g, "").trim());
+        }
+      }
       if (fields.organization) setOrg((prev) => (prev.name.trim() ? prev : { ...prev, name: fields.organization! }));
       setResumeNote(
         fields.mode === "local"
@@ -155,12 +191,16 @@ export function SignupPage() {
 
   function submitStep2() {
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !password || password !== confirm
-      || !jobTitle.trim() || !country.trim() || !agree) {
+      || !jobTitle.trim() || !country.trim() || !phoneNumber.trim() || !agree) {
       setError("Please complete all required fields correctly.");
       return;
     }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (!toE164(phoneIso2, phoneNumber)) {
+      setError("Please enter a valid phone number.");
       return;
     }
     setError("");
@@ -201,6 +241,7 @@ export function SignupPage() {
         jobTitle: jobTitle.trim() || undefined, organization: org.name.trim() || undefined,
         ...Object.fromEntries(Object.entries(orgFields).map(([k, v]) => [k, v?.trim() || undefined])),
         country: country.trim() || undefined, city: city.trim() || undefined,
+        phone: toE164(phoneIso2, phoneNumber) ?? undefined,
         interests: interests.length ? interests : undefined,
       });
       setStep(5);
@@ -300,12 +341,16 @@ export function SignupPage() {
                   <div className="grid-2 mt-16">
                     <div className="field"><label>First Name <span className="req">*</span></label><input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
                     <div className="field"><label>Last Name <span className="req">*</span></label><input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
-                    <div className="field field-full"><label>Work Email <span className="req">*</span></label><input className="input" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                    <div className="field"><label>Work Email <span className="req">*</span></label><input className="input" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                    <div className="field">
+                      <label>Phone Number <span className="req">*</span></label>
+                      <PhoneInput iso2={phoneIso2} onIso2Change={changePhoneIso2} number={phoneNumber} onNumberChange={setPhoneNumber} />
+                    </div>
                     <div className="field"><label>Password <span className="req">*</span></label><PasswordInput value={password} onChange={setPassword} autoComplete="new-password" label="password" /></div>
                     <div className="field"><label>Confirm Password <span className="req">*</span></label><PasswordInput value={confirm} onChange={setConfirm} autoComplete="new-password" label="confirm password" /></div>
                     <div className="field"><label>Job Title <span className="req">*</span></label><input className="input" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} /></div>
-                    <div className="field field-full"><label>Country <span className="req">*</span></label>
-                      <select className="select" value={country} onChange={(e) => setCountry(e.target.value)}>
+                    <div className="field"><label>Country <span className="req">*</span></label>
+                      <select className="select" value={country} onChange={(e) => changeCountry(e.target.value)}>
                         {ALL_COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>

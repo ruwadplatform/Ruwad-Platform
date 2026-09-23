@@ -6,7 +6,7 @@ export function register(input: {
   role?: string; jobTitle?: string; organization?: string;
   organizationWebsite?: string; organizationStage?: string; organizationCategory?: string;
   organizationCity?: string; organizationType?: string;
-  country?: string; city?: string; interests?: string[];
+  country?: string; city?: string; phone?: string; interests?: string[];
 }): Promise<ApiUser> {
   return api.post<ApiUser>("/auth/register", input);
 }

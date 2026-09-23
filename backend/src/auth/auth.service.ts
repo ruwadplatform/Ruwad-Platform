@@ -55,6 +55,7 @@ export class AuthService {
       organizationType: dto.organizationType,
       country: dto.country,
       city: dto.city,
+      phone: dto.phone,
       interests: dto.interests ?? [],
     });
     await this.users.getOrCreateSettings(user.id);

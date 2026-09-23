@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsEmail, IsIn, IsOptional, IsPhoneNumber, IsString, MaxLength, MinLength } from "class-validator";
 import { UserRole } from "../../common/enums";
 
 const SIGNUP_ROLES = [UserRole.USER, UserRole.FOUNDER, UserRole.INVESTOR, UserRole.ORGANIZATION_ADMIN];
@@ -21,6 +21,9 @@ export class RegisterDto {
   @IsOptional() @IsString() @MaxLength(80) organizationType?: string;
   @IsOptional() @IsString() @MaxLength(80) country?: string;
   @IsOptional() @IsString() @MaxLength(80) city?: string;
+  /** Frontend always sends E.164 ("+966501234567"); omitting the region requires
+   * that international "+" format rather than validating against one country. */
+  @IsOptional() @IsPhoneNumber() phone?: string;
 
   @IsOptional() @IsArray() @ArrayMaxSize(40) @IsString({ each: true })
   interests?: string[];

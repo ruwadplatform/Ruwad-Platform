@@ -246,6 +246,14 @@ option:checked{background:var(--bg-2);color:var(--text)}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 20px}
 .field-full{grid-column:1/-1}
 
+/* A dial-code <select> and a number <input> sharing one .input/.select box model, merged into a
+   single-looking control: no gap or double border where they meet, one rounded end each. */
+.phone-input-group{display:flex}
+.phone-input-group .select{flex:0 0 118px;border-top-right-radius:0;border-bottom-right-radius:0;border-right:none;padding-right:6px}
+.phone-input-group .input{flex:1;min-width:0;border-top-left-radius:0;border-bottom-left-radius:0}
+.phone-input-group:focus-within{border-radius:var(--radius-input);box-shadow:0 0 0 3px var(--green-tint)}
+.phone-input-group:focus-within .select,.phone-input-group:focus-within .input{border-color:var(--green)}
+
 .chip-select{display:flex;flex-wrap:wrap;gap:8px}
 .chip-select button{padding:7px 12px;border-radius:var(--radius-pill);border:1px solid var(--border-strong);background:#fff;font-size:var(--fs-12);font-weight:500}
 .chip-select button.active{background:var(--green-tint);border-color:var(--green);color:var(--green-dark);font-weight:700}

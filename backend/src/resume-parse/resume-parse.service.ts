@@ -20,6 +20,7 @@ export interface ParsedResumeFields {
   organization?: string;
   city?: string;
   country?: string;
+  phone?: string;
   /** "local" = basic pattern reading (no ANTHROPIC_API_KEY configured); "ai" = AI extraction. */
   mode?: "local" | "ai";
 }
@@ -37,6 +38,7 @@ const EXTRACT_TOOL = {
       organization: { type: "string", description: "Candidate's most recent or current employer/company name" },
       city: { type: "string", description: "Candidate's city of residence, if stated" },
       country: { type: "string", description: "Candidate's country of residence, if stated" },
+      phone: { type: "string", description: "Candidate's own personal/mobile phone number, if clearly stated — never a reference's, recruiter's, or employer's general contact number" },
     },
   },
 };
@@ -90,7 +92,7 @@ export class ResumeParseService {
     }
     const input = toolUse.input as Record<string, unknown>;
     const fields: ParsedResumeFields = {};
-    for (const key of ["firstName", "lastName", "email", "jobTitle", "organization", "city", "country"] as const) {
+    for (const key of ["firstName", "lastName", "email", "jobTitle", "organization", "city", "country", "phone"] as const) {
       const value = input[key];
       if (typeof value === "string" && value.trim()) fields[key] = value.trim();
     }

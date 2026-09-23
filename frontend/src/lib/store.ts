@@ -134,6 +134,7 @@ export interface Account {
   jobTitle?: string;
   country?: string;
   city?: string;
+  phone?: string;
   org?: OrgInfo;
   linkedin?: string;
   bio?: string;
@@ -163,6 +164,7 @@ function toAccount(u: ApiUser): Account {
     jobTitle: u.jobTitle ?? undefined,
     country: u.country ?? undefined,
     city: u.city ?? undefined,
+    phone: u.phone ?? undefined,
     org: {
       name: u.organization ?? undefined,
       website: u.organizationWebsite ?? undefined,
@@ -226,7 +228,7 @@ export async function registerAccount(input: {
   role?: string; jobTitle?: string; organization?: string;
   organizationWebsite?: string; organizationStage?: string; organizationCategory?: string;
   organizationCity?: string; organizationType?: string;
-  country?: string; city?: string; interests?: string[];
+  country?: string; city?: string; phone?: string; interests?: string[];
 }): Promise<Account> {
   const u = await authApi.register(input);
   sessionUser = u;

@@ -17,6 +17,7 @@ export interface ApiUser {
   organizationType: string | null;
   country: string | null;
   city: string | null;
+  phone: string | null;
   bio: string | null;
   linkedin: string | null;
   profileImageId: string | null;

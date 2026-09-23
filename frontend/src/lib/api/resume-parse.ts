@@ -8,6 +8,7 @@ export interface ParsedResume {
   organization?: string;
   city?: string;
   country?: string;
+  phone?: string;
   /** "local" = basic pattern reading (no AI key configured); "ai" = AI extraction. */
   mode?: "local" | "ai";
 }

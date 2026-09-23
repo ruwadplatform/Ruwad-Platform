@@ -114,6 +114,24 @@ function findLocation(lines: string[]): { city?: string; country?: string } {
   return {};
 }
 
+/** International ("+9665..." ) or local-trunk ("0501...") formatted number, each with the usual
+ * space/dash/dot/parenthesis separators. Deliberately does NOT match a bare digit run with no leading
+ * "+"/"0" (e.g. a year range like "2019-2022") — that ambiguity is exactly what caused false positives
+ * in early testing, so a candidate must look like a phone number, not just contain enough digits. */
+const PHONE_INTL = /\+\d[\d\s().-]{5,17}\d/g;
+const PHONE_LOCAL = /(?<![\d.+A-Za-z])0[\d\s().-]{5,14}\d(?!\d)/g;
+
+function findPhone(lines: string[]): string | undefined {
+  for (const line of lines.slice(0, 15)) {
+    if (REFERENCE_CONTEXT.test(line)) continue; // a reference's/recruiter's number is not the candidate's own
+    for (const m of [...line.matchAll(PHONE_INTL), ...line.matchAll(PHONE_LOCAL)]) {
+      const digitCount = m[0].replace(/[^\d]/g, "").length;
+      if (digitCount >= 7 && digitCount <= 15) return clean(m[0]);
+    }
+  }
+  return undefined;
+}
+
 export function localExtractResume(text: string): ParsedResumeFields {
   const lines = text.split("\n").map(clean).filter(Boolean);
   const fields: ParsedResumeFields = {};
@@ -131,6 +149,9 @@ export function localExtractResume(text: string): ParsedResumeFields {
   const { city, country } = findLocation(lines);
   if (city) fields.city = city;
   if (country) fields.country = country;
+
+  const phone = findPhone(lines);
+  if (phone) fields.phone = phone;
 
   return fields;
 }
