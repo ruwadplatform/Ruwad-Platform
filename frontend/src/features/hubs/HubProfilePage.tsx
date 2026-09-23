@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { ProvenanceStrip } from "@/components/shared/ProvenanceStrip";
 import { DataRoomTab } from "@/components/shared/DataRoomTab";
 import { ContactLock } from "@/components/shared/ContactLock";
@@ -31,7 +32,7 @@ export function HubProfilePage({ hub: h }: { hub: Hub }) {
   return (
     <div className="entity-profile-page">
       <div className="profile-head">
-        <div className="plogo" style={{ background: "var(--navy-800)" }}>{h.logo}</div>
+        <OrganizationLogo logo={h.logo} logoUrl={h.logoUrl} className="plogo" style={{ background: "var(--navy-800)" }} />
         <div className="profile-head-main">
           <h1>{h.name} <span className={`badge ${h.status === "Open" ? "badge-good" : "badge-neutral"}`} style={{ verticalAlign: "middle" }}>{h.status}</span></h1>
           <div className="ptagline">{h.desc}</div>

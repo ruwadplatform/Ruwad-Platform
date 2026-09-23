@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/shell/ToastProvider";
+import { PasswordInput } from "@/components/shared/PasswordInput";
 import { login, consumePendingAction, ApiError } from "@/lib/store";
 
 /** Ported from authShell()/loginHtml()/doLogin() (js/auth.js:38-139) — same
@@ -46,7 +47,7 @@ export function LoginPage() {
         </div>
         <div className="auth-card-form">
           <div className="field"><label>Email</label><input className="input" type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Enter your email (e.g., email@company.com)" /></div>
-          <div className="field"><label>Password</label><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" /></div>
+          <div className="field"><label>Password</label><PasswordInput value={password} onChange={setPassword} placeholder="••••••••" label="password" /></div>
           <div className="flex mb-16" style={{ alignItems: "center", justifyContent: "space-between" }}>
             <label className="fs-12" style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember me

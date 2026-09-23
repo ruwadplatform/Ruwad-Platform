@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { useSession } from "@/hooks/use-store";
 import { capForGuest } from "@/lib/auth-gate";
 import { searchIndex, GUEST_SEARCH_CAPS } from "@/lib/search-index";
@@ -55,9 +56,12 @@ export function SearchResultsPage() {
               <div className="panel-head" style={{ border: "none", padding: "6px 0 10px" }}><h3 className="fs-14">{type}</h3></div>
               <div className="panel mb-24">
                 {shown.map((r) => (
-                  <div key={r.route} className="event-item" style={{ cursor: "pointer" }} onClick={() => router.push(r.route)}>
-                    <b>{r.label}</b>
-                    <div className="small muted mt-8">{r.sub}</div>
+                  <div key={r.route} className="event-item" style={{ cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start" }} onClick={() => router.push(r.route)}>
+                    {r.logo && <OrganizationLogo logo={r.logo} logoUrl={r.logoUrl} className="row-logo" style={{ width: 32, height: 32 }} />}
+                    <div>
+                      <b>{r.label}</b>
+                      <div className="small muted mt-8">{r.sub}</div>
+                    </div>
                   </div>
                 ))}
               </div>

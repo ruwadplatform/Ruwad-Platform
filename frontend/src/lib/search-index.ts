@@ -6,6 +6,8 @@ export interface SearchResult {
   sub: string;
   type: string;
   route: string;
+  logo?: string;
+  logoUrl?: string | null;
 }
 
 /** Ported from searchIndex() (js/newsevents.js's global-search companion) —
@@ -18,11 +20,11 @@ export function searchIndex(
   STARTUPS: Startup[], INVESTORS: Investor[], HUBS: Hub[], RESEARCH_INSTITUTIONS: ResearchInstitution[], MULTINATIONALS: Multinational[], REPORTS: Report[],
 ): SearchResult[] {
   return [
-    ...STARTUPS.map((s) => ({ label: s.name, sub: s.tagline, type: "Startups", route: `/startups/${s.id}` })),
-    ...INVESTORS.map((v) => ({ label: v.name, sub: v.thesis, type: "Investors", route: `/investors/${v.id}` })),
-    ...HUBS.map((h) => ({ label: h.name, sub: h.desc, type: "Hubs & Enablers", route: `/hubs/${h.id}` })),
-    ...RESEARCH_INSTITUTIONS.map((r) => ({ label: r.name, sub: r.about, type: "Research & Academia", route: `/research/${r.id}` })),
-    ...MULTINATIONALS.map((m) => ({ label: m.name, sub: m.tagline, type: "Multinationals", route: `/multinationals/${m.id}` })),
+    ...STARTUPS.map((s) => ({ label: s.name, sub: s.tagline, type: "Startups", route: `/startups/${s.id}`, logo: s.logo, logoUrl: s.logoUrl })),
+    ...INVESTORS.map((v) => ({ label: v.name, sub: v.thesis, type: "Investors", route: `/investors/${v.id}`, logo: v.logo, logoUrl: v.logoUrl })),
+    ...HUBS.map((h) => ({ label: h.name, sub: h.desc, type: "Hubs & Enablers", route: `/hubs/${h.id}`, logo: h.logo, logoUrl: h.logoUrl })),
+    ...RESEARCH_INSTITUTIONS.map((r) => ({ label: r.name, sub: r.about, type: "Research & Academia", route: `/research/${r.id}`, logo: r.logo, logoUrl: r.logoUrl })),
+    ...MULTINATIONALS.map((m) => ({ label: m.name, sub: m.tagline, type: "Multinationals", route: `/multinationals/${m.id}`, logo: m.logo, logoUrl: m.logoUrl })),
     ...REPORTS.map((r) => ({ label: r.title, sub: r.description, type: "Reports", route: `/reports/${r.id}` })),
   ];
 }

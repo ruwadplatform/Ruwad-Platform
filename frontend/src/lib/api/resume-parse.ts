@@ -8,6 +8,8 @@ export interface ParsedResume {
   organization?: string;
   city?: string;
   country?: string;
+  /** "local" = basic pattern reading (no AI key configured); "ai" = AI extraction. */
+  mode?: "local" | "ai";
 }
 
 /** Multipart upload, same pattern as uploadLogo — bypasses the shared `api`

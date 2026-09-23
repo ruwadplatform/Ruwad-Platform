@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { FilterGroup, GuestAdvancedFilterGate } from "@/components/shared/FilterGroup";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
 import { SaveSearchModal } from "@/components/shared/SaveSearchModal";
@@ -160,7 +161,7 @@ function ResearchRow({ r }: { r: ResearchInstitution }) {
   const toggleSaved = useToggleSaved();
   return (
     <tr onClick={() => router.push(`/research/${r.id}`)}>
-      <td><div className="row-logo" style={{ background: "var(--navy-700)", color: "#fff" }}>{r.logo}</div></td>
+      <td><OrganizationLogo logo={r.logo} logoUrl={r.logoUrl} className="row-logo" style={{ background: "var(--navy-700)", color: "#fff" }} /></td>
       <td><div className="cell-main">{r.name}</div><div className="cell-sub">Est. {r.founded}</div></td>
       <td>{r.type}</td>
       <td className="cell-sub">{r.coreResearchAreas[0]}</td>

@@ -1,7 +1,8 @@
-import { BadGatewayException, BadRequestException, Injectable, ServiceUnavailableException } from "@nestjs/common";
+import { BadGatewayException, BadRequestException, Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import Anthropic from "@anthropic-ai/sdk";
 import { extractDocumentText } from "../common/document-text-extractor";
+import { localExtractResume } from "./local-resume-extractor";
 
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
@@ -19,6 +20,8 @@ export interface ParsedResumeFields {
   organization?: string;
   city?: string;
   country?: string;
+  /** "local" = basic pattern reading (no ANTHROPIC_API_KEY configured); "ai" = AI extraction. */
+  mode?: "local" | "ai";
 }
 
 const EXTRACT_TOOL = {
@@ -55,14 +58,14 @@ export class ResumeParseService {
     if (file.size > MAX_SIZE_BYTES) {
       throw new BadRequestException("Resume must be 5MB or smaller");
     }
-    if (!this.client) {
-      throw new ServiceUnavailableException("Resume parsing isn't configured on this server");
-    }
-
     const text = await extractDocumentText(file);
     if (!text.trim()) {
       throw new BadRequestException("Couldn't read any text from that file — please fill in the fields manually");
     }
+
+    // No Anthropic key configured: fall back to the same strict, non-inventing pattern reader the
+    // pitch-deck autofill uses when AI isn't available, rather than refusing the upload outright.
+    if (!this.client) return { ...localExtractResume(text), mode: "local" };
 
     return this.extractFields(text.slice(0, MAX_TEXT_CHARS));
   }
@@ -91,6 +94,7 @@ export class ResumeParseService {
       const value = input[key];
       if (typeof value === "string" && value.trim()) fields[key] = value.trim();
     }
+    fields.mode = "ai";
     return fields;
   }
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { ProvenanceStrip } from "@/components/shared/ProvenanceStrip";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { ContactLock } from "@/components/shared/ContactLock";
 import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
 import { useToast } from "@/components/shell/ToastProvider";
@@ -33,7 +34,7 @@ export function ResearchProfilePage({ institution: r }: { institution: ResearchI
   return (
     <div className="entity-profile-page">
       <div className="profile-head">
-        <div className="plogo" style={{ background: "var(--navy-700)" }}>{r.logo}</div>
+        <OrganizationLogo logo={r.logo} logoUrl={r.logoUrl} className="plogo" style={{ background: "var(--navy-700)" }} />
         <div className="profile-head-main">
           <h1>{r.name}</h1>
           <div className="ptagline">{r.type}{r.founded ? ` · Est. ${r.founded}` : ""}</div>

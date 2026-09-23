@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { ProvenanceStrip } from "@/components/shared/ProvenanceStrip";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { DataRoomTab } from "@/components/shared/DataRoomTab";
 import { ContactLock } from "@/components/shared/ContactLock";
 import { LockedTeaser } from "@/components/shared/LockedTeaser";
@@ -34,7 +35,7 @@ export function MultinationalProfilePage({ mnc: m }: { mnc: Multinational }) {
   return (
     <div className="entity-profile-page">
       <div className="profile-head">
-        <div className="plogo" style={{ background: "var(--navy-900)" }}>{m.logo}</div>
+        <OrganizationLogo logo={m.logo} logoUrl={m.logoUrl} className="plogo" style={{ background: "var(--navy-900)" }} />
         <div className="profile-head-main">
           <h1>{m.name}</h1>
           <div className="ptagline">{m.tagline}</div>

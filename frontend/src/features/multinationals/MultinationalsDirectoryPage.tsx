@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { FilterGroup, GuestAdvancedFilterGate } from "@/components/shared/FilterGroup";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
 import { SaveSearchModal } from "@/components/shared/SaveSearchModal";
@@ -160,7 +161,7 @@ function MncRow({ m }: { m: Multinational }) {
   const toggleSaved = useToggleSaved();
   return (
     <tr onClick={() => router.push(`/multinationals/${m.id}`)}>
-      <td><div className="row-logo" style={{ background: "var(--navy-900)", color: "#fff" }}>{m.logo}</div></td>
+      <td><OrganizationLogo logo={m.logo} logoUrl={m.logoUrl} className="row-logo" style={{ background: "var(--navy-900)", color: "#fff" }} /></td>
       <td><div className="cell-main">{m.name}</div><div className="cell-sub">{m.tagline}</div></td>
       <td>{m.category}</td>
       <td>{m.hq}</td>

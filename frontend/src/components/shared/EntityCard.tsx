@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { useIsSaved, useToggleSaved } from "@/hooks/use-store";
 import type { WatchlistKind } from "@/lib/store";
 import type { ReactNode } from "react";
@@ -35,11 +36,7 @@ export function EntityCard({
   return (
     <Link href={href} className="entity-card">
       <div className="entity-card-top">
-        {logoUrl ? (
-          <img src={logoUrl} alt="" className="elogo avatar-sq" style={{ width: 38, height: 38, objectFit: "contain", background: "#fff", ...logoStyle }} />
-        ) : (
-          <div className="elogo avatar avatar-sq" style={{ width: 38, height: 38, ...logoStyle }}>{logo}</div>
-        )}
+        <OrganizationLogo logo={logo} logoUrl={logoUrl} className="elogo avatar avatar-sq" style={{ width: 38, height: 38, ...logoStyle }} />
         <div className="etitle"><b>{name}</b><span>{subtitle}</span></div>
         <button
           className={`save-star${saved ? " saved" : ""}`}

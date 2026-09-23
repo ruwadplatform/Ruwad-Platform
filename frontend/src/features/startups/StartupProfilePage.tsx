@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { ScoreCard } from "@/components/shared/ScoreCard";
 import { ProvenanceStrip } from "@/components/shared/ProvenanceStrip";
 import { ContactLock } from "@/components/shared/ContactLock";
@@ -45,7 +46,7 @@ export function StartupProfilePage({ startup }: { startup: Startup }) {
   return (
     <div className="entity-profile-page">
       <div className="profile-head">
-        <div className="plogo">{startup.logo}</div>
+        <OrganizationLogo logo={startup.logo} logoUrl={startup.logoUrl} className="plogo" />
         <div className="profile-head-main">
           <h1>{startup.name} <span style={{ verticalAlign: "middle" }}><VerifiedBadge status={startup.verified} /></span></h1>
           <div className="ptagline">{startup.tagline}</div>

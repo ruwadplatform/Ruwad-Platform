@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { FilterGroup, GuestAdvancedFilterGate } from "@/components/shared/FilterGroup";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
 import { SaveSearchModal } from "@/components/shared/SaveSearchModal";
@@ -155,7 +156,7 @@ function HubRow({ h }: { h: Hub }) {
   const toggleSaved = useToggleSaved();
   return (
     <tr onClick={() => router.push(`/hubs/${h.id}`)}>
-      <td><div className="row-logo" style={{ background: "var(--navy-800)", color: "#fff" }}>{h.logo}</div></td>
+      <td><OrganizationLogo logo={h.logo} logoUrl={h.logoUrl} className="row-logo" style={{ background: "var(--navy-800)", color: "#fff" }} /></td>
       <td><div className="cell-main">{h.name}</div><div className="cell-sub">{h.type}</div></td>
       <td>{h.type}</td>
       <td className="cell-sub">{h.healthcareFocus.join(", ")}</td>

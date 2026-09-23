@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { FilterGroup, GuestAdvancedFilterGate } from "@/components/shared/FilterGroup";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
 import { SaveSearchModal } from "@/components/shared/SaveSearchModal";
@@ -167,7 +168,7 @@ function InvestorRow({ v }: { v: Investor }) {
   const toggleSaved = useToggleSaved();
   return (
     <tr onClick={() => router.push(`/investors/${v.id}`)}>
-      <td><div className="row-logo" style={{ background: "var(--navy-900)", color: "#fff" }}>{v.logo}</div></td>
+      <td><OrganizationLogo logo={v.logo} logoUrl={v.logoUrl} className="row-logo" style={{ background: "var(--navy-900)", color: "#fff" }} /></td>
       <td><div className="cell-main">{v.name}</div><div className="cell-sub">{v.founded ? `Est. ${v.founded}` : "—"}</div></td>
       <td>{v.type}</td>
       <td>{v.city}</td>

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { FilterGroup, GuestAdvancedFilterGate } from "@/components/shared/FilterGroup";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
 import { SaveSearchModal } from "@/components/shared/SaveSearchModal";
@@ -220,7 +221,7 @@ function StartupRow({ s }: { s: Startup }) {
   const toggleSaved = useToggleSaved();
   return (
     <tr onClick={() => router.push(`/startups/${s.id}`)}>
-      <td><div className="row-logo">{s.logo}</div></td>
+      <td><OrganizationLogo logo={s.logo} logoUrl={s.logoUrl} className="row-logo" /></td>
       <td><div className="cell-main">{s.name}</div><div className="cell-sub">{s.tagline}</div></td>
       <td>{s.category}</td>
       <td>{s.city}</td>

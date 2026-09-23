@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
+import { PasswordInput } from "@/components/shared/PasswordInput";
 import { resetPassword } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { evaluatePassword, type PasswordStrength } from "@/lib/password-rules";
@@ -15,22 +16,6 @@ const STRENGTH_STYLE: Record<PasswordStrength, { label: string; color: string; s
   medium: { label: "Medium", color: "var(--warn)", segments: 2 },
   strong: { label: "Strong", color: "var(--good)", segments: 3 },
 };
-
-/** `.input` with a show/hide eye button inside it. */
-function PasswordInput({ value, onChange, placeholder, autoComplete, label }: {
-  value: string; onChange: (v: string) => void; placeholder: string; autoComplete: string; label: string;
-}) {
-  const [visible, setVisible] = useState(false);
-  return (
-    <div style={{ position: "relative" }}>
-      <input className="input" type={visible ? "text" : "password"} autoComplete={autoComplete} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} style={{ paddingRight: 42 }} />
-      <button type="button" onClick={() => setVisible((v) => !v)} aria-label={`${visible ? "Hide" : "Show"} ${label}`} aria-pressed={visible}
-        style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", padding: 6, display: "flex", color: "var(--muted)" }}>
-        <RuwadIcon name={visible ? "eye-off" : "eye"} size={16} />
-      </button>
-    </div>
-  );
-}
 
 /** Reads the raw token from `?token=`. The token is only ever sent to the
  * backend, which is the sole judge of whether it is valid, expired or used —

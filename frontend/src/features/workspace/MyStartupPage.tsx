@@ -7,6 +7,7 @@ import { ProfileCompleteness } from "@/components/workspace/ProfileCompleteness"
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { useToast } from "@/components/shell/ToastProvider";
 import { ListingStatusBadge } from "@/components/workspace/ListingStatusBadge";
 import { useSession, useMyStartupId, useOwnedListings } from "@/hooks/use-store";
@@ -91,7 +92,7 @@ export function MyStartupPage() {
       />
 
       <div className="profile-head mt-20">
-        <div className="plogo">{s.logo}</div>
+        <OrganizationLogo logo={s.logo} logoUrl={s.logoUrl} className="plogo" />
         <div className="profile-head-main">
           <h1>{s.name}</h1>
           <div className="ptagline">{s.tagline}</div>

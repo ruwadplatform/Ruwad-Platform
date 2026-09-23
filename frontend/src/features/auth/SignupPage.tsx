@@ -4,8 +4,10 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { RuwadIcon, type RuwadIconName } from "@/components/icons/ruwad-icon";
+import { PasswordInput } from "@/components/shared/PasswordInput";
 import { registerAccount, consumePendingAction, ApiError } from "@/lib/store";
 import { parseResume } from "@/lib/api/resume-parse";
+import { ALL_COUNTRIES } from "@/data/reference";
 
 const ALLOWED_RESUME_TYPES = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
 const MAX_RESUME_BYTES = 5 * 1024 * 1024;
@@ -90,7 +92,10 @@ export function SignupPage() {
   const [orgError, setOrgError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [resumeFileName, setResumeFileName] = useState("");
-  const [resumeParsing, setResumeParsing] = useState(false);
+  type ResumeStage = "idle" | "uploading" | "extracting" | "analyzing" | "done";
+  const [resumeStage, setResumeStage] = useState<ResumeStage>("idle");
+  const resumeParsing = resumeStage !== "idle" && resumeStage !== "done";
+  const [resumeNote, setResumeNote] = useState(""); // success/partial note shown after a completed autofill
   const [resumeError, setResumeError] = useState("");
   const resumeInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,9 +103,17 @@ export function SignupPage() {
     setInterests((prev) => (prev.includes(label) ? prev.filter((i) => i !== label) : [...prev, label]));
   }
 
+  /** Only fills a field the user hasn't already typed something into — a manual entry always wins,
+   * whether it was made before the upload or while the résumé was still being read. */
+  function fillIfEmpty(setter: (v: (prev: string) => string) => void, value: string | undefined) {
+    if (!value) return;
+    setter((prev) => (prev.trim() ? prev : value));
+  }
+
   async function handleResumeFile(file: File | undefined) {
     if (!file) return;
     setResumeError("");
+    setResumeNote("");
     if (!ALLOWED_RESUME_TYPES.includes(file.type)) {
       setResumeError("Must be a PDF or Word (.docx) document.");
       return;
@@ -110,26 +123,39 @@ export function SignupPage() {
       return;
     }
     setResumeFileName(file.name);
-    setResumeParsing(true);
+    setResumeStage("uploading");
+    // Purely cosmetic staging — the parse is one request/response, but the user should see it isn't stuck.
+    const t1 = setTimeout(() => setResumeStage((s) => (s === "uploading" ? "extracting" : s)), 600);
+    const t2 = setTimeout(() => setResumeStage((s) => (s === "extracting" ? "analyzing" : s)), 1800);
     try {
       const fields = await parseResume(file);
-      if (fields.firstName) setFirstName(fields.firstName);
-      if (fields.lastName) setLastName(fields.lastName);
-      if (fields.email) setEmail(fields.email);
-      if (fields.jobTitle) setJobTitle(fields.jobTitle);
-      if (fields.country) setCountry(fields.country);
-      if (fields.city) setCity(fields.city);
-      if (fields.organization) setOrg((prev) => ({ ...prev, name: fields.organization! }));
+      fillIfEmpty(setFirstName, fields.firstName);
+      fillIfEmpty(setLastName, fields.lastName);
+      fillIfEmpty(setEmail, fields.email);
+      fillIfEmpty(setJobTitle, fields.jobTitle);
+      const country = fields.country ? ALL_COUNTRIES.find((c) => c.toLowerCase() === fields.country!.toLowerCase()) : undefined;
+      fillIfEmpty(setCountry, country);
+      fillIfEmpty(setCity, fields.city);
+      if (fields.organization) setOrg((prev) => (prev.name.trim() ? prev : { ...prev, name: fields.organization! }));
+      setResumeNote(
+        fields.mode === "local"
+          ? "AI reading isn't available right now, so only clearly labelled details were picked up — please fill in the rest."
+          : "",
+      );
+      setResumeStage("done");
     } catch (e) {
       setResumeError(e instanceof ApiError ? e.message : "Couldn't read that file — please fill in the fields manually.");
+      setResumeFileName("");
+      setResumeStage("idle");
     } finally {
-      setResumeParsing(false);
+      clearTimeout(t1);
+      clearTimeout(t2);
     }
   }
 
   function submitStep2() {
     if (!firstName.trim() || !lastName.trim() || !email.trim() || !password || password !== confirm
-      || !jobTitle.trim() || !country.trim() || !city.trim() || !agree) {
+      || !jobTitle.trim() || !country.trim() || !agree) {
       setError("Please complete all required fields correctly.");
       return;
     }
@@ -144,10 +170,10 @@ export function SignupPage() {
   function submitStep3() {
     const requiredFilled =
       accountType === "founder"
-        ? org.name.trim() && org.website.trim() && org.city.trim()
+        ? org.name.trim() && org.city.trim()
         : accountType === "investor"
           ? org.name.trim() && org.city.trim()
-          : org.name.trim() && org.type.trim() && org.website.trim();
+          : org.name.trim() && org.type.trim();
     if (!requiredFilled) {
       setOrgError("Please complete all required fields.");
       return;
@@ -254,21 +280,35 @@ export function SignupPage() {
                   >
                     <RuwadIcon name="doc" size={20} />
                     <div style={{ flex: 1 }}>
-                      <b className="fs-13">{resumeParsing ? "Reading your résumé…" : resumeFileName || "Upload résumé to autofill this form"}</b>
-                      <div className="fs-11 muted">{resumeParsing ? "This takes a few seconds" : "PDF or Word, up to 5MB — optional"}</div>
+                      <b className="fs-13" role="status">
+                        {resumeStage === "uploading" ? "Uploading résumé…"
+                          : resumeStage === "extracting" ? "Extracting résumé…"
+                          : resumeStage === "analyzing" ? "Filling your information…"
+                          : resumeStage === "done" ? "Résumé analyzed successfully."
+                          : resumeFileName || "Upload résumé to autofill this form"}
+                      </b>
+                      <div className="fs-11 muted">{resumeParsing ? "This takes a few seconds" : "PDF or Word (.docx), up to 5MB — optional"}</div>
                     </div>
                   </div>
+                  {resumeStage === "done" && (
+                    <p className="fs-12 mt-8" role="status">
+                      Please review the autofilled information below. {resumeNote}
+                    </p>
+                  )}
                   {resumeError && <ErrorBanner message={resumeError} onDismiss={() => setResumeError("")} />}
 
                   <div className="grid-2 mt-16">
                     <div className="field"><label>First Name <span className="req">*</span></label><input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
                     <div className="field"><label>Last Name <span className="req">*</span></label><input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
                     <div className="field field-full"><label>Work Email <span className="req">*</span></label><input className="input" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-                    <div className="field"><label>Password <span className="req">*</span></label><input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-                    <div className="field"><label>Confirm Password <span className="req">*</span></label><input className="input" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} /></div>
+                    <div className="field"><label>Password <span className="req">*</span></label><PasswordInput value={password} onChange={setPassword} autoComplete="new-password" label="password" /></div>
+                    <div className="field"><label>Confirm Password <span className="req">*</span></label><PasswordInput value={confirm} onChange={setConfirm} autoComplete="new-password" label="confirm password" /></div>
                     <div className="field"><label>Job Title <span className="req">*</span></label><input className="input" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} /></div>
-                    <div className="field"><label>Country <span className="req">*</span></label><input className="input" value={country} onChange={(e) => setCountry(e.target.value)} /></div>
-                    <div className="field field-full"><label>City <span className="req">*</span></label><input className="input" value={city} onChange={(e) => setCity(e.target.value)} /></div>
+                    <div className="field field-full"><label>Country <span className="req">*</span></label>
+                      <select className="select" value={country} onChange={(e) => setCountry(e.target.value)}>
+                        {ALL_COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
                   </div>
                   <label className="fs-12" style={{ display: "flex", gap: 8, margin: "6px 0 20px" }}>
                     <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> I agree to RUWĀD Terms of Use and Privacy Policy
@@ -288,7 +328,7 @@ export function SignupPage() {
                     {accountType === "founder" ? (
                       <>
                         <div className="field"><label>Startup Name <span className="req">*</span></label><input className="input" value={org.name} onChange={(e) => setOrg({ ...org, name: e.target.value })} /></div>
-                        <div className="field"><label>Company Website <span className="req">*</span></label><input className="input" value={org.website} onChange={(e) => setOrg({ ...org, website: e.target.value })} /></div>
+                        <div className="field"><label>Company Website</label><input className="input" value={org.website} onChange={(e) => setOrg({ ...org, website: e.target.value })} /></div>
                         <div className="field"><label>Current Startup Stage <span className="req">*</span></label>
                           <select className="select" value={org.stage} onChange={(e) => setOrg({ ...org, stage: e.target.value })}>
                             {STAGES.map((s) => <option key={s}>{s}</option>)}
@@ -320,7 +360,7 @@ export function SignupPage() {
                       <>
                         <div className="field"><label>Organization <span className="req">*</span></label><input className="input" value={org.name} onChange={(e) => setOrg({ ...org, name: e.target.value })} /></div>
                         <div className="field"><label>Organization Type <span className="req">*</span></label><input className="input" value={org.type} onChange={(e) => setOrg({ ...org, type: e.target.value })} /></div>
-                        <div className="field field-full"><label>Website <span className="req">*</span></label><input className="input" value={org.website} onChange={(e) => setOrg({ ...org, website: e.target.value })} /></div>
+                        <div className="field field-full"><label>Website</label><input className="input" value={org.website} onChange={(e) => setOrg({ ...org, website: e.target.value })} /></div>
                       </>
                     )}
                   </div>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { ProvenanceStrip } from "@/components/shared/ProvenanceStrip";
 import { LockedTeaser } from "@/components/shared/LockedTeaser";
 import { DataRoomButton } from "@/components/shared/DataRoomButton";
@@ -29,7 +30,7 @@ export function InvestorProfilePage({ investor: v }: { investor: Investor }) {
   return (
     <div className="entity-profile-page">
       <div className="profile-head">
-        <div className="plogo" style={{ background: "var(--navy-900)" }}>{v.logo}</div>
+        <OrganizationLogo logo={v.logo} logoUrl={v.logoUrl} className="plogo" style={{ background: "var(--navy-900)" }} />
         <div className="profile-head-main">
           <h1>{v.name}</h1>
           <div className="ptagline">{v.type}{v.founded ? ` · Est. ${v.founded}` : ""}</div>
