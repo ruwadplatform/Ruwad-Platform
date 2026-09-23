@@ -246,13 +246,25 @@ option:checked{background:var(--bg-2);color:var(--text)}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 20px}
 .field-full{grid-column:1/-1}
 
-/* A dial-code <select> and a number <input> sharing one .input/.select box model, merged into a
-   single-looking control: no gap or double border where they meet, one rounded end each. */
+/* A dial-code picker (custom dropdown, not a native <select> — see PhoneInput.tsx for why) and a
+   number <input> sharing one .input box model, merged into a single-looking control: no gap or
+   double border where they meet, one rounded end each. */
 .phone-input-group{display:flex}
-.phone-input-group .select{flex:0 0 118px;border-top-right-radius:0;border-bottom-right-radius:0;border-right:none;padding-right:6px}
-.phone-input-group .input{flex:1;min-width:0;border-top-left-radius:0;border-bottom-left-radius:0}
+.phone-input-group .phone-code-select{position:relative;flex:0 0 112px}
+.phone-input-group .phone-code-trigger{width:100%;display:flex;align-items:center;gap:6px;border-top-right-radius:0;border-bottom-right-radius:0;border-right:none;padding-right:6px;cursor:pointer}
+.phone-input-group .phone-code-trigger svg{color:var(--muted);flex:none;margin-left:auto}
+.phone-input-group > .input{flex:1;min-width:0;border-top-left-radius:0;border-bottom-left-radius:0}
 .phone-input-group:focus-within{border-radius:var(--radius-input);box-shadow:0 0 0 3px var(--green-tint)}
-.phone-input-group:focus-within .select,.phone-input-group:focus-within .input{border-color:var(--green)}
+.phone-input-group:focus-within .phone-code-trigger,.phone-input-group:focus-within>.input{border-color:var(--green)}
+.phone-code-flag{width:20px;height:15px;object-fit:cover;border-radius:2px;flex:none;background:var(--bg)}
+.phone-code-panel{top:calc(100% + 4px);left:0;width:280px;padding:8px;display:none}
+.phone-code-panel.open{display:block}
+.phone-code-search{margin-bottom:6px}
+.phone-code-list{max-height:260px;overflow-y:auto}
+.phone-code-list .dropdown-menu-item{gap:8px;font-weight:400}
+.phone-code-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.phone-code-dial{color:var(--muted);flex:none}
+.phone-code-empty{padding:9px 12px;color:var(--muted);font-size:var(--fs-13)}
 
 .chip-select{display:flex;flex-wrap:wrap;gap:8px}
 .chip-select button{padding:7px 12px;border-radius:var(--radius-pill);border:1px solid var(--border-strong);background:#fff;font-size:var(--fs-12);font-weight:500}
