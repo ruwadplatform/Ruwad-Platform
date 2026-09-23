@@ -213,6 +213,9 @@
 .field .err{font-size:var(--fs-11);color:var(--crit);margin-top:5px;display:none;align-items:center;gap:5px}
 .field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--crit);background:var(--crit-tint)}
 .field.invalid .err{display:flex}
+/* Edge/IE draw their own reveal (eye) icon inside password inputs; PasswordInput.tsx supplies ours,
+   so hide the native one or there are two eyes. */
+.input::-ms-reveal,.input::-ms-clear{display:none}
 .input,.select,.textarea{
   width:100%;border:1px solid var(--border-strong);border-radius:var(--radius-input);
   padding:10px 12px;font-size:var(--fs-13);background:#fff;color:var(--text);
