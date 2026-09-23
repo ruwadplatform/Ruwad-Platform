@@ -21,12 +21,23 @@ export function ReportsDirectoryPage() {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("All");
   const [sort, setSort] = useState<SortKey>("newest");
+  const [reportType, setReportType] = useState("All");
+  const [sector, setSector] = useState("All");
+  const [geography, setGeography] = useState("All");
+
+  const options = useMemo(() => {
+    const uniq = (pick: (r: (typeof REPORTS)[number]) => string) => [...new Set(REPORTS.map(pick).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    return { types: uniq((r) => r.reportType), sectors: uniq((r) => r.sector), geographies: uniq((r) => r.geography) };
+  }, [REPORTS]);
 
   const featured = useMemo(() => REPORTS.find((r) => r.badges.includes("Featured")) ?? REPORTS[0], [REPORTS]);
 
   const filtered = useMemo(() => {
     let list = featured ? REPORTS.filter((r) => r.id !== featured.id) : REPORTS;
     if (category !== "All") list = list.filter((r) => r.category === category);
+    if (reportType !== "All") list = list.filter((r) => r.reportType === reportType);
+    if (sector !== "All") list = list.filter((r) => r.sector === sector);
+    if (geography !== "All") list = list.filter((r) => r.geography === geography);
     if (search) {
       const q = search.toLowerCase();
       list = list.filter((r) => r.title.toLowerCase().includes(q) || r.description.toLowerCase().includes(q));
@@ -36,7 +47,7 @@ export function ReportsDirectoryPage() {
     else if (sort === "pages") sorted.sort((a, b) => b.pages - a.pages);
     else sorted.sort((a, b) => a.title.localeCompare(b.title));
     return sorted;
-  }, [REPORTS, category, search, sort, featured]);
+  }, [REPORTS, category, reportType, sector, geography, search, sort, featured]);
 
   const { shown, capped } = capForGuest(filtered, 3, !hydrated || !loggedIn);
 
@@ -56,6 +67,18 @@ export function ReportsDirectoryPage() {
 
       <div className="toolbar mb-16">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search reports" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
+        <select className="input" aria-label="Report type" value={reportType} onChange={(e) => setReportType(e.target.value)} style={{ maxWidth: 200 }}>
+          <option value="All">All report types</option>
+          {options.types.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <select className="input" aria-label="Sector" value={sector} onChange={(e) => setSector(e.target.value)} style={{ maxWidth: 180 }}>
+          <option value="All">All sectors</option>
+          {options.sectors.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <select className="input" aria-label="Geography" value={geography} onChange={(e) => setGeography(e.target.value)} style={{ maxWidth: 170 }}>
+          <option value="All">All geographies</option>
+          {options.geographies.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
         <select className="input" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} style={{ maxWidth: 180 }}>
           <option value="newest">Sort: Newest</option>
           <option value="pages">Sort: Most Pages</option>

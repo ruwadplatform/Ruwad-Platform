@@ -20,6 +20,10 @@ export interface Distribution { key: string; title: string; unit: string; rows: 
 export interface CompanyRow { slug: string; name: string; stage: string; city: string; category: string; fundingTotal: number }
 export interface InvestorRow { slug: string; name: string; type: string; city: string; hcDeals: number }
 
+/** A company that says it is raising money. This is what it is SEEKING (its own stated target), never money raised. */
+export interface FundingSoughtRow { slug: string; name: string; stage: string; target: string }
+export interface ProfileSection { heading: string; items: { label: string; value: string }[] }
+
 /** Everything in here was computed from the RUWĀD database at generation time. */
 export interface InternalStats {
   coverage: { startups: number; investors: number; asOf: string };
@@ -27,9 +31,20 @@ export interface InternalStats {
   distributions: Distribution[];
   companies: CompanyRow[];
   investors: InvestorRow[];
+  /** Companies currently fundraising, with the target each one states — kept apart from funding already raised. */
+  fundingSought?: FundingSoughtRow[];
+  /** Counts of the other RUWĀD directories (hubs, research institutions, multinationals). */
+  ecosystem?: Metric[];
   /** Individual startup analysis only. */
-  subject?: { slug: string; name: string; facts: Metric[]; peers: Metric[] } | null;
+  subject?: { slug: string; name: string; facts: Metric[]; peers: Metric[]; profile?: ProfileSection[]; missing?: string[] } | null;
 }
+
+/** A market-size statement made by a credible source. RUWĀD never computes or estimates one itself. */
+export interface MarketSizeClaim {
+  amount: string; currency: string; year: number; geography: string; basis: "reported" | "projected";
+  sourceId: string; sourceTitle: string; url: string; domain: string; sourceTypeLabel: string; quote: string;
+}
+export type MarketSize = { status: "found"; claims: MarketSizeClaim[] } | { status: "notIdentified"; message: string };
 
 /** One web source kept as evidence. Nothing here is a RUWĀD figure. */
 export interface ExternalSource {
@@ -55,6 +70,8 @@ export interface GeneratedContent {
   coverageNotice: string;
   research: { status: "ok" | "partial" | "unavailable" | "disabled"; searchesUsed: number; cacheHits: number; sourcesKept: number; note?: string };
   scopeLabel: string;
+  /** Only ever a figure a credible source states, with year, geography and currency. Otherwise "not identified". */
+  marketSize?: MarketSize;
 }
 
 export type { QueryLog };

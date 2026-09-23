@@ -20,6 +20,8 @@ export const REPORT_KIND_OPTIONS = [
   { value: "STARTUP_ANALYSIS", label: "Individual Startup Analysis", scope: "startup" },
 ] as const;
 
+const STAGES = ["Collecting RUWĀD data…", "Searching external sources…", "Validating sources…", "Building report…"];
+
 const errText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong");
 
 /** Publish / unpublish / refresh controls for one report. Admin only — the backend enforces this too. */
@@ -81,6 +83,7 @@ export function ReportAdminPanel({ onPublishedChange }: { onPublishedChange?: ()
   const [sector, setSector] = useState("");
   const [startupSlug, setStartupSlug] = useState("");
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState(0);
   const [rows, setRows] = useState<Report[]>([]);
   const [listError, setListError] = useState("");
   const opt = REPORT_KIND_OPTIONS.find((o) => o.value === kind)!;
@@ -93,14 +96,20 @@ export function ReportAdminPanel({ onPublishedChange }: { onPublishedChange?: ()
     fetchAdminReports().then((r) => { if (live) { setRows(r); setListError(""); } }).catch((e) => { if (live) setListError(errText(e)); });
     return () => { live = false; };
   }, [isAdmin, reloadKey]);
+  useEffect(() => {
+    if (!busy) return;
+    const t = setInterval(() => setStage((s) => Math.min(s + 1, STAGES.length - 1)), 3500);
+    return () => clearInterval(t);
+  }, [busy]);
   if (!isAdmin) return null;
 
   async function generate() {
     if (opt.scope === "startup" && !startupSlug) { toast("Choose a startup first"); return; }
+    setStage(0);
     setBusy(true);
     try {
       const r = await generateReport({ kind, ...(opt.scope === "sector" && sector ? { sector } : {}), ...(opt.scope === "startup" ? { startupSlug } : {}) });
-      toast("Draft report generated");
+      toast("Report generated successfully — saved as a draft");
       router.push(`/reports/${r.id}`);
     } catch (e) { toast(errText(e)); setBusy(false); }
   }
@@ -116,23 +125,33 @@ export function ReportAdminPanel({ onPublishedChange }: { onPublishedChange?: ()
     <section className="panel panel-pad mt-20 mb-24" aria-label="Generate report (admin)">
       <h3 className="fs-15" style={{ fontWeight: 700 }}>Generate a report <span className="badge">Admin</span></h3>
       <p className="fs-12 muted mt-8">Combines RUWĀD platform data with public web sources. Generating runs about 5–8 web searches (saved and reused for 24 hours). The report is saved as a draft until you publish it. Opening a report never runs a search.</p>
-      <div className="flex gap-8 mt-16" style={{ flexWrap: "wrap", alignItems: "center" }}>
-        <select className="input" aria-label="Report type" value={kind} onChange={(e) => setKind(e.target.value)} style={{ maxWidth: 260 }}>
-          {REPORT_KIND_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+      <div className="flex gap-8 mt-16" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
+        <label className="fs-12 muted" style={{ display: "grid", gap: 4 }}>Report type *
+          <select className="input" aria-label="Report type" value={kind} onChange={(e) => setKind(e.target.value)} disabled={busy} style={{ minWidth: 200, maxWidth: 260 }}>
+            {REPORT_KIND_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
         {opt.scope === "sector" ? (
-          <select className="input" aria-label="Sector" value={sector} onChange={(e) => setSector(e.target.value)} style={{ maxWidth: 240 }}>
-            <option value="">All healthcare sectors</option>
-            {HC_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
+          <label className="fs-12 muted" style={{ display: "grid", gap: 4 }}>Sector
+            <select className="input" aria-label="Sector" value={sector} onChange={(e) => setSector(e.target.value)} disabled={busy} style={{ minWidth: 200, maxWidth: 240 }}>
+              <option value="">All healthcare sectors</option>
+              {HC_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </label>
         ) : (
-          <select className="input" aria-label="Startup" value={startupSlug} onChange={(e) => setStartupSlug(e.target.value)} style={{ maxWidth: 260 }}>
-            <option value="">Choose a startup…</option>
-            {startups.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+          <label className="fs-12 muted" style={{ display: "grid", gap: 4 }}>Startup *
+            <select className="input" aria-label="Startup" value={startupSlug} onChange={(e) => setStartupSlug(e.target.value)} disabled={busy} style={{ minWidth: 200, maxWidth: 260 }}>
+              <option value="">Choose a startup…</option>
+              {startups.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </label>
         )}
+        <label className="fs-12 muted" style={{ display: "grid", gap: 4 }}>Geography *
+          <input className="input" aria-label="Geography" value="Saudi Arabia" readOnly disabled style={{ width: 150 }} title="Reports currently cover Saudi Arabia only" />
+        </label>
         <button className="btn btn-primary" disabled={busy} onClick={generate}>{busy ? "Generating…" : "Generate Report"}</button>
       </div>
+      {busy && <p className="fs-13 mt-12" role="status" aria-live="polite">{STAGES[stage]}</p>}
 
       <h4 className="fs-13 mt-20 mb-8" style={{ fontWeight: 700 }}>Generated reports</h4>
       {listError ? <p className="fs-12" style={{ color: "var(--crit)" }}>{listError}</p> : !generated.length ? <p className="fs-12 muted">No generated reports yet.</p> : (

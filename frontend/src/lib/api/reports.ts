@@ -18,7 +18,7 @@ interface RawReport {
   generationMode?: string | null;
   aiOverview?: string | null;
   researchedAt?: string | null;
-  generated?: { overviewLines?: string[]; methodology?: string[]; coverageNotice?: string; research?: NonNullable<Report["generated"]>["research"]; scopeLabel?: string } | null;
+  generated?: { overviewLines?: string[]; methodology?: string[]; coverageNotice?: string; research?: NonNullable<Report["generated"]>["research"]; scopeLabel?: string; marketSize?: NonNullable<Report["generated"]>["marketSize"] } | null;
   internalStats?: ReportInternalStats | null;
   externalSources?: ReportExternalSource[] | null;
 }
@@ -41,6 +41,7 @@ function mapReport(r: RawReport): Report {
           coverageNotice: g.coverageNotice ?? "",
           research: g.research ?? { status: "unavailable", searchesUsed: 0, cacheHits: 0, sourcesKept: 0 },
           scopeLabel: g.scopeLabel ?? "",
+          marketSize: g.marketSize,
           internalStats: r.internalStats,
           externalSources: r.externalSources ?? [],
         }

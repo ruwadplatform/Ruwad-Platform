@@ -39,8 +39,16 @@ export interface ReportInternalStats {
   distributions: ReportDistribution[];
   companies: { slug: string; name: string; stage: string; city: string; category: string; fundingTotal: number }[];
   investors: { slug: string; name: string; type: string; city: string; hcDeals: number }[];
-  subject?: { slug: string; name: string; facts: ReportMetric[]; peers: ReportMetric[] } | null;
+  /** Companies that say they are raising, with the target each states — funding SOUGHT, never raised. */
+  fundingSought?: { slug: string; name: string; stage: string; target: string }[];
+  ecosystem?: ReportMetric[];
+  subject?: { slug: string; name: string; facts: ReportMetric[]; peers: ReportMetric[]; profile?: { heading: string; items: { label: string; value: string }[] }[]; missing?: string[] } | null;
 }
+export interface ReportMarketSizeClaim {
+  amount: string; currency: string; year: number; geography: string; basis: "reported" | "projected";
+  sourceId: string; sourceTitle: string; url: string; domain: string; sourceTypeLabel: string; quote: string;
+}
+export type ReportMarketSize = { status: "found"; claims: ReportMarketSizeClaim[] } | { status: "notIdentified"; message: string };
 /** Present only on reports generated from RUWĀD data + shared web research. */
 export interface GeneratedReport {
   reportKind: string;
@@ -52,6 +60,7 @@ export interface GeneratedReport {
   coverageNotice: string;
   research: { status: "ok" | "partial" | "unavailable" | "disabled"; searchesUsed: number; cacheHits: number; sourcesKept: number; note?: string };
   scopeLabel: string;
+  marketSize?: ReportMarketSize;
   internalStats: ReportInternalStats;
   externalSources: ReportExternalSource[];
 }

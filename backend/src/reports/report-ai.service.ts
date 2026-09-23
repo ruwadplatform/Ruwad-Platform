@@ -44,16 +44,20 @@ Rules: use ONLY the numbers and facts in the JSON provided. Never add a number, 
     }
   }
 
-  /** The text may contain only numbers that occur in the data, and only citations that exist. Anything else is thrown away. */
   private acceptable(text: string, data: string, sources: ExternalSource[]): boolean {
-    if (!text || text.length > 1200) return false;
-    const haystack = data.replace(/,/g, "");
-    for (const m of text.replace(/\[S\d+\]/g, " ").matchAll(/\d[\d,.]*/g)) {
-      const n = m[0].replace(/,/g, "").replace(/\.$/, "");
-      if (n && !haystack.includes(n)) return false;
-    }
-    const ids = new Set(sources.map((s) => s.id));
-    for (const m of text.matchAll(/\[(S\d+)\]/g)) if (!ids.has(m[1])) return false;
-    return true;
+    return isOverviewAcceptable(text, data, sources);
   }
+}
+
+const numberTokens = (s: string) => new Set([...s.replace(/\bS\d+\b/g, " ").matchAll(/\d[\d,]*(?:\.\d+)?/g)].map((m) => m[0].replace(/,/g, "")));
+
+/** The text may contain only numbers that appear, as whole numbers, in the data it was given, and only citations that
+ * exist. A derived figure (a sum, a percentage the data doesn't state) is rejected just like an invented one. */
+export function isOverviewAcceptable(text: string, data: string, sources: ExternalSource[]): boolean {
+  if (!text || text.length > 1200) return false;
+  const allowed = numberTokens(data);
+  for (const n of numberTokens(text)) if (!allowed.has(n)) return false;
+  const ids = new Set(sources.map((s) => s.id));
+  for (const m of text.matchAll(/\[(S\d+)\]/g)) if (!ids.has(m[1])) return false;
+  return true;
 }

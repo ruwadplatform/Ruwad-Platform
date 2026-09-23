@@ -6,6 +6,7 @@ import { Report } from "./report.entity";
 import { ReportAiService } from "./report-ai.service";
 import { MAX_REPORT_QUERIES, buildSources, researchPlan, researchStatus, type PlanItem } from "./report-sources";
 import { ReportStatsService } from "./report-stats.service";
+import { extractMarketSize } from "./market-size";
 import { ReportsService } from "./reports.service";
 import { REPORT_KIND_LABEL, type ExternalSource, type GeneratedContent, type InternalStats, type ReportKind, type ReportScope } from "./report-types";
 
@@ -109,6 +110,7 @@ export class ReportGeneratorService {
     const aiOverview = this.ai.available && sources.length > 0 ? await this.ai.overview({ scopeLabel, metrics: stats.metrics, sources }) : null;
     const generated: GeneratedContent = {
       overviewLines, coverageNotice: COVERAGE_NOTICE, scopeLabel,
+      marketSize: kind === "STARTUP_ANALYSIS" ? undefined : extractMarketSize(sources),
       methodology: this.methodology(session.log.length, session.serperCalls, session.cacheHits, sources.length, aiOverview !== null),
       research: { status: note && opts.previous ? "partial" : status, searchesUsed: session.serperCalls, cacheHits: session.cacheHits, sourcesKept: sources.length, note },
     };
@@ -158,7 +160,8 @@ export class ReportGeneratorService {
       `External research used ${queries} focused web searches (${searches} new, ${cached} answered from a recent cache) run through RUWĀD's search integration.`,
       "Only sources from government bodies, official company and investor websites, international organizations, major consulting firms, and established news and industry publications are kept. Other pages are discarded.",
       `Results are de-duplicated by web address and title, checked for relevance to the topic, and ranked by source type, then date. ${kept} sources were kept.`,
-      "External statements are shown exactly as retrieved (title, snippet, link, date). RUWĀD does not merge them with its own statistics or derive market sizes from them.",
+      "External statements are shown exactly as retrieved (title, snippet, link, date). RUWĀD does not merge them with its own statistics or estimate market sizes: a market-size figure appears only when a credible source states it with a year, a currency and the geography, and it is attributed to that source.",
+      "Funding on RUWĀD company profiles is recorded in SAR millions. Funding already raised is kept separate from funding a company says it is seeking.",
       ai ? "A short overview was drafted by an AI assistant from the numbers and sources above and automatically checked so it contains no figure or citation that isn't in the data." : "No AI analysis was used: the overview lists calculated facts and retrieved sources only.",
       "The report is saved with its sources. Viewing it does not run new searches; an administrator can refresh the external research.",
     ];
