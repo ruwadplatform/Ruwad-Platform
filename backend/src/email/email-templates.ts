@@ -133,3 +133,55 @@ export function passwordResetTemplate(p: { firstName: string; resetUrl: string }
     `<p style="color:#5C6B62;">If you did not request a password reset, you can ignore this email.</p>`;
   return layout("Reset your RUWĀD password", body, { text: "Reset Password", url: p.resetUrl });
 }
+
+/** Only http(s) links are ever placed in an href; anything else (javascript:, data:, …) is dropped. */
+function safeHref(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try { const u = new URL(url); return u.protocol === "http:" || u.protocol === "https:" ? u.toString() : null; } catch { return null; }
+}
+
+const emailButton = (url: string, text: string, bg: string) =>
+  `<a href="${escapeHtml(url)}" style="display:inline-block;background:${bg};color:#ffffff;text-decoration:none;padding:12px 26px;border-radius:6px;font-weight:600;font-size:14px;margin:0 10px 10px 0;">${escapeHtml(text)}</a>`;
+
+export function reportSubmissionReviewTemplate(p: {
+  title: string; reportType: string; sector: string; geography: string; authorName: string; organizationName: string; authorEmail: string;
+  submittedAt: string; executiveSummary: string; reviewUrl: string; acceptUrl: string; rejectUrl: string; reportUrl?: string | null; hasFile: boolean;
+  sources: { title: string; url: string }[];
+}): string {
+  const external = safeHref(p.reportUrl);
+  const sourceRows = p.sources.map((s) => {
+    const href = safeHref(s.url);
+    return `<li style="margin:4px 0;">${href ? `<a href="${escapeHtml(href)}" style="color:#128A45;">${escapeHtml(s.title)}</a>` : escapeHtml(s.title)}${href ? ` <span style="color:#8B978E;">— ${escapeHtml(href)}</span>` : ""}</li>`;
+  }).join("");
+  const summary = p.executiveSummary.length > 1500 ? `${p.executiveSummary.slice(0, 1500)}…` : p.executiveSummary;
+  const body =
+    `<p>A user has submitted a report for publication on RUWĀD.</p>` +
+    detailsTable([
+      ["Report Title", p.title], ["Report Type", p.reportType], ["Sector", p.sector], ["Geography", p.geography],
+      ["Author", p.authorName], ["Organization", p.organizationName], ["Email", p.authorEmail], ["Submitted", p.submittedAt],
+    ]) +
+    `<h2 style="margin:22px 0 4px;font-size:15px;">Executive Summary</h2><p style="margin:0;white-space:pre-line;">${escapeHtml(summary)}</p>` +
+    `<h2 style="margin:22px 0 4px;font-size:15px;">Report</h2><p style="margin:0;"><a href="${escapeHtml(p.reviewUrl)}" style="color:#128A45;">Review Report</a>${p.hasFile ? " (PDF attached to the request)" : ""}${external ? `<br/>Report link: <a href="${escapeHtml(external)}" style="color:#128A45;">${escapeHtml(external)}</a>` : ""}</p>` +
+    (sourceRows ? `<h2 style="margin:22px 0 4px;font-size:15px;">Sources</h2><ul style="margin:0;padding-left:18px;">${sourceRows}</ul>` : "") +
+    `<div style="margin-top:28px;">${emailButton(p.acceptUrl, "Accept Report", "#128A45")}${emailButton(p.rejectUrl, "Reject Report", "#C0392B")}</div>` +
+    `<p style="margin-top:6px;font-size:12px;color:#8B978E;">Each button opens a review page. Nothing changes until you press Confirm there. The links work once and expire in 7 days.</p>`;
+  return layout("New Report Publication Request", body);
+}
+
+export function reportPublishedTemplate(p: { firstName: string; title: string; reportUrl: string }): string {
+  const body =
+    `<p>Hi ${escapeHtml(p.firstName)},</p>` +
+    `<p>Your report:</p><p style="font-weight:600;">“${escapeHtml(p.title)}”</p>` +
+    `<p>has been approved and is now available on RUWĀD.</p>`;
+  return layout("Your RUWĀD Report Has Been Published", body, { text: "View Report", url: p.reportUrl });
+}
+
+export function reportRejectedTemplate(p: { firstName: string; title: string; reason?: string | null }): string {
+  const body =
+    `<p>Hi ${escapeHtml(p.firstName)},</p>` +
+    `<p>Your report:</p><p style="font-weight:600;">“${escapeHtml(p.title)}”</p>` +
+    `<p>was not approved for publication.</p>` +
+    (p.reason ? `<p style="margin-top:14px;"><b>Reason:</b><br/><span style="white-space:pre-line;">${escapeHtml(p.reason)}</span></p>` : "") +
+    `<p style="color:#5C6B62;margin-top:14px;">If you have questions, you can contact RUWĀD by replying to this email or writing to ruwadplatform@gmail.com.</p>`;
+  return layout("Update on Your RUWĀD Report Submission", body);
+}

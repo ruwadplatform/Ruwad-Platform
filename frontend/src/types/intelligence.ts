@@ -72,6 +72,14 @@ export interface Report {
   isPublished?: boolean;
   reportKind?: string;
   generated?: GeneratedReport;
+  /** "USER_SUBMITTED" for a community report approved by RUWĀD; anything else is RUWĀD-authored. */
+  origin?: string;
+  organizationName?: string | null;
+  /** The report's own date, as given by its author. */
+  reportDate?: string | null;
+  reportUrl?: string | null;
+  reportFileId?: string | null;
+  referenceLinks?: { title: string; url: string }[];
   title: string;
   category: string;
   reportType: string;

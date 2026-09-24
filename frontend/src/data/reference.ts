@@ -85,3 +85,15 @@ export const EVENT_TYPES = [
   "Conference", "Summit", "Hackathon", "Workshop", "Webinar", "Startup Competition",
   "Investor Event", "Exhibition", "Networking Event", "Research Event",
 ] as const;
+
+/* ------------------------------------------- "Publish a report" form (mirrors backend report-submission.constants.ts) */
+export const REPORT_SUBMISSION_TYPES = [
+  "Market Intelligence", "Sector Overview", "Startup Landscape", "Funding Landscape", "Investor Landscape",
+  "Research Report", "Regulatory", "Clinical Innovation", "Other",
+] as const;
+export const REPORT_SUBMISSION_SECTORS = [
+  "Digital Health", "Biotechnology", "MedTech", "Diagnostics", "Pharmaceuticals", "Healthcare AI", "Medical Devices",
+  "Genomics", "Healthcare Services", "Healthcare IT", "Precision Medicine", "Therapeutics", "Other",
+] as const;
+export const REPORT_SUBMISSION_GEOGRAPHIES = ["Saudi Arabia", "GCC", "MENA", "Global", "Other"] as const;
+export const REPORT_PDF_MAX_BYTES = 10 * 1024 * 1024;

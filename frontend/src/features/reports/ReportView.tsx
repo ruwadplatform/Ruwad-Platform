@@ -7,10 +7,13 @@ import { fetchAdminReportBySlug } from "@/lib/api/reports";
 import type { Report } from "@/types/intelligence";
 import { GeneratedReportView } from "./GeneratedReportView";
 import { ReportDetailPage } from "./ReportDetailPage";
+import { UserReportView } from "./UserReportView";
 
-/** Generated reports get the single-flow view; hand-written (legacy) reports keep their existing page. */
+/** Generated reports get the single-flow view, community-submitted ones their own attributed view; hand-written (legacy) reports keep their existing page. */
 export function ReportView({ report }: { report: Report }) {
-  return report.generated ? <GeneratedReportView report={report} /> : <ReportDetailPage report={report} />;
+  if (report.generated) return <GeneratedReportView report={report} />;
+  if (report.origin === "USER_SUBMITTED") return <UserReportView report={report} />;
+  return <ReportDetailPage report={report} />;
 }
 
 /** Drafts are not public, so the server-side page cannot load them. Admins fetch them here with their own session. */

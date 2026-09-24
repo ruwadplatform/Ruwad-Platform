@@ -14,6 +14,12 @@ interface RawReport {
   relatedInvestors?: RawRelatedInvestor[];
   relatedReports?: RawReport[];
   isPublished?: boolean;
+  origin?: string;
+  organizationName?: string | null;
+  reportDate?: string | null;
+  reportUrl?: string | null;
+  reportFileId?: string | null;
+  referenceLinks?: { title: string; url: string }[] | null;
   reportKind?: string | null;
   generationMode?: string | null;
   aiOverview?: string | null;
@@ -29,6 +35,12 @@ function mapReport(r: RawReport): Report {
     id: r.slug,
     dbId: r.id,
     isPublished: r.isPublished,
+    origin: r.origin,
+    organizationName: r.organizationName ?? null,
+    reportDate: r.reportDate ?? null,
+    reportUrl: r.reportUrl ?? null,
+    reportFileId: r.reportFileId ?? null,
+    referenceLinks: r.referenceLinks ?? [],
     reportKind: r.reportKind ?? undefined,
     generated: g && r.internalStats
       ? {

@@ -55,4 +55,16 @@ export class Report extends BaseEntity {
   @Column({ type: "text", nullable: true }) aiOverview?: string | null;
   @Column("text", { array: true, default: [] })
   provenanceSources!: string[];
+
+  /** "RUWAD" for everything RUWĀD wrote or generated; "USER_SUBMITTED" for a community report approved for publication. */
+  @Column({ type: "varchar", default: "RUWAD" }) origin!: string;
+  /** The approved submission this report came from (its author's email and review history live there, never here). */
+  @Column({ type: "uuid", nullable: true }) submissionId?: string | null;
+  @Column({ type: "varchar", nullable: true }) organizationName?: string | null;
+  /** The date the author gave for the report itself (the report's own publication date); `publicationDate` is when RUWĀD published it. */
+  @Column({ type: "date", nullable: true }) reportDate?: string | null;
+  @Column({ type: "varchar", nullable: true }) reportUrl?: string | null;
+  /** Points at a private `report_files` row; it is served publicly only while this report is published. */
+  @Column({ type: "uuid", nullable: true }) reportFileId?: string | null;
+  @Column({ type: "jsonb", default: [] }) referenceLinks!: { title: string; url: string }[];
 }

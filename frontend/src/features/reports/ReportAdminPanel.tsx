@@ -10,6 +10,7 @@ import { useSession } from "@/hooks/use-store";
 import { useStartups } from "@/hooks/use-directory-data";
 import { HC_CATEGORIES } from "@/data/reference";
 import { fetchAdminReports, generateReport, refreshReportResearch, setReportPublished } from "@/lib/api/reports";
+import { fetchAdminSubmissions, resendReviewEmail, STATUS_LABEL, type AdminSubmissionRow } from "@/lib/api/report-submissions";
 import type { Report } from "@/types/intelligence";
 
 export const REPORT_KIND_OPTIONS = [
@@ -85,6 +86,8 @@ export function ReportAdminPanel({ onPublishedChange }: { onPublishedChange?: ()
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState(0);
   const [rows, setRows] = useState<Report[]>([]);
+  const [requests, setRequests] = useState<AdminSubmissionRow[]>([]);
+  const [resending, setResending] = useState<string | null>(null);
   const [listError, setListError] = useState("");
   const opt = REPORT_KIND_OPTIONS.find((o) => o.value === kind)!;
 
@@ -94,6 +97,7 @@ export function ReportAdminPanel({ onPublishedChange }: { onPublishedChange?: ()
     if (!isAdmin) return;
     let live = true;
     fetchAdminReports().then((r) => { if (live) { setRows(r); setListError(""); } }).catch((e) => { if (live) setListError(errText(e)); });
+    fetchAdminSubmissions().then((r) => { if (live) setRequests(r); }).catch(() => { /* the request list is a convenience; the generator above still works */ });
     return () => { live = false; };
   }, [isAdmin, reloadKey]);
   useEffect(() => {
@@ -118,6 +122,12 @@ export function ReportAdminPanel({ onPublishedChange }: { onPublishedChange?: ()
     if (!r.dbId) return;
     try { await setReportPublished(r.dbId, r.isPublished === false); toast(r.isPublished === false ? "Report published" : "Report unpublished"); load(); onPublishedChange?.(); }
     catch (e) { toast(errText(e)); }
+  }
+
+  async function resend(id: string) {
+    setResending(id);
+    try { const r = await resendReviewEmail(id); toast(r.sent ? "Review email sent" : "The email could not be sent. Check the email settings and try again."); load(); }
+    catch (e) { toast(errText(e)); } finally { setResending(null); }
   }
 
   const generated = rows.filter((r) => r.reportKind);
@@ -160,6 +170,20 @@ export function ReportAdminPanel({ onPublishedChange }: { onPublishedChange?: ()
             <li key={r.id} className="flex gap-8" style={{ alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
               <span className="fs-13"><Link href={`/reports/${r.id}`} style={{ fontWeight: 600 }}>{r.title}</Link> <span className={`badge ${r.isPublished === false ? "badge-warn" : "badge-good"}`}>{r.isPublished === false ? "Draft" : "Published"}</span></span>
               <button className="btn btn-outline" onClick={() => toggle(r)}>{r.isPublished === false ? "Publish" : "Unpublish"}</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <h4 className="fs-13 mt-20 mb-8" style={{ fontWeight: 700 }}>Community report requests</h4>
+      <p className="fs-12 muted mb-8">Reports submitted by users. Reviewers Accept or Reject from the email. Use Resend if the email failed or its link expired.</p>
+      {!requests.length ? <p className="fs-12 muted">No requests yet.</p> : (
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
+          {requests.slice(0, 15).map((s) => (
+            <li key={s.id} className="flex gap-8" style={{ alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
+              <span className="fs-13">{s.title} <span className={`badge ${s.status === "PUBLISHED" ? "badge-good" : s.status === "REJECTED" ? "badge-crit" : "badge-warn"}`}>{STATUS_LABEL[s.status]}</span>
+                {s.status === "PENDING_REVIEW" && <span className="fs-12 muted"> · {s.reviewEmailSentAt ? "review email sent" : "review email NOT sent"}</span>}
+              </span>
+              {s.status === "PENDING_REVIEW" && <button className="btn btn-outline" disabled={resending === s.id} onClick={() => resend(s.id)}>{resending === s.id ? "Sending…" : "Resend review email"}</button>}
             </li>
           ))}
         </ul>

@@ -8,6 +8,9 @@ import {
   dataRoomReviewedTemplate,
   introductionStatusChangedTemplate,
   passwordResetTemplate,
+  reportSubmissionReviewTemplate,
+  reportPublishedTemplate,
+  reportRejectedTemplate,
 } from "./email-templates";
 import { signEmailAction } from "./email-action-token";
 
@@ -54,14 +57,15 @@ export class EmailService {
     if (!this.from) this.logger.warn("EMAIL_FROM not set — email notifications are disabled until a verified sender is configured.");
   }
 
-  private async send(to: string, subject: string, html: string): Promise<void> {
+  /** Resolves true only when the provider accepted the message; every failure path logs and returns false. */
+  private async send(to: string, subject: string, html: string): Promise<boolean> {
     if (!to) {
       this.logger.warn(`Email skipped (no recipient resolved): "${subject}"`);
-      return;
+      return false;
     }
     if (!this.client || !this.from) {
       this.logger.warn(`Email skipped (${!this.client ? "Resend not configured" : "EMAIL_FROM not set"}): "${subject}" -> ${to}`);
-      return;
+      return false;
     }
     try {
       // The SDK resolves with { data, error } for API-level failures (bad
@@ -73,9 +77,12 @@ export class EmailService {
       const { error } = await this.client.emails.send({ from: this.from, to, subject, html });
       if (error) {
         this.logger.error(`Failed to send email "${subject}" to ${to}: ${error.name} — ${error.message}`);
+        return false;
       }
+      return true;
     } catch (e) {
       this.logger.error(`Failed to send email "${subject}" to ${to}: ${e instanceof Error ? e.message : "unknown error"}`);
+      return false;
     }
   }
 
@@ -143,6 +150,35 @@ export class EmailService {
       introUrl: `${this.appUrl}/introductions`,
     });
     await this.send(p.to, `Introduction Request ${p.statusLabel}: ${p.targetName}`, html);
+  }
+
+
+  /** Publication request for a user-submitted report → ADMIN_NOTIFICATION_EMAIL, with Accept/Reject buttons that open the
+   * review page (nothing changes until the reviewer confirms there). Resolves true only if the provider accepted it, so the
+   * caller can keep the submission pending and offer a resend when it didn't. The raw token only ever appears in the links. */
+  async sendReportSubmissionReview(p: {
+    token: string; title: string; reportType: string; sector: string; geography: string; authorName: string; organizationName: string;
+    authorEmail: string; submittedAt: Date; executiveSummary: string; reportUrl?: string | null; hasFile: boolean; sources: { title: string; url: string }[];
+  }): Promise<boolean> {
+    if (!this.adminEmail) {
+      this.logger.warn("ADMIN_NOTIFICATION_EMAIL not set — report publication request email not sent.");
+      return false;
+    }
+    const base = `${this.appUrl}/report-review/${encodeURIComponent(p.token)}`;
+    const html = reportSubmissionReviewTemplate({
+      title: p.title, reportType: p.reportType, sector: p.sector, geography: p.geography, authorName: p.authorName, organizationName: p.organizationName,
+      authorEmail: p.authorEmail, submittedAt: formatDate(p.submittedAt), executiveSummary: p.executiveSummary, reportUrl: p.reportUrl, hasFile: p.hasFile, sources: p.sources,
+      reviewUrl: base, acceptUrl: `${base}?action=accept`, rejectUrl: `${base}?action=reject`,
+    });
+    return this.send(this.adminEmail, `New RUWĀD Report Publication Request — ${p.title.replace(/[\r\n]+/g, " ")}`, html);
+  }
+
+  async sendReportPublished(p: { to: string; firstName: string; title: string; slug: string }): Promise<boolean> {
+    return this.send(p.to, "Your RUWĀD Report Has Been Published", reportPublishedTemplate({ firstName: p.firstName, title: p.title, reportUrl: `${this.appUrl}/reports/${p.slug}` }));
+  }
+
+  async sendReportRejected(p: { to: string; firstName: string; title: string; reason?: string | null }): Promise<boolean> {
+    return this.send(p.to, "Update on Your RUWĀD Report Submission", reportRejectedTemplate({ firstName: p.firstName, title: p.title, reason: p.reason }));
   }
 
   /** Security email: never gated by the user's notification preferences.

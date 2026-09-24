@@ -58,6 +58,7 @@ export const TOP_NAV: NavGroup[] = [
       { label: "My Startup", icon: "mystartup", route: "/workspace/startup", auth: true },
       { label: "My Organizations", icon: "listings", route: "/my-organizations", auth: true },
       { label: "Submit a Listing", icon: "plus", route: "/submit", auth: true },
+      { label: "My Reports", icon: "reports", route: "/my-reports", auth: true },
       { label: "Watchlist", icon: "watchlist", route: "/watchlist", auth: true },
       { label: "Saved Searches", icon: "search", route: "/saved-searches", auth: true },
       { label: "Introduction Requests", icon: "intros", route: "/introductions", auth: true },
@@ -78,7 +79,7 @@ const ROUTE_TO_NAV_GROUP: Record<string, string> = {
   reports: "intelligence", analytics: "intelligence", news: "intelligence",
   workspace: "workspace", "my-organizations": "workspace", watchlist: "workspace",
   "saved-searches": "workspace", introductions: "workspace", "my-ndas": "workspace",
-  submit: "workspace", submissions: "workspace",
+  submit: "workspace", submissions: "workspace", "my-reports": "workspace",
   admin: "admin",
 };
 
