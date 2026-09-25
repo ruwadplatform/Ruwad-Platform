@@ -1,6 +1,7 @@
 import { Column, Entity, Index } from "typeorm";
 import { BaseEntity } from "../common/base.entity";
 import type { ExternalSource, GeneratedContent, InternalStats, QueryLog, ReportScope } from "./report-types";
+import type { LibraryContent } from "./library/library-types";
 
 @Entity("reports")
 export class Report extends BaseEntity {
@@ -67,4 +68,6 @@ export class Report extends BaseEntity {
   /** Points at a private `report_files` row; it is served publicly only while this report is published. */
   @Column({ type: "uuid", nullable: true }) reportFileId?: string | null;
   @Column({ type: "jsonb", default: [] }) referenceLinks!: { title: string; url: string }[];
+  /** Sourced content of a default-library report (facts with quotes, live World Bank points, sections). Null for every other report. */
+  @Column({ type: "jsonb", nullable: true }) libraryContent?: LibraryContent | null;
 }

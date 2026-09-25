@@ -5,6 +5,7 @@ import request from "supertest";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { UserRole } from "../common/enums";
 import { ReportGeneratorService } from "./report-generator.service";
+import { ReportLibraryService } from "./library/report-library.service";
 import { ReportSubmissionsController } from "./report-submissions.controller";
 import { ReportSubmissionsService } from "./report-submissions.service";
 import { ReportsController } from "./reports.controller";
@@ -38,7 +39,7 @@ describe("Report submissions API", () => {
   beforeAll(async () => {
     const mod = await Test.createTestingModule({
       controllers: [ReportSubmissionsController, ReportsController],
-      providers: [{ provide: ReportSubmissionsService, useValue: submissions }, { provide: ReportsService, useValue: reports }, { provide: ReportGeneratorService, useValue: {} }],
+      providers: [{ provide: ReportSubmissionsService, useValue: submissions }, { provide: ReportsService, useValue: reports }, { provide: ReportGeneratorService, useValue: {} }, { provide: ReportLibraryService, useValue: {} }],
     }).overrideGuard(JwtAuthGuard).useClass(HeaderAuthGuard).compile();
     app = mod.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));

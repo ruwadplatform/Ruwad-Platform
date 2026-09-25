@@ -1,0 +1,13 @@
+import { IsArray, IsBoolean, IsIn, IsOptional } from "class-validator";
+import { LIBRARY_DEFINITIONS } from "../library/library-definitions";
+
+export class GenerateLibraryDto {
+  /** Only these library reports (default: all six). */
+  @IsOptional() @IsArray() @IsIn(LIBRARY_DEFINITIONS.map((d) => d.slug), { each: true }) slugs?: string[];
+  /** New reports are published unless this is false. Existing reports keep their current visibility. */
+  @IsOptional() @IsBoolean() publish?: boolean;
+  /** Verify and assemble everything but save nothing. */
+  @IsOptional() @IsBoolean() dryRun?: boolean;
+  /** Skip the Serper "further reading" step. */
+  @IsOptional() @IsBoolean() skipResearch?: boolean;
+}

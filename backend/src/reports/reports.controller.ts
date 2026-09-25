@@ -3,6 +3,8 @@ import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { ReportsService } from "./reports.service";
 import { ReportGeneratorService } from "./report-generator.service";
+import { ReportLibraryService } from "./library/report-library.service";
+import { GenerateLibraryDto } from "./dto/generate-library.dto";
 import { CreateReportDto } from "./dto/create-report.dto";
 import { UpdateReportDto } from "./dto/update-report.dto";
 import { GenerateReportDto } from "./dto/generate-report.dto";
@@ -17,7 +19,7 @@ const ADMIN = [UserRole.RUWAD_ADMIN, UserRole.SUPER_ADMIN];
 @ApiTags("reports")
 @Controller("reports")
 export class ReportsController {
-  constructor(private readonly service: ReportsService, private readonly generator: ReportGeneratorService) {}
+  constructor(private readonly service: ReportsService, private readonly generator: ReportGeneratorService, private readonly library: ReportLibraryService) {}
 
   /** Public: published reports only. Viewing never triggers a web search — everything is stored with the report. */
   @Get() findAll(@Query() query: PaginationQueryDto & { category?: string }) { return this.service.findAll(query); }
@@ -30,6 +32,18 @@ export class ReportsController {
   @Get("admin/by-slug/:slug")
   @ApiCookieAuth() @UseGuards(JwtAuthGuard, RolesGuard) @Roles(...ADMIN)
   findBySlugAdmin(@Param("slug") slug: string) { return this.service.findBySlugAdmin(slug); }
+
+  /** The default RUWĀD library: what it should contain and which reports are saved. */
+  @Get("library/status")
+  @ApiCookieAuth() @UseGuards(JwtAuthGuard, RolesGuard) @Roles(...ADMIN)
+  libraryStatus() { return this.library.status(); }
+
+  /** Creates or refreshes the default library reports (idempotent, keyed by slug). Never touches other reports. */
+  @Post("library/generate")
+  @HttpCode(200)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @ApiCookieAuth() @UseGuards(JwtAuthGuard, RolesGuard) @Roles(...ADMIN)
+  generateLibrary(@Body() dto: GenerateLibraryDto) { return this.library.generate(dto); }
 
   /** Runs the research (a few Serper searches) and saves a DRAFT report. */
   @Post("generate")

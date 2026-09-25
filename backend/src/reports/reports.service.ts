@@ -70,7 +70,7 @@ export class ReportsService {
 
   /** Lists don't need the heavy generated payload (statistics, saved sources). */
   private slim(r: Report): Report {
-    return { ...r, internalStats: undefined, externalSources: [], researchQueries: [], generated: undefined, aiOverview: undefined } as Report;
+    return { ...r, internalStats: undefined, externalSources: [], researchQueries: [], generated: undefined, aiOverview: undefined, libraryContent: undefined } as Report;
   }
 
   /** Admin view: drafts and published reports alike. */

@@ -65,6 +65,21 @@ export interface GeneratedReport {
   externalSources: ReportExternalSource[];
 }
 
+/** Sourced content of a default-library RUWĀD report. */
+export interface LibraryFactView {
+  id: string; organization: string; sourceType: string; documentTitle: string; url: string; geography: string; year: number; period?: string; publishedOn?: string;
+  statement: string; quote: string; verifiedOn: string; verification: "live" | "manual"; checkedAt: string;
+}
+export interface LibraryWorldBankView { id: string; label: string; unit: string; display: string; year: number; geography: string; url: string; organization: string }
+export interface LibrarySectionView {
+  heading: string; paragraphs: { text: string; factIds: string[] }[]; metrics?: ReportMetric[]; distributionKeys?: string[];
+}
+export interface LibraryContentView {
+  facts: LibraryFactView[]; worldBank: LibraryWorldBankView[]; sections: LibrarySectionView[]; missing: string[];
+  marketSize: { status: "notIdentified"; message: string }; furtherReading: ReportExternalSource[]; methodology: string[]; generatedAt: string;
+  distributions: ReportDistribution[]; asOf?: string;
+}
+
 export interface Report {
   id: string;
   /** Database id — needed by the admin actions. */
@@ -72,6 +87,8 @@ export interface Report {
   isPublished?: boolean;
   reportKind?: string;
   generated?: GeneratedReport;
+  /** Present only on default-library reports. */
+  library?: LibraryContentView;
   /** "USER_SUBMITTED" for a community report approved by RUWĀD; anything else is RUWĀD-authored. */
   origin?: string;
   organizationName?: string | null;

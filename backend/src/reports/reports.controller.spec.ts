@@ -5,6 +5,7 @@ import request from "supertest";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { UserRole } from "../common/enums";
 import { ReportGeneratorService } from "./report-generator.service";
+import { ReportLibraryService } from "./library/report-library.service";
 import { ReportsController } from "./reports.controller";
 import { ReportsService } from "./reports.service";
 
@@ -26,12 +27,13 @@ describe("Reports API permissions", () => {
     findBySlugOrThrow: jest.fn(async (slug: string) => ({ slug })), setPublished: jest.fn(async () => ({})), create: jest.fn(async () => ({})),
     update: jest.fn(async () => ({})), remove: jest.fn(async () => undefined),
   };
+  const library = { status: jest.fn(async () => []), generate: jest.fn(async () => ({ reports: [] })) };
   const generator = { generate: jest.fn(async () => ({ id: "r1" })), refreshResearch: jest.fn(async () => ({ id: "r1" })) };
 
   beforeAll(async () => {
     const mod = await Test.createTestingModule({
       controllers: [ReportsController],
-      providers: [{ provide: ReportsService, useValue: service }, { provide: ReportGeneratorService, useValue: generator }],
+      providers: [{ provide: ReportsService, useValue: service }, { provide: ReportGeneratorService, useValue: generator }, { provide: ReportLibraryService, useValue: library }],
     }).overrideGuard(JwtAuthGuard).useClass(HeaderAuthGuard).compile();
     app = mod.createNestApplication();
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
@@ -44,6 +46,8 @@ describe("Reports API permissions", () => {
   const adminOnly: [string, string, () => request.Test][] = [
     ["generate", "POST /reports/generate", () => request(app.getHttpServer()).post("/reports/generate").send({ kind: "SECTOR_OVERVIEW" })],
     ["refresh research", "POST /reports/:id/refresh-research", () => request(app.getHttpServer()).post(`/reports/${id}/refresh-research`)],
+    ["library status", "GET /reports/library/status", () => request(app.getHttpServer()).get("/reports/library/status")],
+    ["library generate", "POST /reports/library/generate", () => request(app.getHttpServer()).post("/reports/library/generate").send({})],
     ["publish", "POST /reports/:id/publish", () => request(app.getHttpServer()).post(`/reports/${id}/publish`)],
     ["unpublish", "POST /reports/:id/unpublish", () => request(app.getHttpServer()).post(`/reports/${id}/unpublish`)],
     ["admin list", "GET /reports/admin/all", () => request(app.getHttpServer()).get("/reports/admin/all")],
@@ -79,6 +83,21 @@ describe("Reports API permissions", () => {
     await request(app.getHttpServer()).post("/reports/generate").set("x-test-role", admin).send({ kind: "STARTUP_ANALYSIS" }).expect(400);
     await request(app.getHttpServer()).post("/reports/generate").set("x-test-role", admin).send({ kind: "SECTOR_OVERVIEW", extra: 1 }).expect(400);
     expect(generator.generate).not.toHaveBeenCalled();
+  });
+
+  it("validates and forwards the library generation request", async () => {
+    const admin = UserRole.RUWAD_ADMIN;
+    await request(app.getHttpServer()).post("/reports/library/generate").set("x-test-role", admin).send({ slugs: ["not-a-library-report"] }).expect(400);
+    await request(app.getHttpServer()).post("/reports/library/generate").set("x-test-role", admin).send({ dryRun: "yes" }).expect(400);
+    expect(library.generate).not.toHaveBeenCalled();
+    await request(app.getHttpServer()).post("/reports/library/generate").set("x-test-role", admin).send({ slugs: ["saudi-digital-health-landscape-2026"], dryRun: true }).expect(200);
+    expect(library.generate).toHaveBeenCalledWith({ slugs: ["saudi-digital-health-landscape-2026"], dryRun: true });
+  });
+
+  it("never runs the library generator for a rejected caller", async () => {
+    await request(app.getHttpServer()).post("/reports/library/generate").send({}).expect(401);
+    await request(app.getHttpServer()).post("/reports/library/generate").set("x-test-role", UserRole.USER).send({}).expect(403);
+    expect(library.generate).not.toHaveBeenCalled();
   });
 
   it("lets anyone (including guests) read the public list and a single report", async () => {

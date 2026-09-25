@@ -1,6 +1,6 @@
 import { api, isNotFound } from "./client";
 import { logoUrl } from "./uploads";
-import type { Report, ReportExternalSource, ReportInternalStats } from "@/types/intelligence";
+import type { LibraryContentView, Report, ReportExternalSource, ReportInternalStats } from "@/types/intelligence";
 
 export interface RawRelatedStartup { id: string; slug: string; name: string; logo: string; logoImageId?: string | null; category: string; city: string; tagline: string; stage: string; score: number; fundingTotal: number }
 export interface RawRelatedInvestor { id: string; slug: string; name: string; logo: string; logoImageId?: string | null; type: string; city: string; ticket: string; hcDeals: number; desc: string }
@@ -27,6 +27,7 @@ interface RawReport {
   generated?: { overviewLines?: string[]; methodology?: string[]; coverageNotice?: string; research?: NonNullable<Report["generated"]>["research"]; scopeLabel?: string; marketSize?: NonNullable<Report["generated"]>["marketSize"] } | null;
   internalStats?: ReportInternalStats | null;
   externalSources?: ReportExternalSource[] | null;
+  libraryContent?: Omit<LibraryContentView, "distributions" | "asOf"> | null;
 }
 
 function mapReport(r: RawReport): Report {
@@ -42,6 +43,7 @@ function mapReport(r: RawReport): Report {
     reportFileId: r.reportFileId ?? null,
     referenceLinks: r.referenceLinks ?? [],
     reportKind: r.reportKind ?? undefined,
+    library: r.libraryContent ? { ...r.libraryContent, distributions: r.internalStats?.distributions ?? [], asOf: r.internalStats?.coverage.asOf } : undefined,
     generated: g && r.internalStats
       ? {
           reportKind: r.reportKind ?? "",
