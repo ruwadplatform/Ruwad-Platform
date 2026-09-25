@@ -223,6 +223,10 @@
 .news-list-item .news-read:hover{color:#143a66;text-decoration:underline;background:none}
 .news-list-item .nthumb-ph{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:var(--fs-14);letter-spacing:.04em}
 
-/* Reports directory: the report cards (and the featured report) carry a clear solid blue border, with a soft blue halo on hover. */
-.reports-page .report-card,.reports-page .report-featured{border:2px solid var(--info)}
-.reports-page .report-card:hover,.reports-page .report-featured:hover{box-shadow:0 0 0 3px var(--info-tint)}
+/* Reports: cards carry the same thin blue border as the Dashboard cards (measured from the reference: rgb(94,140,189), 1px) — on the
+   Reports page (report cards and the featured report) and inside every report page (source cards, chart panels, the "In this report"
+   box, KPI tiles, insight cards, related-entity cards). */
+.reports-page .report-card,.reports-page .report-featured,
+.report-inner .panel,.report-inner .kpi,.report-inner .insight-card,.report-inner .entity-card,.report-inner .report-card,
+.report-page .panel,.report-page .kpi,.report-page .insight-card,.report-page .entity-card,.report-page .report-card{border:1px solid rgb(94,140,189)}
+.reports-page .report-card:hover,.reports-page .report-featured:hover{border-color:var(--info)}

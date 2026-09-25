@@ -289,7 +289,7 @@ export function GeneratedReportView({ report: r }: { report: Report }) {
   add("coverage", "Data coverage notice", <div className="panel panel-pad"><p className="fs-13">{g.coverageNotice}</p></div>);
 
   return (
-    <div className="content-in wide" style={{ maxWidth: 980 }}>
+    <div className="content-in wide report-inner" style={{ maxWidth: 980 }}>
       <nav className="fs-12 muted mb-16"><Link href="/reports">Reports</Link> / {r.title}</nav>
 
       <header className="mb-24">

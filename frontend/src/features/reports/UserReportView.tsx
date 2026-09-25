@@ -19,7 +19,7 @@ export function UserReportView({ report: r }: { report: Report }) {
   const reportHref = safeHref(r.reportUrl);
   const links = (r.referenceLinks ?? []).map((s) => ({ ...s, href: safeHref(s.url) })).filter((s) => s.href);
   return (
-    <div className="content-in wide" style={{ maxWidth: 900 }}>
+    <div className="content-in wide report-inner" style={{ maxWidth: 900 }}>
       <nav className="fs-12 muted mb-16"><Link href="/reports">Reports</Link> / {r.title}</nav>
 
       <header className="mb-24">

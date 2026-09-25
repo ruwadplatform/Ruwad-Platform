@@ -59,7 +59,7 @@ export function LibraryReportView({ report: r }: { report: Report }) {
   const liveCount = lib.facts.filter((f) => f.verification === "live").length;
 
   return (
-    <div className="content-in wide" style={{ maxWidth: 980 }}>
+    <div className="content-in wide report-inner" style={{ maxWidth: 980 }}>
       <nav className="fs-12 muted mb-16"><Link href="/reports">Reports</Link> / {r.title}</nav>
 
       <header className="mb-24">
