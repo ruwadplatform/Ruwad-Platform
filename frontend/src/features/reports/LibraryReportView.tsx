@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { KpiCard } from "@/components/intelligence/KpiCard";
 import { BarChart } from "@/components/intelligence/BarChart";
+import { ReportCover, coverBackground, coverFor } from "@/components/intelligence/ReportCover";
 import type { LibraryContentView, Report } from "@/types/intelligence";
 import { ReportAdminBar } from "./ReportAdminPanel";
 
@@ -54,6 +55,7 @@ export function LibraryReportView({ report: r }: { report: Report }) {
   const cites = buildCites(lib);
   const dists = new Map(lib.distributions.map((d) => [d.key, d]));
   const sourceList = [...cites.values()].sort((a, b) => a.n - b.n);
+  const cover = coverFor(r.id);
   const liveCount = lib.facts.filter((f) => f.verification === "live").length;
 
   return (
@@ -61,6 +63,11 @@ export function LibraryReportView({ report: r }: { report: Report }) {
       <nav className="fs-12 muted mb-16"><Link href="/reports">Reports</Link> / {r.title}</nav>
 
       <header className="mb-24">
+        {cover && (
+          <div style={{ position: "relative", height: "clamp(120px, 24vw, 240px)", borderRadius: "var(--radius-card)", overflow: "hidden", marginBottom: 20, background: coverBackground(cover) }}>
+            <ReportCover kind={cover} fit="meet" />
+          </div>
+        )}
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
           {!published && <span className="badge badge-warn">Unpublished — not visible to the public</span>}
           <span className="badge badge-good">RUWĀD Report</span>

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { ReportBadges } from "./ReportBadges";
+import { ReportCover, coverFor } from "./ReportCover";
 import type { Report } from "@/types/intelligence";
 
 /** Ported from reportCard() (js/widgets.js:133-138) — `.report-card` with
@@ -13,9 +14,10 @@ import type { Report } from "@/types/intelligence";
 export function ReportCard({ report: r }: { report: Report }) {
   const router = useRouter();
   const community = r.origin === "USER_SUBMITTED";
+  const cover = coverFor(r.id);
   return (
     <div className="report-card" style={{ cursor: "pointer" }} onClick={() => router.push(`/reports/${r.id}`)}>
-      <div className="rthumb"><span className="rtag">{r.reportType}</span></div>
+      <div className="rthumb" style={cover ? { height: 120 } : undefined}>{cover && <ReportCover kind={cover} />}<span className="rtag">{r.reportType}</span></div>
       <div className="rbody">
         {r.badges.length > 0 && <div className="mb-8"><ReportBadges badges={r.badges} /></div>}
         <h4>{r.title}</h4>
