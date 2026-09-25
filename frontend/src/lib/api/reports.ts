@@ -113,6 +113,18 @@ export async function fetchAdminReportBySlug(slug: string) {
   catch (e) { if (isNotFound(e)) return null; throw e; }
 }
 
+/* ---- Default RUWĀD report library (admin only) ---- */
+
+export interface LibraryStatusRow { slug: string; title: string; category: string; exists: boolean; isPublished: boolean; updatedAt: string | null }
+export interface LibraryReportOutcome {
+  slug: string; title: string; action: "created" | "updated" | "preview" | "skipped" | "failed"; isPublished: boolean; reasons: string[];
+  sections: number; factsUsed: number; factsReverified: number; factsManual: number; worldBankPoints: number; furtherReading: number;
+}
+export interface LibraryRunResult { reports: LibraryReportOutcome[]; dropped: { id: string; reason: string }[]; worldBankFailed: string[]; research: { status: string; searches: number; cached: number } }
+export const fetchLibraryStatus = () => api.get<LibraryStatusRow[]>("/reports/library/status");
+/** Uses the one library endpoint. publish:true makes every complete report public; incomplete ones are skipped by the server, never published. */
+export const generateDefaultLibrary = () => api.post<LibraryRunResult>("/reports/library/generate", { publish: true });
+
 export interface GenerateReportInput { kind: string; sector?: string; startupSlug?: string }
 export const generateReport = async (input: GenerateReportInput) => mapReport(await api.post<RawReport>("/reports/generate", input));
 export const refreshReportResearch = async (dbId: string) => mapReport(await api.post<RawReport>(`/reports/${dbId}/refresh-research`));

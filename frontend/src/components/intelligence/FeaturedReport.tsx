@@ -20,6 +20,7 @@ export function FeaturedReport({ report: r }: { report: Report }) {
         <h2 className="fs-19" style={{ margin: "10px 0 6px" }}>{r.title}</h2>
         <p className="db-text mb-12">{r.description}</p>
         <div className="flex gap-8 mb-16" style={{ flexWrap: "wrap" }}>
+          <span className="tag">{r.origin === "USER_SUBMITTED" ? "Community Report" : "RUWĀD Report"}</span>
           <span className="tag">{r.category}</span>
           <span className="tag">{r.geography}</span>
           <span className="tag">{r.publicationDate}</span>

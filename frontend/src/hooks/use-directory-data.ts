@@ -8,6 +8,7 @@
  * useSyncExternalStore can read it directly with no snapshot memoization. */
 import { useEffect, useReducer, useSyncExternalStore } from "react";
 import { createResourceCache, subscribeStoreChange } from "@/lib/api/resource-cache";
+import { notifyStoreChange } from "@/lib/store";
 import { fetchStartups } from "@/lib/api/startups";
 import { fetchInvestors } from "@/lib/api/investors";
 import { fetchHubs } from "@/lib/api/hubs";
@@ -23,6 +24,8 @@ export interface DataState<T> {
   data: T[];
   loading: boolean;
   error: string | null;
+  /** Fetches the collection again (used after an admin action changes what is published). */
+  refresh: () => void;
 }
 
 function makeHook<T>(fetcher: () => Promise<T[]>) {
@@ -47,7 +50,8 @@ function makeHook<T>(fetcher: () => Promise<T[]>) {
     // changes; re-render on every store change so loading/error still update.
     const [, rerender] = useReducer((n: number) => n + 1, 0);
     useEffect(() => subscribeStoreChange(rerender), []);
-    return { data, loading: cache.isLoading() && !cache.isLoaded(), error: cache.error() };
+    const refresh = () => { cache.reset(); cache.ensureLoaded(fetcher); notifyStoreChange(); };
+    return { data, loading: cache.isLoading() && !cache.isLoaded(), error: cache.error(), refresh };
   };
 }
 

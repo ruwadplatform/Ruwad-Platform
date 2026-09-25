@@ -7,9 +7,6 @@ import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePa
 import { SectionHeader } from "@/components/intelligence/SectionHeader";
 import { FeaturedReport } from "@/components/intelligence/FeaturedReport";
 import { ReportCard } from "@/components/intelligence/ReportCard";
-import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
-import { useSession } from "@/hooks/use-store";
-import { capForGuest } from "@/lib/auth-gate";
 import { requireAuth } from "@/lib/store";
 import { useReports } from "@/hooks/use-directory-data";
 import { ReportAdminPanel } from "./ReportAdminPanel";
@@ -24,8 +21,7 @@ const matchesChip = (r: { category: string; sector: string; geography: string },
 
 export function ReportsDirectoryPage() {
   const router = useRouter();
-  const { loggedIn, hydrated } = useSession();
-  const { data: REPORTS, loading, error } = useReports();
+  const { data: REPORTS, loading, error, refresh } = useReports();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("All");
   const [sort, setSort] = useState<SortKey>("newest");
@@ -38,7 +34,11 @@ export function ReportsDirectoryPage() {
     return { types: uniq((r) => r.reportType), sectors: uniq((r) => r.sector), geographies: uniq((r) => r.geography) };
   }, [REPORTS]);
 
-  const featured = useMemo(() => REPORTS.find((r) => r.badges.includes("Featured")) ?? REPORTS.find((r) => r.origin !== "USER_SUBMITTED"), [REPORTS]);
+  const featuredCandidate = useMemo(() => REPORTS.find((r) => r.badges.includes("Featured")) ?? REPORTS.find((r) => r.origin !== "USER_SUBMITTED"), [REPORTS]);
+  // The hero card is only the "no filters" view. While the visitor filters or searches, every matching report is listed in the grid
+  // (otherwise the featured report would vanish from its own chip's results).
+  const filtering = category !== "All" || reportType !== "All" || sector !== "All" || geography !== "All" || search !== "";
+  const featured = filtering ? undefined : featuredCandidate;
 
   const filtered = useMemo(() => {
     let list = featured ? REPORTS.filter((r) => r.id !== featured.id) : REPORTS;
@@ -57,8 +57,6 @@ export function ReportsDirectoryPage() {
     return sorted;
   }, [REPORTS, category, reportType, sector, geography, search, sort, featured]);
 
-  const { shown, capped } = capForGuest(filtered, 3, !hydrated || !loggedIn);
-
   return (
     <div className="reports-page">
       <IntelligencePageHeader
@@ -71,7 +69,7 @@ export function ReportsDirectoryPage() {
         }
       />
 
-      <ReportAdminPanel />
+      <ReportAdminPanel onPublishedChange={refresh} />
 
       {loading ? (
         <div className="empty-state mt-20 mb-24"><RuwadIcon name="search" size={30} /><h4>Loading reports…</h4></div>
@@ -116,10 +114,9 @@ export function ReportsDirectoryPage() {
         <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No reports match those filters</h4><p>Try a different category or search term.</p></div>
       ) : (
         <div className="entity-grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))" }}>
-          {shown.map((r) => <ReportCard key={r.id} report={r} />)}
+          {filtered.map((r) => <ReportCard key={r.id} report={r} />)}
         </div>
       )}
-      {hydrated && capped && <DirectoryGateBanner entityLabelPlural="Reports" totalCount={filtered.length} />}
     </div>
   );
 }

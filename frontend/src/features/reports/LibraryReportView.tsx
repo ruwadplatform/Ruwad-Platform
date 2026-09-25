@@ -63,7 +63,7 @@ export function LibraryReportView({ report: r }: { report: Report }) {
       <header className="mb-24">
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
           {!published && <span className="badge badge-warn">Unpublished — not visible to the public</span>}
-          <span className="badge badge-good">RUWĀD Research</span>
+          <span className="badge badge-good">RUWĀD Report</span>
           <span className="badge">{r.category}</span>
           <span className="badge">{r.geography}</span>
         </div>

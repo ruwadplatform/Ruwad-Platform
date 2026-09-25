@@ -28,6 +28,7 @@ export function ReportCard({ report: r }: { report: Report }) {
           <span className="tag">{community ? r.sector : r.category}</span>
           {community ? <span className="tag">Community Report</span> : (
             <>
+              <span className="tag">RUWĀD Report</span>
               {r.readingTime && <span className="tag">{r.readingTime}</span>}
               {r.pages > 0 && <span className="tag">{r.pages} pages</span>}
             </>
