@@ -127,9 +127,15 @@ describe("ReportLibraryService", () => {
     await expect(svc.generate({ dryRun: true })).resolves.toBeDefined();
   });
 
-  it("reports status for all six reports", async () => {
+  it("reports status for all six reports, including whether a generation is running", async () => {
     const { svc } = setup();
-    expect(await svc.status()).toHaveLength(6);
+    const idle = await svc.status();
+    expect(idle).toHaveLength(6);
+    expect(idle.every((r) => r.running === false)).toBe(true);
+    const run = svc.generate({ publish: true });
+    expect((await svc.status()).every((r) => r.running === true)).toBe(true);
+    await run;
+    expect((await svc.status()).every((r) => r.running === false)).toBe(true);
   });
 });
 

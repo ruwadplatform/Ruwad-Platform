@@ -222,3 +222,7 @@
 .news-list-item .news-read{color:#1e4f85;font-weight:700}
 .news-list-item .news-read:hover{color:#143a66;text-decoration:underline;background:none}
 .news-list-item .nthumb-ph{display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:var(--fs-14);letter-spacing:.04em}
+
+/* Reports directory: the report cards (and the featured report) carry a clear solid blue border, with a soft blue halo on hover. */
+.reports-page .report-card,.reports-page .report-featured{border:2px solid var(--info)}
+.reports-page .report-card:hover,.reports-page .report-featured:hover{box-shadow:0 0 0 3px var(--info-tint)}

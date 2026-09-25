@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useModal } from "@/components/shell/ModalProvider";
 import { useToast } from "@/components/shell/ToastProvider";
+import { ApiError } from "@/lib/api/client";
 import { fetchLibraryStatus, generateDefaultLibrary, type LibraryReportOutcome, type LibraryStatusRow } from "@/lib/api/reports";
 
 /** The six default RUWĀD reports, in the order they are listed to the admin. Titles match the backend definitions. */
@@ -28,6 +29,12 @@ export const GENERATION_STEPS = [
   "Saving reports…",
 ];
 const STEP_MS = 7000;
+const POLL_MS = 4000;
+const POLL_LIMIT = 75; // about five minutes
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** A request that never got an answer (dropped connection, proxy timeout) — as opposed to the server replying with an error. */
+const isConnectionLoss = (e: unknown) => !(e instanceof ApiError);
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong");
 const OUTCOME_LABEL: Record<LibraryReportOutcome["action"], string> = { created: "Created", updated: "Updated", preview: "Checked", skipped: "Not saved", failed: "Failed" };
@@ -59,6 +66,9 @@ export function DefaultReportsAdmin({ onChanged }: { onChanged?: () => void }) {
   const [step, setStep] = useState(0);
   const [outcome, setOutcome] = useState<LibraryReportOutcome[] | null>(null);
   const [runError, setRunError] = useState("");
+  const [recovering, setRecovering] = useState(false);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   const loadStatus = useCallback(() => {
     fetchLibraryStatus().then((r) => { setStatus(r); setStatusError(""); }).catch((e) => setStatusError(errText(e)));
@@ -75,9 +85,38 @@ export function DefaultReportsAdmin({ onChanged }: { onChanged?: () => void }) {
   const saved = status?.filter((s) => s.exists).length ?? 0;
   const update = saved > 0;
 
+  /** The request was cut off, but the server may have carried on. Ask it, instead of reporting a failure that may not have happened:
+   * wait while it says it is still generating, then compare each report's saved time with what it was before the run. */
+  async function recover(before: LibraryStatusRow[] | null) {
+    setRecovering(true);
+    const was = new Map((before ?? []).map((r) => [r.slug, r.updatedAt]));
+    const existed = new Set((before ?? []).filter((r) => r.exists).map((r) => r.slug));
+    const touched = (r: LibraryStatusRow) => r.exists && r.updatedAt !== was.get(r.slug);
+    let rows: LibraryStatusRow[] | null = null;
+    for (let i = 0; i < POLL_LIMIT && alive.current; i++) {
+      await sleep(POLL_MS);
+      try {
+        const now = await fetchLibraryStatus();
+        rows = now;
+        if (!now.some((r) => r.running)) break;
+      } catch { /* still unreachable — keep waiting */ }
+    }
+    if (!alive.current) return;
+    setRecovering(false);
+    if (!rows) { setRunError("The connection was interrupted and the server could not be reached to confirm the result. Reload the page to see the current status"); return; }
+    setStatus(rows);
+    if (rows.some((r) => r.running)) { setRunError("The server is still generating the reports. Reload the page in a minute to see the result"); return; }
+    const changed = rows.filter(touched);
+    if (changed.length === 0) { setRunError("The connection was interrupted and the server reports no change to any report"); return; }
+    setOutcome(rows.map((r) => ({ slug: r.slug, title: r.title, action: touched(r) ? (existed.has(r.slug) ? "updated" : "created") : "skipped", isPublished: r.isPublished, reasons: touched(r) ? [] : ["not changed by this run"], sections: 0, factsUsed: 0, factsReverified: 0, factsManual: 0, worldBankPoints: 0, furtherReading: 0 })));
+    toast(changed.length === rows.length ? "Reports generated successfully." : `${changed.length} of ${rows.length} reports were saved.`);
+    onChanged?.();
+  }
+
   async function run() {
     if (busy) return; // a second click while a run is in progress does nothing
     closeModal();
+    const before = status;
     setBusy(true); setStep(0); setOutcome(null); setRunError("");
     try {
       const res = await generateDefaultLibrary();
@@ -88,11 +127,15 @@ export function DefaultReportsAdmin({ onChanged }: { onChanged?: () => void }) {
       loadStatus();
       if (ok > 0) onChanged?.();
     } catch (e) {
-      const msg = errText(e);
-      setRunError(msg);
-      toast(msg);
+      if (isConnectionLoss(e) || (e instanceof ApiError && e.status === 409)) {
+        await recover(before); // the server may still be working, or may already have finished
+      } else {
+        const msg = errText(e);
+        setRunError(`Generation failed: ${msg}`);
+        toast(msg);
+      }
     } finally {
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   }
 
@@ -110,7 +153,13 @@ export function DefaultReportsAdmin({ onChanged }: { onChanged?: () => void }) {
         {statusError && <span className="fs-12" style={{ color: "var(--crit)" }}>Couldn&apos;t check the library status: {statusError}</span>}
       </div>
 
-      {busy && (
+      {busy && recovering && (
+        <div className="mt-12" role="status" aria-live="polite">
+          <p className="fs-13" style={{ fontWeight: 600 }}>Connection interrupted — checking whether the server finished…</p>
+          <p className="fs-12 muted mt-8">Generation continues on the server even if this page loses its connection. This page will update by itself; you don&apos;t need to click again.</p>
+        </div>
+      )}
+      {busy && !recovering && (
         <div className="mt-12" role="status" aria-live="polite">
           <p className="fs-13" style={{ fontWeight: 600 }}>{GENERATION_STEPS[step]}</p>
           <ol className="fs-12 muted" style={{ listStyle: "none", padding: 0, margin: "8px 0 0", display: "grid", gap: 2 }}>
@@ -120,7 +169,7 @@ export function DefaultReportsAdmin({ onChanged }: { onChanged?: () => void }) {
         </div>
       )}
 
-      {!busy && runError && <p className="fs-13 mt-12" role="alert" style={{ color: "var(--crit)" }}>Generation failed: {runError}. Nothing was published.</p>}
+      {!busy && runError && <p className="fs-13 mt-12" role="alert" style={{ color: "var(--crit)" }}>{runError}.</p>}
 
       {!busy && outcome && (
         <div className="mt-12" role="status">

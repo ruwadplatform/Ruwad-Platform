@@ -56,7 +56,8 @@ export class ReportLibraryService {
   async status() {
     const rows = await this.repo.find({ where: LIBRARY_DEFINITIONS.map((d) => ({ slug: d.slug })), select: ["slug", "isPublished", "updatedAt", "origin"] });
     const bySlug = new Map(rows.map((r) => [r.slug, r]));
-    return LIBRARY_DEFINITIONS.map((d) => ({ slug: d.slug, title: d.title, category: d.category, exists: bySlug.has(d.slug), isPublished: bySlug.get(d.slug)?.isPublished ?? false, updatedAt: bySlug.get(d.slug)?.updatedAt ?? null }));
+    /** `running` is true while a generation is in progress on this server, so a client that lost its connection can tell whether the work is still going. */
+    return LIBRARY_DEFINITIONS.map((d) => ({ slug: d.slug, title: d.title, category: d.category, running: this.running, exists: bySlug.has(d.slug), isPublished: bySlug.get(d.slug)?.isPublished ?? false, updatedAt: bySlug.get(d.slug)?.updatedAt ?? null }));
   }
 
   /** Runs each report's few searches through the shared session (cache first, Serper only for what is not cached). */

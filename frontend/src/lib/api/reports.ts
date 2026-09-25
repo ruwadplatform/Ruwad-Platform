@@ -115,7 +115,7 @@ export async function fetchAdminReportBySlug(slug: string) {
 
 /* ---- Default RUWĀD report library (admin only) ---- */
 
-export interface LibraryStatusRow { slug: string; title: string; category: string; exists: boolean; isPublished: boolean; updatedAt: string | null }
+export interface LibraryStatusRow { slug: string; title: string; category: string; running: boolean; exists: boolean; isPublished: boolean; updatedAt: string | null }
 export interface LibraryReportOutcome {
   slug: string; title: string; action: "created" | "updated" | "preview" | "skipped" | "failed"; isPublished: boolean; reasons: string[];
   sections: number; factsUsed: number; factsReverified: number; factsManual: number; worldBankPoints: number; furtherReading: number;
