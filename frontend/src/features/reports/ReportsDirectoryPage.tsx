@@ -26,25 +26,23 @@ export function ReportsDirectoryPage() {
   const [category, setCategory] = useState<string>("All");
   const [sort, setSort] = useState<SortKey>("newest");
   const [reportType, setReportType] = useState("All");
-  const [sector, setSector] = useState("All");
   const [geography, setGeography] = useState("All");
 
   const options = useMemo(() => {
     const uniq = (pick: (r: (typeof REPORTS)[number]) => string) => [...new Set(REPORTS.map(pick).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-    return { types: uniq((r) => r.reportType), sectors: uniq((r) => r.sector), geographies: uniq((r) => r.geography) };
+    return { types: uniq((r) => r.reportType), geographies: uniq((r) => r.geography) };
   }, [REPORTS]);
 
   const featuredCandidate = useMemo(() => REPORTS.find((r) => r.badges.includes("Featured")) ?? REPORTS.find((r) => r.origin !== "USER_SUBMITTED"), [REPORTS]);
   // The hero card is only the "no filters" view. While the visitor filters or searches, every matching report is listed in the grid
   // (otherwise the featured report would vanish from its own chip's results).
-  const filtering = category !== "All" || reportType !== "All" || sector !== "All" || geography !== "All" || search !== "";
+  const filtering = category !== "All" || reportType !== "All" || geography !== "All" || search !== "";
   const featured = filtering ? undefined : featuredCandidate;
 
   const filtered = useMemo(() => {
     let list = featured ? REPORTS.filter((r) => r.id !== featured.id) : REPORTS;
     if (category !== "All") list = list.filter((r) => matchesChip(r, category));
     if (reportType !== "All") list = list.filter((r) => r.reportType === reportType);
-    if (sector !== "All") list = list.filter((r) => r.sector === sector);
     if (geography !== "All") list = list.filter((r) => r.geography === geography);
     if (search) {
       const q = search.toLowerCase();
@@ -55,7 +53,7 @@ export function ReportsDirectoryPage() {
     else if (sort === "pages") sorted.sort((a, b) => b.pages - a.pages);
     else sorted.sort((a, b) => a.title.localeCompare(b.title));
     return sorted;
-  }, [REPORTS, category, reportType, sector, geography, search, sort, featured]);
+  }, [REPORTS, category, reportType, geography, search, sort, featured]);
 
   return (
     <div className="reports-page">
@@ -84,10 +82,6 @@ export function ReportsDirectoryPage() {
         <select className="input" aria-label="Report type" value={reportType} onChange={(e) => setReportType(e.target.value)} style={{ maxWidth: 200 }}>
           <option value="All">All report types</option>
           {options.types.map((o) => <option key={o} value={o}>{o}</option>)}
-        </select>
-        <select className="input" aria-label="Sector" value={sector} onChange={(e) => setSector(e.target.value)} style={{ maxWidth: 180 }}>
-          <option value="All">All sectors</option>
-          {options.sectors.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
         <select className="input" aria-label="Geography" value={geography} onChange={(e) => setGeography(e.target.value)} style={{ maxWidth: 170 }}>
           <option value="All">All geographies</option>
