@@ -25,7 +25,7 @@ function StatusBadge({ status }: { status: ClaimStatus }) {
 }
 
 export function AdminClaimsPage() {
-  const { loggedIn, isAdmin } = useSession();
+  const { loggedIn, isAdmin, hydrated } = useSession();
   const toast = useToast();
   const { openModal, closeModal } = useModal();
   const [rows, setRows] = useState<AdminClaimRow[] | null>(null);
@@ -66,6 +66,7 @@ export function AdminClaimsPage() {
     );
   }
 
+  if (!hydrated) return <EmptyState icon="reports" title="Loading…" body="" />;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to review listing claims." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
 

@@ -29,7 +29,7 @@ function LockedPanel({ children }: { children?: React.ReactNode }) {
 }
 
 export function DataRoomTab({ kind, entityId }: { kind: TabKind; entityId?: string }) {
-  const { loggedIn } = useSession();
+  const { loggedIn, hydrated } = useSession();
   const router = useRouter();
   const toast = useToast();
   const apiKind = API_KIND[kind];
@@ -62,6 +62,11 @@ export function DataRoomTab({ kind, entityId }: { kind: TabKind; entityId?: stri
       setRequesting(false);
     }
   }
+
+  // While the session check is still in flight, `loggedIn` starts false
+  // regardless of the real auth state — rendering the guest panel here
+  // would flash "sign in" at an authenticated visitor on every refresh.
+  if (!hydrated) return <div className="panel panel-pad"><p className="small muted">Loading Data Room…</p></div>;
 
   if (!loggedIn) {
     return (

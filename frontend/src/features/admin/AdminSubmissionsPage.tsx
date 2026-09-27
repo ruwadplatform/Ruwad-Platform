@@ -16,7 +16,7 @@ const STATUS_FILTERS: ApiSubmissionStatus[] = ["SUBMITTED", "UNDER_REVIEW", "CHA
 const KIND_FILTERS: ApiSubmissionKind[] = ["STARTUP", "INVESTOR", "HUB", "RESEARCH", "MULTINATIONAL"];
 
 export function AdminSubmissionsPage() {
-  const { loggedIn, isAdmin } = useSession();
+  const { loggedIn, isAdmin, hydrated } = useSession();
   const router = useRouter();
   const [rows, setRows] = useState<ApiSubmission[] | null>(null);
   const [kpis, setKpis] = useState<ApiSubmissionKpis | null>(null);
@@ -50,6 +50,7 @@ export function AdminSubmissionsPage() {
     { label: "Rejected", value: kpis?.REJECTED ?? 0 },
   ]), [kpis]);
 
+  if (!hydrated) return <EmptyState icon="reports" title="Loading…" body="" />;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to review company submissions." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
 

@@ -184,19 +184,56 @@ function toAccount(u: ApiUser): Account {
 
 let sessionUser: ApiUser | null = null;
 let sessionHydrated = false;
+let sessionCheckInFlight: Promise<void> | null = null;
+
+/** Bounded retry delays for a session check that failed for a reason other
+ * than a confirmed 401 — e.g. a network blip, a CORS hiccup, or (in
+ * production, on Render) the backend cold-starting after inactivity. Such a
+ * failure tells us nothing about whether the user is logged in, so it must
+ * never be treated the same as a real 401 — see hydrateSession() below.
+ * Render's free/starter tiers can take upward of 30-50s to wake a sleeping
+ * service, so this budget (~64s total across 7 attempts) is deliberately
+ * generous: every consumer already renders a neutral loading state for the
+ * whole window (never "logged out"), so a longer wait costs nothing but a
+ * later paint, while giving up too early costs a false logout. */
+const SESSION_CHECK_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000, 15000, 15000];
 
 /** Called once at app boot (see AppBoot.tsx) to check the real cookie
  * session against the backend — this is what makes a page refresh keep you
- * logged in, since there is no localStorage session to read synchronously. */
+ * logged in, since there is no localStorage session to read synchronously.
+ *
+ * A confirmed 401 (no/invalid cookie) settles immediately as logged-out.
+ * Any other failure is UNKNOWN, not "logged out" — it's retried a few times
+ * before giving up, so a single transient failure (a cold-started backend,
+ * a dropped request) can never get permanently cached as a false logout
+ * that only a hard refresh could undo. `sessionHydrated` stays false for
+ * the whole retry window, so every component gating on isSessionHydrated()
+ * keeps showing its loading state instead of flashing "logged out". */
 export async function hydrateSession(): Promise<void> {
   if (sessionHydrated) return;
+  if (sessionCheckInFlight) return sessionCheckInFlight;
+  sessionCheckInFlight = attemptHydrate(0).finally(() => {
+    sessionCheckInFlight = null;
+  });
+  return sessionCheckInFlight;
+}
+
+async function attemptHydrate(attempt: number): Promise<void> {
   try {
     sessionUser = await authApi.me();
-  } catch {
-    sessionUser = null;
-  } finally {
     sessionHydrated = true;
     notifyStoreChange();
+    return;
+  } catch (e) {
+    const confirmedLoggedOut = e instanceof ApiError && e.status === 401;
+    if (confirmedLoggedOut || attempt >= SESSION_CHECK_RETRY_DELAYS_MS.length) {
+      sessionUser = null;
+      sessionHydrated = true;
+      notifyStoreChange();
+      return;
+    }
+    await new Promise((r) => setTimeout(r, SESSION_CHECK_RETRY_DELAYS_MS[attempt]));
+    return attemptHydrate(attempt + 1);
   }
 }
 

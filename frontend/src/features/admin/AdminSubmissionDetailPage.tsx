@@ -21,7 +21,7 @@ import { PayloadSummary } from "@/features/submissions/PayloadSummary";
 import { ReviewHistory } from "@/features/submissions/ReviewHistory";
 
 export function AdminSubmissionDetailPage({ id }: { id: string }) {
-  const { loggedIn, isAdmin } = useSession();
+  const { loggedIn, isAdmin, hydrated } = useSession();
   const router = useRouter();
   const toast = useToast();
   const { openModal, closeModal } = useModal();
@@ -57,6 +57,7 @@ export function AdminSubmissionDetailPage({ id }: { id: string }) {
     return () => { cancelled = true; };
   }, [submission?.publishedEntityId, submission?.title, submission?.kind]);
 
+  if (!hydrated) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to review submissions." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
   if (error) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load this submission" body={error} /></div>;
