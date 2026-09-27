@@ -18,6 +18,7 @@ interface RawStartup {
   marketTam?: string; marketSam?: string; marketSom?: string; marketCompetitors?: string[];
   legalName?: string; formerName?: string; website?: string; email?: string; phone?: string; linkedin?: string; registrationNumber?: string;
   verified?: Startup["verified"];
+  hasPendingClaim?: boolean;
   score: number; scoreGrowth?: number; scoreFinancial?: number; scoreMarket?: number; scoreTeam?: number; scoreRegulatory?: number; scoreTech?: number;
   provenanceConfidence?: Startup["provenance"]["confidence"]; provenanceLastUpdated: string; provenanceSources?: string[];
   traction?: Startup["traction"] | null;
@@ -76,6 +77,7 @@ function mapStartup(r: RawStartup): Startup {
     registrationNumber: r.registrationNumber ?? "",
     newsItems: r.newsItems ?? [],
     verified: r.verified ?? "unclaimed",
+    hasPendingClaim: r.hasPendingClaim ?? false,
     provenance: { lastUpdated: r.provenanceLastUpdated, sources: r.provenanceSources ?? [], confidence: r.provenanceConfidence ?? "Medium" },
     score: r.score,
   };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
@@ -16,7 +16,8 @@ import { RequestIntroModal } from "@/components/shared/RequestIntroModal";
 import { useModal } from "@/components/shell/ModalProvider";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
-import { requireAuth, getClaimForStartup, getMyClaim } from "@/lib/store";
+import { requireAuth } from "@/lib/store";
+import { fetchMyClaim, type Claim } from "@/lib/api/claims";
 import { regBadgeClass } from "@/lib/widgets";
 import { initials } from "@/lib/scoring";
 import { useStartups, useInvestors } from "@/hooks/use-directory-data";
@@ -65,7 +66,7 @@ export function StartupProfilePage({ startup }: { startup: Startup }) {
           <DataRoomButton companyId={startup.id} kind="STARTUP" entityId={startup.entityId} />
           <button className="btn btn-outline" onClick={() => { if (requireAuth("compare", { id: startup.id })) openModal(<CompareModal initialId={startup.id} />, "xwide"); }}>Compare</button>
           <button className="btn btn-outline" onClick={shareLink}>Share</button>
-          <ClaimCta startupId={startup.id} startupName={startup.name} verified={startup.verified} loggedIn={loggedIn} />
+          <ClaimCta entityId={startup.entityId} startupName={startup.name} verified={startup.verified} hasPendingClaim={!!startup.hasPendingClaim} loggedIn={loggedIn} />
         </div>
       </div>
       <div className="profile-tabs-wrap">
@@ -94,31 +95,40 @@ function VerifiedBadge({ status }: { status: Startup["verified"] }) {
   return <span className="badge badge-neutral" title="This profile has not been claimed or reviewed"><RuwadIcon name="help" size={10} /> Unclaimed Profile</span>;
 }
 
-function ClaimCta({ startupId, startupName, verified, loggedIn }: { startupId: string; startupName: string; verified: Startup["verified"]; loggedIn: boolean }) {
+function ClaimCta({ entityId, startupName, verified, hasPendingClaim, loggedIn }: { entityId?: string; startupName: string; verified: Startup["verified"]; hasPendingClaim: boolean; loggedIn: boolean }) {
   const { openModal } = useModal();
   const toast = useToast();
   const { hydrated } = useSession();
-  if (verified !== "unclaimed") return null;
-  const claim = getClaimForStartup(startupId);
-  if (!claim) {
+  const [myClaim, setMyClaim] = useState<Claim | null>(null);
+  const [justSubmitted, setJustSubmitted] = useState(false);
+  useEffect(() => {
+    if (!hydrated || !loggedIn || verified !== "unclaimed") return;
+    let live = true;
+    fetchMyClaim().then((c) => { if (live) setMyClaim(c); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [hydrated, loggedIn, verified]);
+
+  if (verified !== "unclaimed" || !entityId) return null;
+  const mine = myClaim?.entityId === entityId;
+  const pending = hasPendingClaim || justSubmitted || mine;
+
+  if (!pending) {
     return (
       <button
         className="btn btn-outline"
         onClick={() => {
-          if (!requireAuth("claim-company", { startupId })) return;
-          if (getClaimForStartup(startupId)) { toast("This listing already has a claim under review"); return; }
-          if (getMyClaim()) { toast("You already have a claim under review — one company claim per account"); return; }
-          openModal(<ClaimModal startupId={startupId} startupName={startupName} />);
+          if (!requireAuth("claim-company", { entityId })) return;
+          if (myClaim) { toast(myClaim.entityId === entityId ? "This listing already has a claim under review" : "You already have a claim under review — one company claim per account"); return; }
+          openModal(<ClaimModal entityId={entityId} entityName={startupName} onSubmitted={() => setJustSubmitted(true)} />);
         }}
       >
         <RuwadIcon name="check" size={14} /> Claim This Listing
       </button>
     );
   }
-  const mine = hydrated && loggedIn && getMyClaim()?.id === claim.id;
   return (
-    <button className="btn btn-outline" disabled title={mine ? "Your claim is under review" : "A claim for this listing is already under review"}>
-      <RuwadIcon name="clock" size={14} /> {mine ? "Your Claim: Pending Review" : "Claim Pending Review"}
+    <button className="btn btn-outline" disabled title={mine || justSubmitted ? "Your claim is under review" : "A claim for this listing is already under review"}>
+      <RuwadIcon name="clock" size={14} /> {mine || justSubmitted ? "Your Claim: Pending Review" : "Claim Pending Review"}
     </button>
   );
 }

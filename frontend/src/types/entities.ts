@@ -105,6 +105,8 @@ export interface Startup {
   registrationNumber: string;
   newsItems: NewsItem[];
   verified: VerificationTier;
+  /** Whether a claim on this listing is currently under review (any claimant — who filed it is admin-only). Only set when `verified === "unclaimed"`. */
+  hasPendingClaim?: boolean;
   provenance: Provenance;
   score: number;
 }

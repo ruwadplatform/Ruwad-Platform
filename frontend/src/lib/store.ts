@@ -389,39 +389,9 @@ export function addIntro(req: Partial<IntroRequest>): void {
 }
 
 /* --------------------------------------------------------------------- CLAIMS */
-export interface Claim {
-  id: string;
-  startupId: string;
-  claimantEmail: string;
-  role: string;
-  note: string;
-  status: string;
-  requestedAt: number;
-}
-export function getClaims(): Claim[] {
-  return lsGet(LSK.claims, []);
-}
-function setClaims(list: Claim[]): void {
-  lsSet(LSK.claims, list);
-}
-export function getClaimForStartup(startupId: string): Claim | null {
-  return getClaims().find((c) => c.startupId === startupId) || null;
-}
-export function getMyClaim(): Claim | null {
-  const u = currentUser();
-  if (!u) return null;
-  return getClaims().find((c) => c.claimantEmail === u.email) || null;
-}
-export function submitClaim(startupId: string, payload: { role: string; note?: string }): Claim | null {
-  if (!requireAuth("claim-company", { startupId })) return null;
-  const u = currentUser()!;
-  if (getClaimForStartup(startupId) || getMyClaim()) return null;
-  const claim: Claim = { id: "claim-" + Date.now(), startupId, claimantEmail: u.email, role: payload.role, note: payload.note || "", status: "Pending Review", requestedAt: Date.now() };
-  const list = getClaims();
-  list.push(claim);
-  setClaims(list);
-  return claim;
-}
+// Real, persisted claim requests now live in the backend (see lib/api/claims.ts,
+// POST/GET /organizations/claims) — this used to be a localStorage-only mock that
+// never reached the server and so could never actually be reviewed or approved.
 
 /* -------------------------------------------------------------- NOTIFICATIONS */
 export interface Notification {

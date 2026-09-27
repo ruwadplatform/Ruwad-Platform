@@ -67,7 +67,10 @@ export const TOP_NAV: NavGroup[] = [
   },
   {
     id: "admin", label: "Admin",
-    children: [{ label: "Company Submissions", icon: "reports", route: "/admin/submissions", auth: true }],
+    children: [
+      { label: "Company Submissions", icon: "reports", route: "/admin/submissions", auth: true },
+      { label: "Listing Claims", icon: "check", route: "/admin/claims", auth: true },
+    ],
   },
 ];
 

@@ -12,6 +12,7 @@ import { Investor } from "../investors/investor.entity";
 import { EntityKind } from "../common/enums";
 import { compositeScore, initials, slugify } from "../common/slug.util";
 import { paginate, PaginatedResult } from "../common/pagination.dto";
+import { OrganizationsService } from "../organizations/organizations.service";
 
 @Injectable()
 export class StartupsService {
@@ -21,6 +22,7 @@ export class StartupsService {
     @InjectRepository(Investor) private readonly investors: Repository<Investor>,
     private readonly shared: DirectorySharedService,
     private readonly investments: InvestmentsService,
+    private readonly organizations: OrganizationsService,
   ) {}
 
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
@@ -130,13 +132,14 @@ export class StartupsService {
     // Deliberately no `documents` here: this is the PUBLIC profile payload, and
     // Data Room document metadata (names, on-file flags…) is only ever served by
     // DataRoomService.status() after an owner/admin/APPROVED check.
-    const [sectors, team, rounds, products, contact, investorLinks] = await Promise.all([
+    const [sectors, team, rounds, products, contact, investorLinks, hasPendingClaim] = await Promise.all([
       this.shared.getSectorNames(EntityKind.STARTUP, s.id),
       this.shared.getTeamMembers(EntityKind.STARTUP, s.id),
       this.rounds.find({ where: { startupId: s.id }, order: { date: "ASC" } }),
       this.shared.getProducts(EntityKind.STARTUP, s.id),
       this.shared.getContact(EntityKind.STARTUP, s.id),
       this.investments.findForTarget(EntityKind.STARTUP, s.id),
+      s.verified === "unclaimed" ? this.organizations.pendingClaimForEntity(EntityKind.STARTUP, s.id) : Promise.resolve(false),
     ]);
     const investorRows = investorLinks.length
       ? await this.investors.find({ where: { id: In(investorLinks.map((i) => i.investorId)) } })
@@ -146,6 +149,7 @@ export class StartupsService {
       fundingTotal: Number(s.fundingTotal), valuation: Number(s.valuation),
       logo: initials(s.name), sectors, team, rounds, products, contact,
       investorIds: investorRows.map((v) => v.slug),
+      hasPendingClaim,
       sub: { growth: s.scoreGrowth, financial: s.scoreFinancial, market: s.scoreMarket, team: s.scoreTeam, regulatory: s.scoreRegulatory, tech: s.scoreTech },
     };
   }
