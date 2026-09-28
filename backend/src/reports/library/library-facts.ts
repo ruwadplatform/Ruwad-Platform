@@ -16,8 +16,15 @@ const SME_MONITOR = "https://www.monshaat.gov.sa/sites/default/files/2025-09/V5.
 const BIOTECH_MOH = "https://www.moh.gov.sa/en/ministry/mediacenter/news/pages/news-2025-07-15-001.aspx";
 const G027 = "https://sfda.gov.sa/sites/default/files/2026-08/MDS-G027_0.pdf";
 const HH = "https://www.moh.gov.sa/en/ministry/mediacenter/news/pages/news-2026-06-25-001.aspx";
+const REQ1 = "https://www.sfda.gov.sa/sites/default/files/2021-12/REQ1En_0.pdf";
+const REQ1_TITLE = "Requirements for Medical Devices Marketing Authorization (MDS-REQ 1)";
+const REQ9 = "https://www.sfda.gov.sa/sites/default/files/2025-03/MDS-REQ%209_En_V2.pdf";
+const REQ9_TITLE = "Requirements for Licensing Medical Device Establishments (MDS-REQ 9)";
 
 const f = (x: Omit<LibraryFact, "verifiedOn" | "geography"> & { geography?: string }): LibraryFact => ({ geography: "Saudi Arabia", verifiedOn: VERIFIED_ON, ...x });
+/** Facts read directly from the source PDF (via pdf-parse, the same extractor the live verifier uses) on 2026-09-28 — later
+ * than the rest of this file's VERIFIED_ON, so they carry their own verifiedOn instead of going through f(). */
+const g = (x: Omit<LibraryFact, "geography">): LibraryFact => ({ geography: "Saudi Arabia", ...x });
 
 export const LIBRARY_FACTS: LibraryFact[] = [
   // ---- Global Health Exhibition 2025 (Ministry of Health) ----
@@ -104,6 +111,24 @@ export const LIBRARY_FACTS: LibraryFact[] = [
   f({ id: "sfda-ecosystem", organization: SFDA, sourceType: "Regulator", documentTitle: "SFDA CEO: Saudi Arabia Has an Integrated Ecosystem Designed To Enable Emerging Medical Technologies", url: "https://www.sfda.gov.sa/en/news/19493", year: 2026, publishedOn: "2026-09-15", quantitative: false,
     statement: "The SFDA's chief executive explained that Saudi Arabia has an integrated ecosystem designed to enable emerging medical technologies, built on international best practices and drawing on digital infrastructure, trusted data governance and frameworks for AI and cybersecurity.",
     quote: "Saudi Arabia has an integrated ecosystem designed to enable emerging medical technologies. Built in accordance with international best practices, this system leverages advanced digital infrastructure, trusted data governance, and forward-looking frameworks for AI and cybersecurity." }),
+
+  // ---- SFDA: medical device marketing authorization and establishment licensing ----
+  g({ id: "sfda-mdma-requirement", organization: SFDA, sourceType: "Regulator", documentTitle: REQ1_TITLE, url: REQ1, year: 2021, publishedOn: "2021-12-19",
+    period: "SFDA requirements document MDS-REQ 1, version 6.0", verifiedOn: "2026-09-28", quantitative: false,
+    statement: "SFDA's marketing authorization requirement states that a medical device may only be made available for payment or free of charge, for distribution or use within Saudi Arabia, once it is registered with SFDA and has obtained medical devices marketing authorization (MDMA).",
+    quote: "Medical device may be made available in return for payment or free of charge, with a view to distribution and/or use within the KSA only if it is registered at SFDA and obtaining medical devices marketing authorization (MDMA)." }),
+  g({ id: "sfda-establishment-license", organization: SFDA, sourceType: "Regulator", documentTitle: REQ9_TITLE, url: REQ9, year: 2025, publishedOn: "2025-01-15",
+    period: "SFDA requirements document MDS-REQ 9, version 2.0", verifiedOn: "2026-09-28", quantitative: false,
+    statement: "Under the Medical Devices Law, an establishment may not carry out any of the activities the Law covers — including manufacturing, acting as an authorized representative, importing, distributing or operating a warehouse — unless it is registered and has obtained its own SFDA establishment license, separate from any product's own marketing authorization.",
+    quote: "an establishment shall not engage in any of the activities subject to this Law unless registered and a license is obtained" }),
+  g({ id: "sfda-software-classification", organization: SFDA, sourceType: "Regulator", documentTitle: REQ1_TITLE, url: REQ1, year: 2021, publishedOn: "2021-12-19",
+    period: "SFDA requirements document MDS-REQ 1, version 6.0", verifiedOn: "2026-09-28", quantitative: false,
+    statement: "SFDA's classification rules treat a device's driving or accompanying software as falling within that device's own risk class, while software that is not tied to any other device is classified on its own.",
+    quote: "Software, which drives a device or influences the use of a device, shall fall within the same class as the device. If the software is independent of any other device, it shall be classified in its own right." }),
+  g({ id: "sfda-qms-iso13485", organization: SFDA, sourceType: "Regulator", documentTitle: REQ1_TITLE, url: REQ1, year: 2021, publishedOn: "2021-12-19",
+    period: "SFDA requirements document MDS-REQ 1, version 6.0", verifiedOn: "2026-09-28", quantitative: true,
+    statement: "Medical device manufacturers are required to establish, document and maintain a quality management system that conforms to the ISO 13485:2016 international standard, or an identical adopted equivalent.",
+    quote: "Establish, document and maintain an effective quality management system (QMS) according to the international ISO standard (ISO 13485:2016) or any identical adopted standard for the same issue/version." }),
 
   // ---- Biotechnology ----
   f({ id: "biotech-strategy", organization: MOH, sourceType: "Government", documentTitle: "MOH News – Biotechnology Powers Saudi Arabia's Journey from Genomics to Pharmaceutical Security and a Sustainable Future", url: BIOTECH_MOH, year: 2025, publishedOn: "2025-07-15", period: "strategy launched 25 January 2024", quantitative: true,

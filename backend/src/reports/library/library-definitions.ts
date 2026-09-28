@@ -6,6 +6,7 @@ export const BIOTECH_CATEGORIES = ["Biotechnology", "Genomics", "Precision Medic
 export const MEDTECH_CATEGORIES = ["MedTech", "Medical Devices", "Diagnostics"];
 
 const WB_HEALTH = ["wb-health-exp-gdp", "wb-health-exp-pc", "wb-population", "wb-life-expectancy", "wb-physicians", "wb-nurses", "wb-beds"];
+export const REGULATED_CATEGORIES = [...DIGITAL_CATEGORIES, ...BIOTECH_CATEGORIES, ...MEDTECH_CATEGORIES];
 
 /** The six default reports. Content is assembled by library-narrative.ts; nothing here is a statistic. */
 export const LIBRARY_DEFINITIONS: LibraryDefinition[] = [
@@ -50,5 +51,12 @@ export const LIBRARY_DEFINITIONS: LibraryDefinition[] = [
     researchTopic: "healthcare infrastructure workforce",
     factIds: ["hstp-objectives", "hh-total-transfer", "hh-second-phase", "ghe2025-hospitals", "ghe2025-alhayat"],
     worldBankIds: ["wb-beds", "wb-physicians", "wb-nurses", "wb-population"],
+  },
+  {
+    slug: "saudi-healthcare-regulatory-landscape-2026", title: "Saudi Healthcare Regulatory Landscape 2026", category: "Regulatory", sector: "Regulatory", categories: REGULATED_CATEGORIES,
+    description: "The SFDA framework governing medical devices, software and digital health products in Saudi Arabia — marketing authorization, device and software classification, establishment licensing, and the AI/digital health authorization pathway — with the regulated companies mapped on RUWĀD.",
+    researchTopic: "healthcare regulation",
+    factIds: ["sfda-ecosystem", "sfda-mdma-requirement", "sfda-samd", "sfda-ivd-route", "sfda-software-classification", "sfda-qms-iso13485", "sfda-establishment-license", "sfda-dh-uses", "sfda-wellness", "sfda-ai-ml", "sfda-software-licensing", "sfda-ai-authorization"],
+    worldBankIds: [],
   },
 ];

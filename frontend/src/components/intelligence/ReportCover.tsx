@@ -1,9 +1,9 @@
 import { useId, type ReactNode } from "react";
 
-/** Original cover artwork for the six default RUWĀD reports: monochrome line art on the brand's navy, one motif per report.
+/** Original cover artwork for the default RUWĀD reports: monochrome line art on the brand's navy, one motif per report.
  * It is decorative (no data, axes or figures), drawn as inline SVG so it needs no image files and follows the app's colors. */
 
-export type CoverKind = "ecosystem" | "digital" | "biotech" | "medtech" | "funding" | "infrastructure";
+export type CoverKind = "ecosystem" | "digital" | "biotech" | "medtech" | "funding" | "infrastructure" | "regulatory";
 
 const COVER_BY_SLUG: Record<string, CoverKind> = {
   "saudi-healthcare-ecosystem-overview-2026": "ecosystem",
@@ -12,6 +12,7 @@ const COVER_BY_SLUG: Record<string, CoverKind> = {
   "saudi-medtech-landscape-2026": "medtech",
   "saudi-healthcare-startup-funding-landscape-2026": "funding",
   "saudi-healthcare-infrastructure-workforce-2026": "infrastructure",
+  "saudi-healthcare-regulatory-landscape-2026": "regulatory",
 };
 
 /** The cover for a report, or null when it has none (community and other reports keep their existing plain thumbnail). */
@@ -117,11 +118,26 @@ function Infrastructure() {
   );
 }
 
-const MOTIFS: Record<CoverKind, () => ReactNode> = { ecosystem: Ecosystem, digital: Digital, biotech: Biotech, medtech: Medtech, funding: Funding, infrastructure: Infrastructure };
-/** Slightly different navy tones per cover so the six read as a set without looking identical. */
+function Regulatory() {
+  return (
+    <g>
+      <rect x={36} y={22} width={148} height={116} rx={6} {...line(0.55, 1.6)} />
+      <path d="M36 48 H184" {...line(0.25, 1.2)} />
+      {[64, 80, 96, 112].map((y) => <line key={y} x1={52} y1={y} x2={y === 112 ? 130 : 168} y2={y} {...line(0.22, 1.2)} />)}
+      <circle cx={300} cy={78} r={4} {...dot(0.8)} />
+      {[18, 32, 46].map((r, i) => <circle key={r} cx={300} cy={78} r={r} {...line(0.14 + i * 0.1, 1)} strokeDasharray={i === 1 ? "3 5" : undefined} />)}
+      <path d="M282 78 l13 15 l24 -32" {...line(0.95, 2.6)} />
+      <path d="M300 30 V16 M300 140 V126 M248 78 H234 M366 78 H352" {...line(0.3, 1.2)} />
+    </g>
+  );
+}
+
+const MOTIFS: Record<CoverKind, () => ReactNode> = { ecosystem: Ecosystem, digital: Digital, biotech: Biotech, medtech: Medtech, funding: Funding, infrastructure: Infrastructure, regulatory: Regulatory };
+/** Slightly different navy tones per cover so the set reads as a family without looking identical. */
 const TONES: Record<CoverKind, [string, string]> = {
   ecosystem: ["#101430", "#050612"], digital: ["#1A2044", "#080A1F"], biotech: ["#0C1030", "#050612"],
   medtech: ["#161B3D", "#080A1F"], funding: ["#101430", "#08091C"], infrastructure: ["#1A2044", "#050612"],
+  regulatory: ["#12163A", "#06071A"],
 };
 
 /** CSS background matching a cover's tones, for containers that show the artwork at its own proportions (`fit="meet"`). */

@@ -33,7 +33,9 @@ describe("library fact registry", () => {
       expect(f.organization.length).toBeGreaterThan(2);
       expect(f.documentTitle.length).toBeGreaterThan(2);
       expect(f.geography).toBeTruthy();
-      expect(f.year).toBeGreaterThanOrEqual(2024);
+      // A regulatory document's edition year can predate a news-style fact's — what matters is
+      // it being the currently effective version, which verifiedOn attests to, not a recent year.
+      expect(f.year).toBeGreaterThanOrEqual(2020);
       expect(f.quote.length).toBeGreaterThan(20);
       expect(f.verifiedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
@@ -44,7 +46,7 @@ describe("library fact registry", () => {
   });
 
   it("every definition references facts and indicators that exist", () => {
-    expect(new Set(LIBRARY_DEFINITIONS.map((d) => d.slug)).size).toBe(6);
+    expect(new Set(LIBRARY_DEFINITIONS.map((d) => d.slug)).size).toBe(7);
     for (const d of LIBRARY_DEFINITIONS) {
       for (const id of d.factIds) expect(FACTS_BY_ID.has(id)).toBe(true);
       for (const id of d.worldBankIds) expect(WORLD_BANK_BY_ID.has(id)).toBe(true);
@@ -117,7 +119,7 @@ describe("World Bank indicators", () => {
 });
 
 describe("library narrative", () => {
-  it("writes all six reports with no dropped paragraph", () => {
+  it("writes all seven reports with no dropped paragraph", () => {
     for (const def of LIBRARY_DEFINITIONS) {
       const out = buildNarrative({ def, raw: raw({ categories: def.categories }), facts: asVerified().filter((f) => def.factIds.includes(f.id)), worldBank: allWb.filter((p) => def.worldBankIds.includes(p.id)) });
       expect({ slug: def.slug, warnings: out.warnings }).toEqual({ slug: def.slug, warnings: [] });

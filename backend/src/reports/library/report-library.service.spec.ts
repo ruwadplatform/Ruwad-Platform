@@ -49,17 +49,17 @@ beforeEach(() => {
 });
 
 describe("ReportLibraryService", () => {
-  it("creates all six reports as published RUWĀD reports, and updating again never duplicates them", async () => {
+  it("creates all seven reports as published RUWĀD reports, and updating again never duplicates them", async () => {
     const { svc, rows } = setup();
     const first = await svc.generate({ publish: true });
-    expect(first.reports.map((r) => r.action)).toEqual(Array(6).fill("created"));
-    expect(rows).toHaveLength(6);
+    expect(first.reports.map((r) => r.action)).toEqual(Array(7).fill("created"));
+    expect(rows).toHaveLength(7);
     expect(rows.every((r) => r.origin === "RUWAD" && r.isPublished === true && r.reportKind === null)).toBe(true);
     expect(new Set(rows.map((r) => r.slug))).toEqual(new Set(LIBRARY_DEFINITIONS.map((d) => d.slug)));
 
     const second = await svc.generate({ publish: true });
-    expect(second.reports.map((r) => r.action)).toEqual(Array(6).fill("updated"));
-    expect(rows).toHaveLength(6);
+    expect(second.reports.map((r) => r.action)).toEqual(Array(7).fill("updated"));
+    expect(rows).toHaveLength(7);
   });
 
   it("publish:true makes an unpublished library report public; leaving publish out keeps its visibility", async () => {
@@ -87,9 +87,12 @@ describe("ReportLibraryService", () => {
   });
 
   it("a report that fails does not stop or publish the others", async () => {
+    // The Regulatory report's category scope also includes Biotechnology (SFDA regulates it too),
+    // so a Biotechnology stats failure legitimately fails both reports, not just one.
     const { svc, rows } = setup({ failStatsFor: "Biotechnology" });
     const r = await svc.generate({ publish: true });
     expect(r.reports.find((x) => x.slug === "saudi-biotechnology-landscape-2026")).toMatchObject({ action: "failed", isPublished: false });
+    expect(r.reports.find((x) => x.slug === "saudi-healthcare-regulatory-landscape-2026")).toMatchObject({ action: "failed", isPublished: false });
     expect(r.reports.filter((x) => x.action === "created")).toHaveLength(5);
     expect(rows).toHaveLength(5);
   });
@@ -127,10 +130,10 @@ describe("ReportLibraryService", () => {
     await expect(svc.generate({ dryRun: true })).resolves.toBeDefined();
   });
 
-  it("reports status for all six reports, including whether a generation is running", async () => {
+  it("reports status for all seven reports, including whether a generation is running", async () => {
     const { svc } = setup();
     const idle = await svc.status();
-    expect(idle).toHaveLength(6);
+    expect(idle).toHaveLength(7);
     expect(idle.every((r) => r.running === false)).toBe(true);
     const run = svc.generate({ publish: true });
     expect((await svc.status()).every((r) => r.running === true)).toBe(true);

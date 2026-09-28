@@ -190,6 +190,34 @@ export function buildNarrative({ def, raw, facts, worldBank }: NarrativeInput): 
       ], { distributionKeys: ["hubType", "hubCity", "researchType", "researchCity"] }));
       break;
     }
+    case "saudi-healthcare-regulatory-landscape-2026": {
+      sections.push(section("Overview", [
+        reading("The SFDA is the single regulator for medicines, biologics, medical devices and medical software in Saudi Arabia. This report sets out four parts of that framework using SFDA's own requirements documents: marketing authorization for a device or software product, how a product is classified, the separate licensing an establishment itself must hold, and the pathway that applies specifically to digital health and AI products."),
+        reading("RUWĀD does not publish a regulatory market size, and this report makes no estimate of compliance cost or timeline; those depend on a product's own classification and are set out in SFDA's own fee and review-time schedules, which RUWĀD has not reproduced here."),
+      ]));
+      sections.push(section("Regulatory ecosystem", factParas("sfda-ecosystem")));
+      sections.push(section("Medical device marketing authorization", [
+        ...factParas("sfda-mdma-requirement", "sfda-samd", "sfda-ivd-route"),
+        reading("Marketing authorization is the gate: a device cannot be supplied, whether sold or given away, for distribution or use in the Kingdom until SFDA has registered it and issued that authorization. Software is drawn into the same gate wherever it meets the medical-device or IVD definition, rather than through a separate software-specific approval."),
+      ]));
+      sections.push(section("Device and software classification", [
+        ...factParas("sfda-software-classification", "sfda-qms-iso13485"),
+        reading("Classification decides how much evidence a marketing authorization application needs, so it is usually the first technical question a team answers. Software that drives or accompanies a piece of hardware takes on that hardware's own class; software that stands alone is assessed and classified in its own right. Either way, the manufacturer's quality management system is a baseline requirement, not something layered on only for higher-risk products."),
+      ]));
+      sections.push(section("Establishment licensing", [
+        ...factParas("sfda-establishment-license"),
+        reading("This licence is separate from, and additional to, a product's marketing authorization. It attaches to the company itself, covering manufacturers, authorized representatives, importers and distributors, warehouse operators, and several categories of service provider, among others, and it must be in place before that company can lawfully carry out the activity at all, independent of whether any given product it handles has already been authorized."),
+      ]));
+      sections.push(section("Digital health and AI authorization pathway", [
+        ...factParas("sfda-dh-uses", "sfda-wellness", "sfda-ai-ml", "sfda-software-licensing", "sfda-ai-authorization"),
+        reading("For a digital health team, the practical sequence runs through the same device-classification framework above: first establish whether the product is a regulated medical purpose or a general-wellness product with restricted claims, then, for a regulated product, work through the guidance's dedicated treatment of artificial intelligence and machine learning functions. SFDA's own licensing initiative for medical software and its recent authorizations for AI-enabled diagnostic software show that pathway operating, not only being described."),
+      ]));
+      sections.push(section("Regulated companies on RUWĀD", [
+        ...groupParas(),
+        reading("Each company's own SFDA, FDA and CE status, where reported, appears on its RUWĀD profile rather than being aggregated here — those are self-reported by the company and are not verified by RUWĀD against the regulator."),
+      ], { distributionKeys: ["stage", "city"] }));
+      break;
+    }
   }
 
   const gapsBySlug: Record<string, string[]> = {
@@ -199,6 +227,7 @@ export function buildNarrative({ def, raw, facts, worldBank }: NarrativeInput): 
     "saudi-medtech-landscape-2026": gapNote("A medical device market-size figure from a credible source was not identified.", "Device import, localization and production statistics were not verified from an official page."),
     "saudi-healthcare-startup-funding-landscape-2026": gapNote("Healthcare-only venture funding totals from a credible source were not identified.", "PIF and Sanabil healthcare-specific investment figures could not be verified from pages that publish readable text, so none are reported."),
     "saudi-healthcare-infrastructure-workforce-2026": gapNote("National facility counts and workforce breakdowns by specialty or nationality were not verified from an official page.", "RUWĀD does not hold facility or workforce data."),
+    "saudi-healthcare-regulatory-landscape-2026": gapNote("Drug and pharmaceutical marketing-authorization requirements (as distinct from medical devices) were not verified from a source with extractable text, so none are reported.", "Clinical trial authorization requirements, and application fees and review timelines, were not verified from a source with extractable text, so none are reported.", "This report describes the regulatory framework itself; it is not legal advice and does not state whether any specific company or product is compliant."),
   };
   missing.push(...(gapsBySlug[def.slug] ?? []));
   return { sections: sections.filter((s) => s.paragraphs.length || s.metrics?.length), missing, warnings };
