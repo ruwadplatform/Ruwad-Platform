@@ -191,12 +191,13 @@ let sessionCheckInFlight: Promise<void> | null = null;
  * production, on Render) the backend cold-starting after inactivity. Such a
  * failure tells us nothing about whether the user is logged in, so it must
  * never be treated the same as a real 401 — see hydrateSession() below.
- * Render's free/starter tiers can take upward of 30-50s to wake a sleeping
- * service, so this budget (~64s total across 7 attempts) is deliberately
- * generous: every consumer already renders a neutral loading state for the
- * whole window (never "logged out"), so a longer wait costs nothing but a
- * later paint, while giving up too early costs a false logout. */
-const SESSION_CHECK_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 15000, 15000, 15000];
+ * Measured directly against production: a cold Render backend took 103.7s
+ * to answer its first request. This budget (~3.5 minutes total across 11
+ * attempts) is deliberately generous with real margin above that — every
+ * consumer already renders a neutral loading state for the whole window
+ * (never "logged out"), so a longer wait costs nothing but a later paint,
+ * while giving up too early costs a false logout. */
+const SESSION_CHECK_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16000, 30000, 30000, 30000, 30000, 30000, 30000];
 
 /** Called once at app boot (see AppBoot.tsx) to check the real cookie
  * session against the backend — this is what makes a page refresh keep you
