@@ -118,7 +118,7 @@ export interface Report {
   /** Backend-resolved summary rows for the ids above — the detail page
    * reads these directly instead of re-deriving them with a client-side
    * find() against separately-loaded Startups/Investors/Reports collections. */
-  relatedCompaniesDetailed?: { id: string; slug: string; name: string; logo: string; logoUrl?: string | null; category: string; city: string; tagline: string; stage: string; score: number; fundingTotal: number }[];
+  relatedCompaniesDetailed?: { id: string; slug: string; name: string; logo: string; logoUrl?: string | null; category: string; city: string; tagline: string; stage: string; ruwadScore: number | null; fundingTotal: number }[];
   relatedInvestorsDetailed?: { id: string; slug: string; name: string; logo: string; logoUrl?: string | null; type: string; city: string; ticket: string; hcDeals: number; desc: string }[];
   relatedReportsDetailed?: Report[];
   sources: string[];

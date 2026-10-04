@@ -1,0 +1,14 @@
+# Virtualenv — never committed, recreated via `python -m venv .venv && pip install -r requirements.txt`
+.venv/
+
+# Model artifacts — binaries, never committed (see app/registry/artifact_store.py)
+artifacts/
+
+# Local secrets (admin creds, ML_SERVICE_TOKEN) — see .env.example
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/

@@ -160,6 +160,9 @@ export function quoteSupports(field: string, value: unknown, quote: string): boo
  * if the model also quotes the deck text that supports them AND that quote really occurs in the deck. */
 export const EVIDENCE_REQUIRED = new Set([
   "fundingTotal", "valuation", "targetRaise", "rounds", "sfda", "fda", "ce", "clinicalStatus", "patentStatus", "marketTam", "marketSam", "marketSom", "employees", "founded",
+  "customerCount", "quarterlyRevenueGrowth", "founderExperienceYears", "healthcareExperienceYears", "patentsGranted", "teamSize",
+  "annualRevenue", "previousAnnualRevenue", "previousCustomerCount", "monthlyBurn", "cashAvailable", "recurringRevenue", "marketGrowthRate",
+  "activeUsers", "partnershipsCount", "patentsPending", "peerReviewedPublications", "regulatoryMilestone",
 ]);
 
 const CONTACT_EMAIL = new Set(["email", "contactEmail", "researchOfficeEmail", "techTransferEmail", "industryPartnershipEmail"]);

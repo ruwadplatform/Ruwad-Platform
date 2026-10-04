@@ -99,11 +99,13 @@ export class AnalyticsService {
 
     const [topFunded, highestScore, recentlyFounded, recentlyUpdated] = await Promise.all([
       this.startups.find({ order: { fundingTotal: "DESC" }, take: 5 }),
-      this.startups.find({ order: { score: "DESC" }, take: 5 }),
+      // A null score means "not yet calculated" — excluded here rather than
+      // sorted, so this panel never shows an unscored startup as "highest".
+      this.startups.createQueryBuilder("s").where("s.ruwadScore IS NOT NULL").orderBy("s.ruwadScore", "DESC").take(5).getMany(),
       this.startups.find({ order: { founded: "DESC" }, take: 5 }),
       this.startups.find({ order: { provenanceLastUpdated: "DESC" }, take: 5 }),
     ]);
-    const toRow = (s: Startup) => ({ id: s.id, slug: s.slug, name: s.name, logo: initials(s.name), category: s.category, fundingTotal: Number(s.fundingTotal), score: s.score, founded: s.founded, provenanceLastUpdated: s.provenanceLastUpdated });
+    const toRow = (s: Startup) => ({ id: s.id, slug: s.slug, name: s.name, logo: initials(s.name), category: s.category, fundingTotal: Number(s.fundingTotal), ruwadScore: s.ruwadScore != null ? Number(s.ruwadScore) : null, scoreStatus: s.scoreStatus, founded: s.founded, provenanceLastUpdated: s.provenanceLastUpdated });
 
     const recentRoundsRaw = await this.rounds.createQueryBuilder("r")
       .innerJoin(Startup, "s", "s.id = r.\"startupId\"")

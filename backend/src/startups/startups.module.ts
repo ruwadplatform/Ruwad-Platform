@@ -8,9 +8,10 @@ import { StartupsController } from "./startups.controller";
 import { DirectorySharedModule } from "../directory-shared/directory-shared.module";
 import { InvestmentsModule } from "../investments/investments.module";
 import { OrganizationsModule } from "../organizations/organizations.module";
+import { ScoringModule } from "../scoring/scoring.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Startup, FundingRound, Investor]), DirectorySharedModule, InvestmentsModule, OrganizationsModule],
+  imports: [TypeOrmModule.forFeature([Startup, FundingRound, Investor]), DirectorySharedModule, InvestmentsModule, OrganizationsModule, ScoringModule],
   providers: [StartupsService],
   controllers: [StartupsController],
   exports: [StartupsService, TypeOrmModule],

@@ -9,8 +9,10 @@ import { Contact } from "../../directory-shared/contact.entity";
 import { Sector } from "../../directory-shared/sector.entity";
 import { EntitySector } from "../../directory-shared/entity-sector.entity";
 import { EntityKind } from "../../common/enums";
-import { compositeScore, uniqueSlugFor } from "../../common/slug.util";
-import { SubmissionPublisher, arr, bool, num, str, strArr } from "./publisher.types";
+import { uniqueSlugFor } from "../../common/slug.util";
+import type { ScoringFeatures } from "../../scoring/scoring.types";
+import { trlLevelForLabel } from "../../scoring/trl-labels";
+import { SubmissionPublisher, arr, bool, num, numOrUndefined, str, strArr } from "./publisher.types";
 
 @Injectable()
 export class StartupSubmissionPublisher implements SubmissionPublisher {
@@ -20,7 +22,6 @@ export class StartupSubmissionPublisher implements SubmissionPublisher {
     const startups = manager.getRepository(Startup);
     const slug = await uniqueSlugFor((s) => startups.findOne({ where: { slug: s } }), str(p.name, "untitled-startup"));
 
-    const scores = [70, 70, 70, 70, 70, 70];
     const startup = await startups.save(startups.create({
       slug,
       name: str(p.name), logoImageId: str(p.logoImageId) || undefined,
@@ -37,8 +38,6 @@ export class StartupSubmissionPublisher implements SubmissionPublisher {
       email: str(p.email), phone: str(p.phone), linkedin: str(p.linkedin),
       registrationNumber: `CR-${Math.floor(100000 + Math.random() * 899999)}`,
       verified: "self-reported",
-      scoreGrowth: scores[0], scoreFinancial: scores[1], scoreMarket: scores[2], scoreTeam: scores[3], scoreRegulatory: scores[4], scoreTech: scores[5],
-      score: compositeScore(scores),
       provenanceConfidence: "Medium", provenanceLastUpdated: new Date().toISOString().slice(0, 10), provenanceSources: ["Self-reported via RUWĀD submission"],
       traction: p.traction && typeof p.traction === "object" ? (p.traction as Startup["traction"]) : undefined,
       newsItems: [],
@@ -48,6 +47,8 @@ export class StartupSubmissionPublisher implements SubmissionPublisher {
     if (team.length) {
       await manager.getRepository(TeamMember).save(team.map((t) => manager.getRepository(TeamMember).create({
         entityType: EntityKind.STARTUP, entityId: startup.id, name: str(t.name), title: str(t.title), isFounder: bool(t.isFounder, true),
+        experienceYears: numOrUndefined(t.experienceYears), healthcareExperienceYears: numOrUndefined(t.healthcareExperienceYears),
+        previousStartupExperience: typeof t.previousStartupExperience === "boolean" ? t.previousStartupExperience : undefined,
       })));
     }
 
@@ -82,6 +83,62 @@ export class StartupSubmissionPublisher implements SubmissionPublisher {
 
     return startup.id;
   }
+}
+
+const SCORING_NUMERIC_KEYS: (keyof ScoringFeatures)[] = [
+  "annualRevenue", "previousAnnualRevenue", "quarterlyRevenueGrowth", "customerCount", "previousCustomerCount", "customerGrowthRate",
+  "partnershipsCount", "partnershipGrowth", "employeeGrowth", "geographicExpansion", "activeUsers", "userGrowthRate",
+  "monthlyBurn", "cashAvailable", "runwayMonths", "recurringRevenue", "totalFundingRaised", "fundingRounds", "investorCount", "debt", "grossMargin", "burnMultiple",
+  "tam", "sam", "som", "marketGrowthRate", "cagr", "competitionLevel", "geographicReach", "saudiMarketOpportunity", "menaMarketOpportunity", "categoryTailwinds",
+  "founderCount", "founderExperienceYears", "healthcareExperienceYears", "technicalExperienceYears", "commercialExperienceYears", "previousExits",
+  "publications", "patents", "teamSize", "leadershipCompleteness", "technicalTeamStrength", "commercialTeamStrength",
+  "patentsGranted", "patentsPending", "proprietaryDatasets", "proprietaryAlgorithms", "peerReviewedPublications", "tradeSecrets",
+  "technicalComplexity", "replicationDifficulty",
+];
+const SCORING_BOOLEAN_KEYS: (keyof ScoringFeatures)[] = ["previousStartupExperience", "clinicalData", "clinicalValidation", "proprietaryTechnology"];
+
+/** Pulls whatever of the structured scoring-input field names a submission's
+ * payload carries — some collected directly on the wizard (Team/Funding/
+ * Market/Regulatory/Product steps), some only ever populated via AI
+ * Autofill's extraction — into two ScoringFeatures partials, split by
+ * whether the key is still in `aiFilledKeys` (untouched AI extraction) or
+ * not (the founder typed it, or edited over what AI put there). Called by
+ * SubmissionsService.approve() *after* the publish transaction commits, so
+ * it never runs against an uncommitted startup id. Never invents a value: a
+ * field simply absent from the payload is left out of the result rather
+ * than defaulted. */
+export function extractStartupScoringFeatures(p: Record<string, unknown>, aiFilledKeys: Set<string> = new Set()): { founderPatch: Partial<ScoringFeatures>; aiPatch: Partial<ScoringFeatures> } {
+  const founderPatch: Partial<ScoringFeatures> = {};
+  const aiPatch: Partial<ScoringFeatures> = {};
+  const assign = (key: keyof ScoringFeatures, value: ScoringFeatures[keyof ScoringFeatures], sourceKey: string = key): void => {
+    const target = (aiFilledKeys.has(sourceKey) ? aiPatch : founderPatch) as Record<string, unknown>;
+    target[key] = value;
+  };
+
+  for (const key of SCORING_NUMERIC_KEYS) {
+    const v = numOrUndefined(p[key]);
+    if (v !== undefined) assign(key, v);
+  }
+  for (const key of SCORING_BOOLEAN_KEYS) {
+    if (typeof p[key] === "boolean") assign(key, p[key] as boolean);
+  }
+  if (typeof p.regulatoryMilestone === "string" && p.regulatoryMilestone) assign("regulatoryMilestone", p.regulatoryMilestone);
+
+  // Markets Currently Operating In (Market step, chips of COUNTRIES) isn't a
+  // ScoringFeatures key itself — its array length is the signal.
+  if (Array.isArray(p.marketsOperatingIn) && p.marketsOperatingIn.length) {
+    assign("geographicExpansion", p.marketsOperatingIn.length, "marketsOperatingIn");
+  }
+
+  // Technology Readiness Level is a friendly-label select in the wizard
+  // (Field.tsx selects always write a string), resolved back to the
+  // engine's expected 1-9 here — see trl-labels.ts.
+  if (typeof p.technologyReadinessLevel === "string") {
+    const level = trlLevelForLabel(p.technologyReadinessLevel);
+    if (level !== undefined) assign("technologyReadinessLevel", level);
+  }
+
+  return { founderPatch, aiPatch };
 }
 
 /** Shared by every publisher: resolve/create Sector rows and link them —

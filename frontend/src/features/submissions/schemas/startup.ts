@@ -1,7 +1,14 @@
-import { HC_CATEGORIES, CITIES, STAGES, BIZ_MODELS, STATUSES, COUNTRIES } from "@/data/reference";
+import {
+  HC_CATEGORIES, CITIES, STAGES, BIZ_MODELS, STATUSES, COUNTRIES,
+  TRL_LABELS, REG_MILESTONES_DIGITAL_HEALTH, REG_MILESTONES_MEDICAL_DEVICE, REG_MILESTONES_THERAPEUTIC,
+  MEDICAL_DEVICE_CATEGORIES, THERAPEUTIC_CATEGORIES, CLINICAL_CATEGORIES, DIGITAL_HEALTH_LIKE_CATEGORIES,
+} from "@/data/reference";
 import type { EntitySchema } from "../schema-types";
 
 const REG_STATUS = ["Not Submitted", "In Progress", "Approved", "N/A"] as const;
+
+const isMedicalDevice = (p: Record<string, unknown>) => MEDICAL_DEVICE_CATEGORIES.includes(p.category as (typeof MEDICAL_DEVICE_CATEGORIES)[number]);
+const isTherapeutic = (p: Record<string, unknown>) => THERAPEUTIC_CATEGORIES.includes(p.category as (typeof THERAPEUTIC_CATEGORIES)[number]);
 
 export const startupSchema: EntitySchema = {
   kind: "STARTUP",
@@ -63,6 +70,17 @@ export const startupSchema: EntitySchema = {
             },
           ],
         },
+        {
+          title: "Technology & Differentiation",
+          fields: [
+            { name: "proprietaryTechnology", label: "Proprietary Technology", type: "boolean", hint: "Core technology developed in-house, not licensed or off-the-shelf." },
+            { name: "proprietaryAlgorithms", label: "Proprietary Algorithms / Models", type: "number", min: 0, hint: "Count, if any." },
+            { name: "proprietaryDatasets", label: "Proprietary Datasets", type: "number", min: 0 },
+            { name: "technologyReadinessLevel", label: "Technology Readiness Level", type: "select", options: TRL_LABELS },
+            { name: "peerReviewedPublications", label: "Peer-Reviewed Publications", type: "number", min: 0 },
+            { name: "clinicalValidation", label: "Clinical Validation Completed", type: "boolean", condition: (p) => CLINICAL_CATEGORIES.includes(p.category as (typeof CLINICAL_CATEGORIES)[number]) },
+          ],
+        },
       ],
     },
     {
@@ -76,6 +94,9 @@ export const startupSchema: EntitySchema = {
               { name: "name", label: "Full Name", type: "text", required: true, maxLength: 150 },
               { name: "title", label: "Title", type: "text", required: true, maxLength: 100 },
               { name: "isFounder", label: "Founder", type: "boolean" },
+              { name: "experienceYears", label: "Years of Relevant Experience", type: "number", min: 0, max: 80, condition: (item) => !!item.isFounder },
+              { name: "healthcareExperienceYears", label: "Years of Healthcare Experience", type: "number", min: 0, max: 80, condition: (item) => !!item.isFounder },
+              { name: "previousStartupExperience", label: "Previously Founded a Startup", type: "boolean", condition: (item) => !!item.isFounder },
             ],
           },
         ],
@@ -92,29 +113,47 @@ export const startupSchema: EntitySchema = {
           { name: "marketSom", label: "Serviceable Obtainable Market (SOM)", type: "text", required: true, maxLength: 100 },
           { name: "marketCompetitors", label: "Key Competitors", type: "string-array", full: true, hint: "Add one at a time, press Enter." },
           { name: "additionalSectors", label: "Additional Sectors", type: "chips", options: HC_CATEGORIES, full: true },
+          { name: "marketGrowthRate", label: "Market Growth Rate (% annual)", type: "number", min: 0, max: 1000 },
+          { name: "marketsOperatingIn", label: "Markets Currently Operating In", type: "chips", options: COUNTRIES, full: true },
         ],
       }],
     },
     {
       id: "funding",
       label: "Funding",
-      sections: [{
-        fields: [
-          { name: "fundingTotal", label: "Total Funding Raised (SAR)", type: "number", required: true, min: 0 },
-          { name: "valuation", label: "Valuation (SAR)", type: "number", required: true, min: 0 },
-          { name: "fundraising", label: "Currently Fundraising", type: "boolean" },
-          { name: "targetRaise", label: "Target Raise", type: "text", maxLength: 100, condition: (p) => !!p.fundraising },
-          {
-            name: "rounds", label: "Funding Rounds", type: "repeater", itemLabel: "Round", maxItems: 30, full: true,
-            itemFields: [
-              { name: "round", label: "Round", type: "select", required: true, options: STAGES },
-              { name: "date", label: "Date", type: "text", required: true, placeholder: "YYYY-MM-DD" },
-              { name: "amount", label: "Amount (SAR)", type: "number", required: true, min: 0 },
-              { name: "lead", label: "Lead Investor", type: "text", required: true, maxLength: 150 },
-            ],
-          },
-        ],
-      }],
+      sections: [
+        {
+          fields: [
+            { name: "fundingTotal", label: "Total Funding Raised (SAR)", type: "number", required: true, min: 0 },
+            { name: "valuation", label: "Valuation (SAR)", type: "number", required: true, min: 0 },
+            { name: "fundraising", label: "Currently Fundraising", type: "boolean" },
+            { name: "targetRaise", label: "Target Raise", type: "text", maxLength: 100, condition: (p) => !!p.fundraising },
+            {
+              name: "rounds", label: "Funding Rounds", type: "repeater", itemLabel: "Round", maxItems: 30, full: true,
+              itemFields: [
+                { name: "round", label: "Round", type: "select", required: true, options: STAGES },
+                { name: "date", label: "Date", type: "text", required: true, placeholder: "YYYY-MM-DD" },
+                { name: "amount", label: "Amount (SAR)", type: "number", required: true, min: 0 },
+                { name: "lead", label: "Lead Investor", type: "text", required: true, maxLength: 150 },
+              ],
+            },
+          ],
+        },
+        {
+          title: "Traction & Growth",
+          fields: [
+            { name: "annualRevenue", label: "Annual Revenue (SAR)", type: "number", min: 0 },
+            { name: "previousAnnualRevenue", label: "Previous Year's Annual Revenue (SAR)", type: "number", min: 0 },
+            { name: "recurringRevenue", label: "Recurring Revenue (SAR)", type: "number", min: 0, condition: (p) => !isTherapeutic(p) },
+            { name: "customerCount", label: "Current Customers", type: "number", min: 0 },
+            { name: "previousCustomerCount", label: "Previous Year's Customers", type: "number", min: 0 },
+            { name: "activeUsers", label: "Active Users", type: "number", min: 0, condition: (p) => DIGITAL_HEALTH_LIKE_CATEGORIES.includes(p.category as (typeof DIGITAL_HEALTH_LIKE_CATEGORIES)[number]) },
+            { name: "partnershipsCount", label: "Active Partnerships", type: "number", min: 0 },
+            { name: "monthlyBurn", label: "Monthly Burn (SAR)", type: "number", min: 0 },
+            { name: "cashAvailable", label: "Cash Available (SAR)", type: "number", min: 0 },
+          ],
+        },
+      ],
     },
     {
       id: "regulatory",
@@ -126,6 +165,14 @@ export const startupSchema: EntitySchema = {
           { name: "ce", label: "CE Mark Status", type: "select", required: true, options: REG_STATUS },
           { name: "clinicalStatus", label: "Clinical Status", type: "text", required: true, maxLength: 150 },
           { name: "patentStatus", label: "Patent Status", type: "text", required: true, maxLength: 150 },
+          { name: "patentsGranted", label: "Patents Granted", type: "number", min: 0 },
+          { name: "patentsPending", label: "Patents Pending", type: "number", min: 0 },
+          // Three mutually-exclusive views of the same "regulatoryMilestone" key — the pathway (and so the
+          // option list) is decided by Healthcare Category, mirroring regulatory.engine.ts's pathwayFor()
+          // exactly, including its digital-health default for every category not in the other two lists.
+          { name: "regulatoryMilestone", label: "Regulatory Strategy Status", type: "select", options: REG_MILESTONES_MEDICAL_DEVICE, condition: isMedicalDevice, hint: "Where this product stands in the medical device regulatory pathway." },
+          { name: "regulatoryMilestone", label: "Regulatory Strategy Status", type: "select", options: REG_MILESTONES_THERAPEUTIC, condition: isTherapeutic, hint: "Where this product stands in the therapeutic development pathway." },
+          { name: "regulatoryMilestone", label: "Regulatory Strategy Status", type: "select", options: REG_MILESTONES_DIGITAL_HEALTH, condition: (p) => !isMedicalDevice(p) && !isTherapeutic(p), hint: "Where this product stands in the digital health regulatory pathway." },
         ],
       }],
     },

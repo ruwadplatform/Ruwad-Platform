@@ -48,3 +48,26 @@ export function completenessFor(kind: ResolvableKind, entity: ResolvedEntity): C
 export function completenessPercent(checks: CompletenessCheck[]): number {
   return Math.round((checks.filter((c) => c.ok).length / checks.length) * 100);
 }
+
+/** Founder-facing wizard fields that feed the RUWĀD Score engines (see
+ * backend/src/scoring/) — a separate concept from startupCompleteness above
+ * (which measures general profile completeness), so this never touches
+ * that function or its checklist. Rough client-side estimate only, same
+ * caveat as validate.ts's completionPercentage: not conditional-aware, and
+ * the backend's own feature set is the source of truth for what actually
+ * fed a given score. */
+const SCORING_INPUT_WIZARD_KEYS = [
+  "annualRevenue", "previousAnnualRevenue", "customerCount", "previousCustomerCount", "activeUsers", "partnershipsCount",
+  "monthlyBurn", "cashAvailable", "recurringRevenue", "marketsOperatingIn", "marketGrowthRate", "regulatoryMilestone",
+  "patentsGranted", "patentsPending", "proprietaryTechnology", "proprietaryAlgorithms", "proprietaryDatasets",
+  "technologyReadinessLevel", "clinicalValidation", "peerReviewedPublications",
+];
+
+export function scoringCompleteness(payload: Record<string, unknown>): number {
+  const answered = SCORING_INPUT_WIZARD_KEYS.filter((k) => {
+    const v = payload[k];
+    if (Array.isArray(v)) return v.length > 0;
+    return v !== undefined && v !== null && v !== "";
+  }).length;
+  return Math.round((answered / SCORING_INPUT_WIZARD_KEYS.length) * 100);
+}

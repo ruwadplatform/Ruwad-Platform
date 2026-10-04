@@ -1,5 +1,6 @@
 import { Column, Entity, Index } from "typeorm";
 import { BaseEntity } from "../common/base.entity";
+import { FoundedYearBasis, ScoreStatus } from "../common/enums";
 
 export type VerifiedTier = "verified" | "self-reported" | "unclaimed";
 
@@ -39,6 +40,13 @@ export class Startup extends BaseEntity {
 
   @Column({ type: "int" })
   founded!: number;
+
+  /** Whether `founded` is a stated year or only an upper-bound placeholder
+   * (the column is NOT NULL, so an unknown year had to be filled with
+   * something). Internal data-quality metadata; the public API still returns
+   * `founded` unchanged. */
+  @Column({ type: "enum", enum: FoundedYearBasis, default: FoundedYearBasis.KNOWN })
+  foundedBasis!: FoundedYearBasis;
 
   @Column()
   stage!: string;
@@ -99,15 +107,24 @@ export class Startup extends BaseEntity {
   @Column({ type: "varchar", default: "unclaimed" })
   verified!: VerifiedTier;
 
-  @Column({ type: "int" }) scoreGrowth!: number;
-  @Column({ type: "int" }) scoreFinancial!: number;
-  @Column({ type: "int" }) scoreMarket!: number;
-  @Column({ type: "int" }) scoreTeam!: number;
-  @Column({ type: "int" }) scoreRegulatory!: number;
-  @Column({ type: "int" }) scoreTech!: number;
-  /** Equal-weighted average of the six subscores × 10 — same formula the
-   * frontend's compositeScore() already used; never invented independently. */
-  @Column({ type: "int" }) score!: number;
+  /** Denormalized read cache of this startup's current RUWĀD Score, kept in
+   * sync by ScoringService every time it writes a new startup_score_history
+   * row (the source of truth). Never written directly by anything else —
+   * see backend/src/scoring/. */
+  @Column({ type: "numeric", precision: 4, scale: 2, nullable: true })
+  ruwadScore?: number;
+
+  @Column({ type: "varchar", default: ScoreStatus.NOT_CALCULATED })
+  scoreStatus!: ScoreStatus;
+
+  @Column({ type: "numeric", precision: 3, scale: 2, nullable: true })
+  scoreConfidence?: number;
+
+  @Column({ type: "varchar", nullable: true })
+  scoreVersion?: string;
+
+  @Column({ type: "timestamptz", nullable: true })
+  scoreCalculatedAt?: Date;
 
   @Column({ type: "varchar", default: "Medium" })
   provenanceConfidence!: "High" | "Medium" | "Low";

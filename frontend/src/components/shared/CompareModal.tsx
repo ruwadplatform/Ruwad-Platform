@@ -69,7 +69,7 @@ function CompareTable({ list }: { list: Startup[] }) {
     ["Founded", (x) => x.founded],
     ["Employees", (x) => x.employees],
     ["Total Raised", (x) => `SAR ${(x.fundingTotal || 0).toFixed(1)}M`],
-    ["RUWĀD Score", (x) => x.score],
+    ["RUWĀD Score", (x) => x.ruwadScore != null ? x.ruwadScore.toFixed(1) : "—"],
     ["SFDA Status", (x) => x.regulatory?.sfda],
     ["Revenue", (x) => x.traction?.revenue],
     ["Growth", (x) => x.traction?.growth],

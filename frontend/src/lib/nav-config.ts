@@ -70,6 +70,10 @@ export const TOP_NAV: NavGroup[] = [
     children: [
       { label: "Company Submissions", icon: "reports", route: "/admin/submissions", auth: true },
       { label: "Listing Claims", icon: "check", route: "/admin/claims", auth: true },
+      { label: "ML Data", icon: "bi", route: "/admin/ml-data", auth: true },
+      { label: "ML Models", icon: "bi", route: "/admin/ml-models", auth: true },
+      { label: "Historical Data", icon: "bi", route: "/admin/ml-data/historical", auth: true },
+      { label: "Historical Entry Review", icon: "check", route: "/admin/ml-data/historical/review", auth: true },
     ],
   },
 ];

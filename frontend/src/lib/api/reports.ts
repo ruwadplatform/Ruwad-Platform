@@ -2,7 +2,7 @@ import { api, isNotFound } from "./client";
 import { logoUrl } from "./uploads";
 import type { LibraryContentView, Report, ReportExternalSource, ReportInternalStats } from "@/types/intelligence";
 
-export interface RawRelatedStartup { id: string; slug: string; name: string; logo: string; logoImageId?: string | null; category: string; city: string; tagline: string; stage: string; score: number; fundingTotal: number }
+export interface RawRelatedStartup { id: string; slug: string; name: string; logo: string; logoImageId?: string | null; category: string; city: string; tagline: string; stage: string; ruwadScore: number | null; fundingTotal: number }
 export interface RawRelatedInvestor { id: string; slug: string; name: string; logo: string; logoImageId?: string | null; type: string; city: string; ticket: string; hcDeals: number; desc: string }
 
 interface RawReport {

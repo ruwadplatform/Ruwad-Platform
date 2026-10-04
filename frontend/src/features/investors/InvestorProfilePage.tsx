@@ -122,7 +122,7 @@ function TabBody({ tab, v, loggedIn }: { tab: Tab; v: Investor; loggedIn: boolea
                 key={s.id} href={`/startups/${s.slug}`} logo={s.logo} logoUrl={s.logoUrl} name={s.name} subtitle={`${s.city} · ${s.category}`} desc={s.tagline}
                 kind="startups" id={s.slug}
                 meta={<><span className="tag">{s.stage}</span></>}
-                foot={<><span className="escore">{s.score}</span><span className="small muted">RUWĀD Score</span></>}
+                foot={<><span className="escore">{s.ruwadScore != null ? s.ruwadScore.toFixed(1) : "—"}</span><span className="small muted">RUWĀD Score</span></>}
               />
             ))}
           </div>

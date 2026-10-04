@@ -1,6 +1,7 @@
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { validateStep, completionPercentage } from "./validate";
 import { SubmissionProgress } from "./SubmissionProgress";
+import { scoringCompleteness } from "@/lib/completeness";
 import type { EntitySchema } from "./schema-types";
 
 type Payload = Record<string, unknown>;
@@ -23,6 +24,11 @@ export function SubmissionSidebar({ schema, payload, stepIndex, touchedSteps, is
   return (
     <div className="form-steps">
       <SubmissionProgress percent={completionPercentage(schema, payload)} />
+      {schema.kind === "STARTUP" && scoringCompleteness(payload) < 100 && (
+        <p className="fs-11 muted" style={{ padding: "0 4px 12px" }}>
+          Add more verified information to improve the reliability of your RUWĀD assessment.
+        </p>
+      )}
       {schema.steps.map((step, i) => {
         const stepErrs = validateStep(step, payload);
         const visited = touchedSteps.has(i);

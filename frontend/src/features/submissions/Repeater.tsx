@@ -60,15 +60,18 @@ export function Repeater({ field, items, errors, onChange }: RepeaterProps) {
             )}
           </div>
           <div className="grid-2">
-            {itemFields.map((sub) => (
-              <Field
-                key={sub.name}
-                field={sub}
-                value={item[sub.name] as FieldValue}
-                error={errors?.[i]?.[sub.name]}
-                onChange={(v) => updateItemField(i, sub.name, v)}
-              />
-            ))}
+            {itemFields.map((sub) => {
+              if (sub.condition && !sub.condition(item)) return null;
+              return (
+                <Field
+                  key={sub.name}
+                  field={sub}
+                  value={item[sub.name] as FieldValue}
+                  error={errors?.[i]?.[sub.name]}
+                  onChange={(v) => updateItemField(i, sub.name, v)}
+                />
+              );
+            })}
           </div>
         </div>
       ))}

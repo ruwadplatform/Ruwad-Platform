@@ -161,6 +161,11 @@ export function AdminSubmissionDetailPage({ id }: { id: string }) {
                   {publishedSlug ? "View Published Entity" : "Resolving link…"}
                 </button>
               )}
+              {submission.status === "APPROVED" && submission.publishedEntityId && submission.kind === "STARTUP" && (
+                <button className="btn btn-outline btn-sm" onClick={() => router.push(`/admin/startups/${submission.publishedEntityId}/scoring`)}>
+                  Manage RUWĀD Score
+                </button>
+              )}
               {submission.status === "REJECTED" && <p className="small muted">This submission was not approved.</p>}
             </div>
           </div>

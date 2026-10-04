@@ -16,6 +16,8 @@ import { UsersModule } from "../users/users.module";
 import { EmailModule } from "../email/email.module";
 import { ContentModule } from "../content/content.module";
 import { CompanyEnrichmentService } from "./company-enrichment.service";
+import { ScoringModule } from "../scoring/scoring.module";
+import { MlDataModule } from "../ml-data/ml-data.module";
 
 /** The five publishers below reach every directory/child entity purely
  * through `manager.getRepository(X)` inside the approval transaction — not
@@ -24,7 +26,7 @@ import { CompanyEnrichmentService } from "./company-enrichment.service";
  * to the DataSource app-wide; forFeature is only for constructor-injected
  * repos, and this module only injects its own two entities below). */
 @Module({
-  imports: [TypeOrmModule.forFeature([Submission, SubmissionReviewEvent]), ActivityModule, UsersModule, EmailModule, ContentModule],
+  imports: [TypeOrmModule.forFeature([Submission, SubmissionReviewEvent]), ActivityModule, UsersModule, EmailModule, ContentModule, ScoringModule, MlDataModule],
   providers: [
     SubmissionsService,
     SubmissionAutofillService,

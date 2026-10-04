@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { In, Repository } from "typeorm";
 import { Startup } from "./startup.entity";
@@ -9,13 +9,16 @@ import { QueryStartupsDto } from "./dto/query-startups.dto";
 import { DirectorySharedService } from "../directory-shared/directory-shared.service";
 import { InvestmentsService } from "../investments/investments.service";
 import { Investor } from "../investors/investor.entity";
-import { EntityKind } from "../common/enums";
-import { compositeScore, initials, slugify } from "../common/slug.util";
+import { EntityKind, ScoreTrigger } from "../common/enums";
+import { initials, slugify } from "../common/slug.util";
 import { paginate, PaginatedResult } from "../common/pagination.dto";
 import { OrganizationsService } from "../organizations/organizations.service";
+import { ScoringService } from "../scoring/scoring.service";
 
 @Injectable()
 export class StartupsService {
+  private readonly logger = new Logger(StartupsService.name);
+
   constructor(
     @InjectRepository(Startup) private readonly repo: Repository<Startup>,
     @InjectRepository(FundingRound) private readonly rounds: Repository<FundingRound>,
@@ -23,6 +26,7 @@ export class StartupsService {
     private readonly shared: DirectorySharedService,
     private readonly investments: InvestmentsService,
     private readonly organizations: OrganizationsService,
+    private readonly scoring: ScoringService,
   ) {}
 
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
@@ -38,7 +42,6 @@ export class StartupsService {
 
   async create(dto: CreateStartupDto): Promise<Startup> {
     const slug = await this.uniqueSlug(dto.name);
-    const score = compositeScore([70, 70, 70, 70, 70, 70]); // placeholder subscores until an admin sets real ones
     const startup = this.repo.create({
       slug,
       name: dto.name, category: dto.category, subsector: dto.subsector, tagline: dto.tagline,
@@ -51,11 +54,15 @@ export class StartupsService {
       legalName: dto.legalName, formerName: dto.formerName ?? "—", website: dto.website, email: dto.email, phone: dto.phone, linkedin: dto.linkedin,
       registrationNumber: `CR-${Math.floor(100000 + Math.random() * 899999)}`,
       verified: "unclaimed",
-      scoreGrowth: 70, scoreFinancial: 70, scoreMarket: 70, scoreTeam: 70, scoreRegulatory: 70, scoreTech: 70, score,
       provenanceConfidence: "Medium", provenanceLastUpdated: new Date().toISOString().slice(0, 10), provenanceSources: ["Self-reported"],
     });
     const saved = await this.repo.save(startup);
     await this.applyRelations(saved.id, dto);
+    // Never calculated here directly — ScoringService is the single source
+    // of truth for the score itself; this just tells it something changed.
+    await this.scoring.recalculateStartupScore(saved.id, ScoreTrigger.STARTUP_CREATED).catch((e) => {
+      this.logger.warn(`Initial scoring failed for startup ${saved.id}: ${e instanceof Error ? e.message : "unknown error"}`);
+    });
     return saved;
   }
 
@@ -69,6 +76,9 @@ export class StartupsService {
     });
     const saved = await this.repo.save(startup);
     await this.applyRelations(id, dto);
+    await this.scoring.recalculateStartupScore(id, ScoreTrigger.STARTUP_UPDATED).catch((e) => {
+      this.logger.warn(`Rescoring failed for startup ${id}: ${e instanceof Error ? e.message : "unknown error"}`);
+    });
     return saved;
   }
 
@@ -104,8 +114,10 @@ export class StartupsService {
     if (query.country) qb.andWhere("s.country = :country", { country: query.country });
     if (query.city) qb.andWhere("s.city = :city", { city: query.city });
 
-    const sortColumn = ["name", "founded", "fundingTotal", "score"].includes(query.sort ?? "") ? query.sort! : "score";
-    qb.orderBy(`s.${sortColumn}`, (query.order ?? "desc").toUpperCase() as "ASC" | "DESC");
+    const sortColumn = ["name", "founded", "fundingTotal", "ruwadScore"].includes(query.sort ?? "") ? query.sort! : "ruwadScore";
+    // A null score means "not yet calculated", not "worst" — it must never
+    // sort to the top of a descending "best score first" listing.
+    qb.orderBy(`s.${sortColumn}`, (query.order ?? "desc").toUpperCase() as "ASC" | "DESC", "NULLS LAST");
     qb.skip((page - 1) * limit).take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
@@ -123,7 +135,8 @@ export class StartupsService {
     return {
       id: s.id, slug: s.slug, name: s.name, logo: initials(s.name), logoImageId: s.logoImageId ?? null, category: s.category, city: s.city,
       country: s.country, stage: s.stage, status: s.status, founded: s.founded, employees: s.employees,
-      fundingTotal: Number(s.fundingTotal), score: s.score, tagline: s.tagline,
+      fundingTotal: Number(s.fundingTotal), tagline: s.tagline,
+      ruwadScore: s.ruwadScore != null ? Number(s.ruwadScore) : null, scoreStatus: s.scoreStatus,
       sfda: s.sfda, provenanceLastUpdated: s.provenanceLastUpdated,
     };
   }
@@ -132,7 +145,7 @@ export class StartupsService {
     // Deliberately no `documents` here: this is the PUBLIC profile payload, and
     // Data Room document metadata (names, on-file flags…) is only ever served by
     // DataRoomService.status() after an owner/admin/APPROVED check.
-    const [sectors, team, rounds, products, contact, investorLinks, hasPendingClaim] = await Promise.all([
+    const [sectors, team, rounds, products, contact, investorLinks, hasPendingClaim, scoreResult] = await Promise.all([
       this.shared.getSectorNames(EntityKind.STARTUP, s.id),
       this.shared.getTeamMembers(EntityKind.STARTUP, s.id),
       this.rounds.find({ where: { startupId: s.id }, order: { date: "ASC" } }),
@@ -140,17 +153,33 @@ export class StartupsService {
       this.shared.getContact(EntityKind.STARTUP, s.id),
       this.investments.findForTarget(EntityKind.STARTUP, s.id),
       s.verified === "unclaimed" ? this.organizations.pendingClaimForEntity(EntityKind.STARTUP, s.id) : Promise.resolve(false),
+      this.scoring.getScoreForStartup(s.id),
     ]);
     const investorRows = investorLinks.length
       ? await this.investors.find({ where: { id: In(investorLinks.map((i) => i.investorId)) } })
       : [];
+    // Public shape: composite score/status/confidence, and each factor's
+    // number only. The richer diagnostic detail (reasons, inputs used/
+    // missing, provenance, override audit) is admin-only — see
+    // ScoringController — never sent here, unlike the old `sub` object this
+    // replaces, which put six raw hardcoded-70 columns on the wire with no
+    // gating at all.
+    const factors = Object.fromEntries(
+      Object.entries(scoreResult.factors).map(([key, f]) => [key, { score: f.score, confidence: f.confidence }]),
+    );
+    // foundedBasis is internal ML-data-quality metadata (is `founded` a stated year or an estimate?); it is never part of the public profile.
+    const { foundedBasis: _internalFoundedBasis, ...publicFields } = s;
     return {
-      ...s,
+      ...publicFields,
       fundingTotal: Number(s.fundingTotal), valuation: Number(s.valuation),
       logo: initials(s.name), sectors, team, rounds, products, contact,
       investorIds: investorRows.map((v) => v.slug),
       hasPendingClaim,
-      sub: { growth: s.scoreGrowth, financial: s.scoreFinancial, market: s.scoreMarket, team: s.scoreTeam, regulatory: s.scoreRegulatory, tech: s.scoreTech },
+      ruwadScore: s.ruwadScore != null ? Number(s.ruwadScore) : null,
+      scoreStatus: s.scoreStatus,
+      scoreConfidence: s.scoreConfidence != null ? Number(s.scoreConfidence) : null,
+      scoreVersion: s.scoreVersion ?? null,
+      factors,
     };
   }
 }

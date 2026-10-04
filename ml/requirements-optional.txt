@@ -1,0 +1,12 @@
+# Optional extras — not installed by default (see README.md "LightGBM" section
+# for why: it's a genuine third gradient-boosting library with its own native
+# build/runtime quirks on some platforms, and the framework works completely
+# without it — CatBoost + XGBoost already cover the "tabular, missing values,
+# categorical, nonlinear interactions" requirements this project needs).
+#
+#   ml/.venv/Scripts/pip install -r requirements-optional.txt
+#
+# app/training/lightgbm_model.py already guards its import — the training
+# CLI's --algorithms flag simply skips lightgbm with a clear message if this
+# hasn't been installed.
+lightgbm>=4.3,<5

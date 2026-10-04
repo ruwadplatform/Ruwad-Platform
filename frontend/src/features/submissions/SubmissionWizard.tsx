@@ -263,7 +263,15 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
     if (!allValid || !confirmChecked) return;
     setSubmitting(true);
     try {
-      await saveSubmissionDraft(submission.id, { payload: withRemovals(payload, removedRef.current), currentStep: "review", completionPercentage: 100 });
+      // Tags which fields are still an untouched AI extraction at submit time
+      // so the backend can tell "founder typed/edited this" from "AI put
+      // this here and nobody looked at it" when it feeds the RUWĀD Score
+      // engines (see extractStartupScoringFeatures in
+      // startup-submission.publisher.ts) — reuses the aiFilledFields state
+      // this wizard already tracks for the "AI filled" badge, no new
+      // tracking mechanism.
+      const finalPayload = kind === "STARTUP" ? { ...payload, aiFilledScoringKeys: Array.from(aiFilledFields) } : payload;
+      await saveSubmissionDraft(submission.id, { payload: withRemovals(finalPayload, removedRef.current), currentStep: "review", completionPercentage: 100 });
       const result = await submitSubmissionForReview(submission.id);
       setDone(result);
     } catch (e) {

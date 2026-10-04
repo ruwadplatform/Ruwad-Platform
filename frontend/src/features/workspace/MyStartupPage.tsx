@@ -85,6 +85,7 @@ export function MyStartupPage() {
         description="Founder/admin management view — not the public profile guests and investors see."
         action={
           <div className="flex gap-8">
+            <button className="btn btn-outline" onClick={() => router.push("/workspace/startup/historical")}><RuwadIcon name="doc" size={13} /> Historical Performance</button>
             <button className="btn btn-outline" onClick={() => router.push(`/startups/${s.id}`)}><RuwadIcon name="globe" size={13} /> View Public Profile</button>
             <button className="btn btn-primary" onClick={() => toast("Edit Profile — coming in a later release")}><RuwadIcon name="edit" size={13} /> Edit Profile</button>
           </div>

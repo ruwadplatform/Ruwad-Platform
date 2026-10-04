@@ -403,7 +403,7 @@ function RecommendedPanels() {
                   key={s.id} href={`/startups/${s.id}`} logo={s.logo} logoUrl={s.logoUrl} name={s.name} subtitle={`${s.city} · ${s.category}`}
                   desc={s.tagline} kind="startups" id={s.id}
                   meta={<><span className={`badge ${regBadgeClass(s.regulatory.sfda)}`}>{s.regulatory.sfda}</span><span className="tag">{s.stage}</span></>}
-                  foot={<><span className="escore">{s.score}</span><span className="small muted">RUWĀD Score</span></>}
+                  foot={<><span className="escore">{s.ruwadScore != null ? s.ruwadScore.toFixed(1) : "—"}</span><span className="small muted">RUWĀD Score</span></>}
                 />
               ))}
             </div>

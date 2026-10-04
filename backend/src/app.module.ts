@@ -28,6 +28,8 @@ import { UploadsModule } from "./uploads/uploads.module";
 import { ResumeParseModule } from "./resume-parse/resume-parse.module";
 import { DataRoomModule } from "./data-room/data-room.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
+import { ScoringModule } from "./scoring/scoring.module";
+import { MlDataModule } from "./ml-data/ml-data.module";
 
 @Module({
   imports: [
@@ -40,6 +42,8 @@ import { AnalyticsModule } from "./analytics/analytics.module";
     AuthModule,
     DirectorySharedModule,
     InvestmentsModule,
+    ScoringModule,
+    MlDataModule,
     StartupsModule,
     InvestorsModule,
     HubsModule,

@@ -1,13 +1,17 @@
 import type { Provenance } from "@/lib/scoring";
 
-export interface SubScores {
-  growth: number;
-  financial: number;
-  market: number;
-  team: number;
-  regulatory: number;
-  tech: number;
+/** Mirrors backend ScoreStatus (see backend/src/common/enums.ts) — always
+ * one of these, never a raw error string reaching the UI. */
+export type ScoreStatus = "NOT_CALCULATED" | "INSUFFICIENT_DATA" | "CALCULATED" | "STALE" | "ERROR";
+
+export type ScoreFactorKey = "growth" | "financial" | "market" | "team" | "regulatory" | "technology";
+
+export interface ScoreFactor {
+  score: number | null;
+  confidence: number;
 }
+
+export type ScoreFactors = Record<ScoreFactorKey, ScoreFactor>;
 
 export interface TeamMember {
   name: string;
@@ -76,7 +80,11 @@ export interface Startup {
   valuation: number;
   fundraising: boolean;
   targetRaise?: string;
-  sub: SubScores;
+  ruwadScore: number | null;
+  scoreStatus: ScoreStatus;
+  scoreConfidence: number | null;
+  scoreVersion: string | null;
+  factors: ScoreFactors;
   desc: string;
   problem: string;
   solution: string;
@@ -108,7 +116,6 @@ export interface Startup {
   /** Whether a claim on this listing is currently under review (any claimant — who filed it is admin-only). Only set when `verified === "unclaimed"`. */
   hasPendingClaim?: boolean;
   provenance: Provenance;
-  score: number;
 }
 
 export interface InvestorTeamMember {
@@ -146,7 +153,7 @@ export interface Investor {
    * investments join (id/slug/logo/score/etc, not just a name) — the
    * Portfolio tab reads this instead of re-deriving it with a fragile
    * name match against a separately-loaded Startups collection. */
-  portfolioDetailed?: { id: string; slug: string; name: string; logo: string; logoUrl?: string | null; category: string; city: string; tagline: string; stage: string; score: number }[];
+  portfolioDetailed?: { id: string; slug: string; name: string; logo: string; logoUrl?: string | null; category: string; city: string; tagline: string; stage: string; ruwadScore: number | null }[];
   logo: string;
   logoUrl?: string | null;
   team: InvestorTeamMember[];
@@ -196,7 +203,7 @@ export interface HubPortfolioItem {
   startupId?: string;
   startupSlug?: string;
   startupLogo?: string;
-  startupScore?: number;
+  startupScore?: number | null;
   startupCategory?: string;
   startupTagline?: string;
 }

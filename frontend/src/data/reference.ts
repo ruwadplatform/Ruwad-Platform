@@ -97,3 +97,54 @@ export const REPORT_SUBMISSION_SECTORS = [
 ] as const;
 export const REPORT_SUBMISSION_GEOGRAPHIES = ["Saudi Arabia", "GCC", "MENA", "Global", "Other"] as const;
 export const REPORT_PDF_MAX_BYTES = 10 * 1024 * 1024;
+
+/* ------------------------------------------------- RUWĀD Score data collection (Phase 1B) */
+
+/** Standard 9-level Technology Readiness Level scale, given founder-facing
+ * labels instead of a bare "1-9" picker. Must exactly match, in order,
+ * backend/src/scoring/trl-labels.ts — that's the one place the label string
+ * this select stores gets resolved back to the numeric level the scoring
+ * engine expects. */
+export const TRL_LABELS = [
+  "Basic principles observed",
+  "Technology concept formulated",
+  "Experimental proof of concept",
+  "Technology validated in lab",
+  "Technology validated in relevant environment",
+  "Technology demonstrated in relevant environment",
+  "System prototype demonstration",
+  "System complete and qualified",
+  "Actual system proven, commercially deployed",
+] as const;
+
+/** Regulatory milestone ladders, one per pathway — must exactly match, in
+ * order, the three ladders in backend/src/scoring/engines/regulatory.engine.ts
+ * (case-insensitive match there), so a founder's selection is read as an
+ * explicit, high-confidence milestone rather than falling back to the
+ * coarser inference from SFDA/FDA/CE status. Category groupings mirror the
+ * engine's pathwayFor() exactly, including its digital-health default for
+ * any category not in the other two lists. */
+export const REG_MILESTONES_DIGITAL_HEALTH = [
+  "applicability assessed", "classification identified", "strategy prepared", "QMS readiness",
+  "clinical validation", "submission preparation", "SFDA submission", "SFDA authorization", "FDA/CE/other approval",
+] as const;
+export const REG_MILESTONES_MEDICAL_DEVICE = [
+  "device classification", "ISO 13485", "QMS", "technical documentation", "clinical evidence",
+  "SFDA pathway", "MDMA", "FDA 510(k)/De Novo", "CE MDR", "approval", "commercialization",
+] as const;
+export const REG_MILESTONES_THERAPEUTIC = [
+  "discovery", "preclinical", "IND/CTA preparation", "Phase I", "Phase II", "Phase III",
+  "regulatory submission", "approval", "commercial stage",
+] as const;
+export const MEDICAL_DEVICE_CATEGORIES = ["MedTech", "Medical Devices", "Diagnostics"] as const;
+export const THERAPEUTIC_CATEGORIES = ["Biotechnology", "Genomics", "Precision Medicine", "Therapeutics", "Pharmaceuticals", "CRO", "CDMO"] as const;
+/** Every other HC_CATEGORIES value (including Digital Health itself) uses
+ * the digital-health ladder — matches the engine's own default fallback. */
+
+/** Categories whose companies report clinically (Product step's clinical
+ * validation / peer-reviewed publications fields, and Regulatory step's
+ * SFDA/FDA/CE-adjacent milestone framing) vs. purely digital ones. */
+export const CLINICAL_CATEGORIES = ["Biotechnology", "MedTech", "Digital Health", "Diagnostics", "Genomics", "Precision Medicine", "Therapeutics", "Medical Devices", "Pharmaceuticals"] as const;
+/** Categories where "active users" (vs. paying customers) is the more
+ * meaningful traction metric. */
+export const DIGITAL_HEALTH_LIKE_CATEGORIES = ["Digital Health", "Telemedicine", "Healthcare IT", "AI Healthcare", "Health Data"] as const;

@@ -7,11 +7,11 @@ import { Submission } from "./submission.entity";
 import { SubmissionReviewEvent } from "./submission-review-event.entity";
 import { CreateSubmissionDto } from "./dto/create-submission.dto";
 import { UpdateSubmissionDto, RequestChangesDto, RejectDto, FindSubmissionsQueryDto } from "./dto/update-submission.dto";
-import { EntityKind, SubmissionStatus, SubmissionEventType, MembershipRole, ActivityType } from "../common/enums";
+import { EntityKind, SubmissionStatus, SubmissionEventType, MembershipRole, ActivityType, ScoreTrigger, StartupOutcomeEventType } from "../common/enums";
 import { EntityMembership } from "../organizations/entity-membership.entity";
 import { ActivityService } from "../activity/activity.service";
 import { SubmissionPublisher } from "./publishers/publisher.types";
-import { StartupSubmissionPublisher } from "./publishers/startup-submission.publisher";
+import { StartupSubmissionPublisher, extractStartupScoringFeatures } from "./publishers/startup-submission.publisher";
 import { InvestorSubmissionPublisher } from "./publishers/investor-submission.publisher";
 import { HubSubmissionPublisher } from "./publishers/hub-submission.publisher";
 import { ResearchSubmissionPublisher } from "./publishers/research-submission.publisher";
@@ -25,6 +25,8 @@ import { SubmissionAutofillService, type AutofillMeta } from "./submission-autof
 import { validateHubPayload } from "./hub-types";
 import { UsersService } from "../users/users.service";
 import { EmailService } from "../email/email.service";
+import { ScoringService } from "../scoring/scoring.service";
+import { OutcomeEventsService } from "../ml-data/outcome-events.service";
 
 /** DRAFT and CHANGES_REQUESTED are the only two states a user may edit or
  * submit from — every other transition below is admin-only and enforced
@@ -59,6 +61,8 @@ export class SubmissionsService {
     private readonly autofillService: SubmissionAutofillService,
     private readonly usersService: UsersService,
     private readonly emailService: EmailService,
+    private readonly scoring: ScoringService,
+    private readonly outcomeEvents: OutcomeEventsService,
     startupPublisher: StartupSubmissionPublisher,
     investorPublisher: InvestorSubmissionPublisher,
     hubPublisher: HubSubmissionPublisher,
@@ -238,8 +242,10 @@ export class SubmissionsService {
     const publisher = this.publishersByKind.get(item.kind);
     if (!publisher) throw new BadRequestException(`No publisher registered for ${item.kind}`);
 
+    let publishedEntityId = "";
     const saved = await this.dataSource.transaction(async (manager) => {
       const entityId = await publisher.publish(manager, item.payload);
+      publishedEntityId = entityId;
 
       await manager.getRepository(EntityMembership).save(manager.getRepository(EntityMembership).create({
         userId: item.userId, kind: item.kind, entityId, role: MembershipRole.OWNER,
@@ -257,6 +263,53 @@ export class SubmissionsService {
 
       return savedSubmission;
     });
+
+    // Scoring runs after the transaction has committed — ScoringService uses
+    // its own non-transactional repos, so calling it earlier could compute
+    // against a startup id the rest of the app can't see yet. A failure here
+    // never undoes the publish, matching how a failed notification below
+    // doesn't either.
+    if (item.kind === EntityKind.STARTUP) {
+      try {
+        // The wizard tags which scoring-relevant keys are still an untouched
+        // AI extraction at submit time (see SubmissionWizard.tsx) — anything
+        // not in that set was typed or edited by the founder.
+        const aiFilledKeys = new Set(Array.isArray(item.payload.aiFilledScoringKeys) ? (item.payload.aiFilledScoringKeys as unknown[]).filter((k): k is string => typeof k === "string") : []);
+        const { founderPatch, aiPatch } = extractStartupScoringFeatures(item.payload, aiFilledKeys);
+        if (Object.keys(founderPatch).length || Object.keys(aiPatch).length) {
+          await this.scoring.applyFounderAndAiFeatures(publishedEntityId, founderPatch, aiPatch);
+        }
+        // recalculateStartupScore() itself runs feature derivation (team
+        // size, founder count, funding rounds, investor count) from the
+        // rows the publish transaction just created — one place, not
+        // duplicated here.
+        await this.scoring.recalculateStartupScore(publishedEntityId, ScoreTrigger.SUBMISSION_PUBLISHED);
+      } catch (e) {
+        this.logger.error(`Scoring failed after publishing startup ${publishedEntityId}: ${e instanceof Error ? e.message : "unknown error"}`);
+      }
+
+      // Automatic outcome-event derivation: every funding round the founder
+      // reported becomes real evidence for a future ML funding-outcome
+      // label, without requiring an admin to separately re-enter it.
+      // Best-effort, deduplicated (see OutcomeEventsService), never blocks
+      // the publish.
+      try {
+        const rounds = Array.isArray(item.payload.rounds) ? (item.payload.rounds as Record<string, unknown>[]) : [];
+        for (const r of rounds) {
+          const amount = typeof r.amount === "number" ? r.amount : Number(r.amount);
+          const date = typeof r.date === "string" ? r.date : undefined;
+          if (!date || !Number.isFinite(amount)) continue;
+          await this.outcomeEvents.createSystemEventIfNew(publishedEntityId, {
+            eventType: StartupOutcomeEventType.FUNDING_ROUND,
+            eventDate: normalizeToFullDate(date),
+            valueNumeric: amount,
+            valueText: typeof r.round === "string" ? r.round : undefined,
+          });
+        }
+      } catch (e) {
+        this.logger.error(`Outcome-event derivation failed after publishing startup ${publishedEntityId}: ${e instanceof Error ? e.message : "unknown error"}`);
+      }
+    }
 
     await this.activity.log(item.userId, ActivityType.SUBMISSION_APPROVED, `"${saved.title ?? "Your listing"}" was approved and published`, "/my-organizations");
     return saved;
@@ -300,4 +353,13 @@ export class SubmissionsService {
       throw new BadRequestException({ message: messages.length ? messages : ["Submission payload is incomplete"], error: "Bad Request", statusCode: 400 });
     }
   }
+}
+
+/** A funding round's `date` is stored as "YYYY-MM" (no day-of-month is
+ * known — see FundingRound entity), but startup_outcome_events.eventDate
+ * is a real SQL date column. Day 1 of the reported month is used rather
+ * than guessing a specific day — already a "YYYY-MM-DD" string passes
+ * through unchanged. */
+function normalizeToFullDate(dateStr: string): string {
+  return /^\d{4}-\d{2}$/.test(dateStr) ? `${dateStr}-01` : dateStr;
 }

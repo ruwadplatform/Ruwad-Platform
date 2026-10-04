@@ -18,6 +18,7 @@ import { useToast } from "@/components/shell/ToastProvider";
 import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
 import { requireAuth } from "@/lib/store";
 import { fetchMyClaim, type Claim } from "@/lib/api/claims";
+import { fetchDataRoomStatus } from "@/lib/api/data-room";
 import { regBadgeClass } from "@/lib/widgets";
 import { initials } from "@/lib/scoring";
 import { useStartups, useInvestors } from "@/hooks/use-directory-data";
@@ -34,6 +35,17 @@ export function StartupProfilePage({ startup }: { startup: Startup }) {
   const toggleSaved = useToggleSaved();
   const { openModal } = useModal();
   const toast = useToast();
+  const [isOwner, setIsOwner] = useState(false);
+
+  // Drives ScoreCard's owner-only "complete your information" nudge — the
+  // same isOwner flag DataRoomTab's own Data Room status check already
+  // returns, fetched separately here since the tab isn't always mounted.
+  useEffect(() => {
+    if (!loggedIn || !startup.entityId) return;
+    let live = true;
+    fetchDataRoomStatus("STARTUP", startup.entityId).then((r) => { if (live) setIsOwner(r.isOwner); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [loggedIn, startup.entityId]);
 
   function shareLink() {
     const url = `${location.origin}/startups/${startup.id}`;
@@ -78,7 +90,7 @@ export function StartupProfilePage({ startup }: { startup: Startup }) {
       </div>
       <div className="mt-24">
         {tab === "Overview" ? (
-          <Overview s={startup} loggedIn={loggedIn} />
+          <Overview s={startup} loggedIn={loggedIn} isOwner={isOwner} />
         ) : (
           <div className="profile-body" style={{ gridTemplateColumns: "1fr" }}>
             <div><TabBody tab={tab} s={startup} loggedIn={loggedIn} /></div>
@@ -133,7 +145,7 @@ function ClaimCta({ entityId, startupName, verified, hasPendingClaim, loggedIn }
   );
 }
 
-function Overview({ s, loggedIn }: { s: Startup; loggedIn: boolean }) {
+function Overview({ s, loggedIn, isOwner }: { s: Startup; loggedIn: boolean; isOwner?: boolean }) {
   const { data: allStartups } = useStartups();
   const { hydrated } = useSession();
   return (
@@ -164,7 +176,7 @@ function Overview({ s, loggedIn }: { s: Startup; loggedIn: boolean }) {
           </div>
         </div>
       </div>
-      <div><ScoreCard score={s.score} sub={s.sub} category={s.category} peers={allStartups} loggedIn={loggedIn} /></div>
+      <div><ScoreCard score={s.ruwadScore} status={s.scoreStatus} confidence={s.scoreConfidence} factors={s.factors} category={s.category} peers={allStartups} loggedIn={loggedIn} isOwner={isOwner} /></div>
     </div>
   );
 }

@@ -5,6 +5,9 @@ class TeamMemberDto {
   @IsString() name!: string;
   @IsString() title!: string;
   @IsOptional() @IsBoolean() isFounder?: boolean;
+  @IsOptional() @IsInt() @Min(0) @Max(80) experienceYears?: number;
+  @IsOptional() @IsInt() @Min(0) @Max(80) healthcareExperienceYears?: number;
+  @IsOptional() @IsBoolean() previousStartupExperience?: boolean;
 }
 class FundingRoundDto {
   @IsString() round!: string;

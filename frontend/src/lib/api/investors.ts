@@ -3,7 +3,7 @@ import { logoUrl } from "./uploads";
 import type { Investor } from "@/types/entities";
 
 interface RawPortfolioStartup {
-  id: string; slug: string; name: string; logo: string; logoImageId?: string | null; category: string; city: string; tagline: string; stage: string; score: number;
+  id: string; slug: string; name: string; logo: string; logoImageId?: string | null; category: string; city: string; tagline: string; stage: string; ruwadScore: number | null;
   round?: string | null; year?: number | null;
 }
 

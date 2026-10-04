@@ -43,7 +43,8 @@ function startupTokenMatches(s: Startup, key: string, value: string): boolean {
 }
 
 const SORTERS: Record<SortKey, (a: Startup, b: Startup) => number> = {
-  score: (a, b) => b.score - a.score,
+  // A null score (not yet calculated) sorts last, never to the top.
+  score: (a, b) => (b.ruwadScore ?? -Infinity) - (a.ruwadScore ?? -Infinity),
   funding: (a, b) => b.fundingTotal - a.fundingTotal,
   founded: (a, b) => b.founded - a.founded,
   name: (a, b) => a.name.localeCompare(b.name),
@@ -192,7 +193,7 @@ function StartupGridCard({ s }: { s: Startup }) {
       href={`/startups/${s.id}`} logo={s.logo} logoUrl={s.logoUrl} name={s.name} subtitle={`${s.city} · ${s.category}`} desc={s.tagline}
       kind="startups" id={s.id}
       meta={<><span className={`badge ${regBadgeClass(s.regulatory.sfda)}`}>{s.regulatory.sfda}</span><span className="tag">{s.stage}</span></>}
-      foot={<><span className="escore">{s.score}</span><span className="small muted">RUWĀD Score</span></>}
+      foot={<><span className="escore">{s.ruwadScore != null ? s.ruwadScore.toFixed(1) : "—"}</span><span className="small muted">RUWĀD Score</span></>}
     />
   );
 }
@@ -229,7 +230,7 @@ function StartupRow({ s }: { s: Startup }) {
       <td>{s.founded}</td>
       <td className="mono">SAR {s.fundingTotal}M</td>
       <td className="mono">{s.employees}</td>
-      <td className="score">{s.score}</td>
+      <td className="score">{s.ruwadScore != null ? s.ruwadScore.toFixed(1) : "—"}</td>
       <td className="cell-sub">{s.provenance.lastUpdated}</td>
       <td onClick={(e) => e.stopPropagation()}>
         <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("startups", s.id)}><RuwadIcon name="star" size={16} /></button>

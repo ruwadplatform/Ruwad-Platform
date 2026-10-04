@@ -7,7 +7,7 @@ export function fetchEcosystemSnapshot(): Promise<ApiEcosystemSnapshot> {
 
 export interface ChartDatum { l: string; v: number }
 
-export interface StartupActivityRow { id: string; slug: string; name: string; logo: string; category: string; fundingTotal: number; score: number; founded: number; provenanceLastUpdated: string }
+export interface StartupActivityRow { id: string; slug: string; name: string; logo: string; category: string; fundingTotal: number; ruwadScore: number | null; scoreStatus: string; founded: number; provenanceLastUpdated: string }
 export interface RecentFundingRoundRow { startup: string; startupId: string; startupSlug: string; round: string; date: string; amount: number; lead: string }
 
 export interface AnalyticsOverview extends ApiEcosystemSnapshot {

@@ -1,6 +1,6 @@
 import { api, isNotFound } from "./client";
 import { logoUrl } from "./uploads";
-import type { Startup } from "@/types/entities";
+import type { ScoreFactors, Startup } from "@/types/entities";
 
 /** Maps the backend's flat, normalized /startups response onto the exact
  * `Startup` shape the (unmodified) directory/profile UI already expects —
@@ -19,7 +19,7 @@ interface RawStartup {
   legalName?: string; formerName?: string; website?: string; email?: string; phone?: string; linkedin?: string; registrationNumber?: string;
   verified?: Startup["verified"];
   hasPendingClaim?: boolean;
-  score: number; scoreGrowth?: number; scoreFinancial?: number; scoreMarket?: number; scoreTeam?: number; scoreRegulatory?: number; scoreTech?: number;
+  ruwadScore: number | null; scoreStatus: Startup["scoreStatus"]; scoreConfidence?: number | null; scoreVersion?: string | null; factors?: ScoreFactors;
   provenanceConfidence?: Startup["provenance"]["confidence"]; provenanceLastUpdated: string; provenanceSources?: string[];
   traction?: Startup["traction"] | null;
   newsItems?: Startup["newsItems"];
@@ -32,6 +32,8 @@ interface RawStartup {
 }
 
 const emptyTraction = (): Startup["traction"] => ({ revenue: "—", growth: "—", customers: "—", users: "—", partnerships: 0, pilots: 0, markets: "—", awards: "—" });
+const emptyFactor = { score: null, confidence: 0 } as const;
+const emptyFactors = (): ScoreFactors => ({ growth: emptyFactor, financial: emptyFactor, market: emptyFactor, team: emptyFactor, regulatory: emptyFactor, technology: emptyFactor });
 
 function mapStartup(r: RawStartup): Startup {
   return {
@@ -53,7 +55,8 @@ function mapStartup(r: RawStartup): Startup {
     valuation: Number(r.valuation ?? 0),
     fundraising: !!r.fundraising,
     targetRaise: r.targetRaise,
-    sub: { growth: r.scoreGrowth ?? 0, financial: r.scoreFinancial ?? 0, market: r.scoreMarket ?? 0, team: r.scoreTeam ?? 0, regulatory: r.scoreRegulatory ?? 0, tech: r.scoreTech ?? 0 },
+    ruwadScore: r.ruwadScore, scoreStatus: r.scoreStatus ?? "NOT_CALCULATED", scoreConfidence: r.scoreConfidence ?? null, scoreVersion: r.scoreVersion ?? null,
+    factors: r.factors ?? emptyFactors(),
     desc: r.desc ?? "",
     problem: r.problem ?? "",
     solution: r.solution ?? "",
@@ -79,7 +82,6 @@ function mapStartup(r: RawStartup): Startup {
     verified: r.verified ?? "unclaimed",
     hasPendingClaim: r.hasPendingClaim ?? false,
     provenance: { lastUpdated: r.provenanceLastUpdated, sources: r.provenanceSources ?? [], confidence: r.provenanceConfidence ?? "Medium" },
-    score: r.score,
   };
 }
 

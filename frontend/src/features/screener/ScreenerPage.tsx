@@ -20,12 +20,12 @@ interface ScreenerRow {
   stageList: string[];
   route: string;
   metricLabel: string;
-  metric: number;
+  metric: number | null;
 }
 
 function screenerRows(types: Record<EntityType, boolean>, STARTUPS: Startup[], INVESTORS: Investor[], MULTINATIONALS: Multinational[]): ScreenerRow[] {
   const rows: ScreenerRow[] = [];
-  if (types.Startup) STARTUPS.forEach((s) => rows.push({ type: "Startup", name: s.name, sub: s.tagline, category: s.category, city: s.city, stageList: [s.stage], route: `/startups/${s.id}`, metricLabel: "RUWĀD Score", metric: s.score }));
+  if (types.Startup) STARTUPS.forEach((s) => rows.push({ type: "Startup", name: s.name, sub: s.tagline, category: s.category, city: s.city, stageList: [s.stage], route: `/startups/${s.id}`, metricLabel: "RUWĀD Score", metric: s.ruwadScore }));
   if (types.Multinational) MULTINATIONALS.forEach((m) => rows.push({ type: "Multinational", name: m.name, sub: m.tagline, category: m.category, city: m.city, stageList: [], route: `/multinationals/${m.id}`, metricLabel: "R&D Centers", metric: m.rdCenters }));
   if (types.Investor) INVESTORS.forEach((v) => rows.push({ type: "Investor", name: v.name, sub: v.type, category: v.hcFocus.join(", "), city: v.city, stageList: v.stageFocus, route: `/investors/${v.id}`, metricLabel: "Deals", metric: v.investments }));
   return rows;
@@ -56,7 +56,8 @@ export function ScreenerPage() {
     if (filters.category.length) list = list.filter((r) => filters.category.some((c) => r.category.includes(c)));
     if (filters.location.length) list = list.filter((r) => filters.location.includes(r.city));
     if (filters.stage.length) list = list.filter((r) => filters.stage.some((st) => r.stageList.includes(st)));
-    return list.sort((a, b) => b.metric - a.metric);
+    // A null metric (e.g. a not-yet-scored startup) sorts last, never to the top.
+    return list.sort((a, b) => (b.metric ?? -Infinity) - (a.metric ?? -Infinity));
   }, [STARTUPS, INVESTORS, MULTINATIONALS, types, query, filters]);
 
   const activeTypeCount = Object.values(types).filter(Boolean).length;
@@ -106,7 +107,7 @@ export function ScreenerPage() {
                   <td>{r.category || "—"}</td>
                   <td>{r.city}</td>
                   <td>{r.stageList.join(", ") || "—"}</td>
-                  <td className="mono">{r.metric} <span className="cell-sub">{r.metricLabel}</span></td>
+                  <td className="mono">{r.metric != null ? (r.type === "Startup" ? r.metric.toFixed(1) : r.metric) : "—"} <span className="cell-sub">{r.metricLabel}</span></td>
                 </tr>
               ))}
             </tbody>

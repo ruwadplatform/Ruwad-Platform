@@ -17,10 +17,6 @@ export function initials(name: string): string {
     .toUpperCase();
 }
 
-export function compositeScore(scores: number[]): number {
-  return Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10);
-}
-
 /** Same "slug, slug-2, slug-3…" uniqueness loop every directory service
  * already has, generalized to run against an arbitrary EntityManager/repo
  * so it can execute inside a submission-approval transaction (the five

@@ -23,6 +23,14 @@ export function num(v: unknown, fallback = 0): number {
   const n = typeof v === "number" ? v : Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
+/** Like num(), but a missing/invalid value stays undefined instead of
+ * becoming 0 — for optional scoring-feature reads, where "not reported" and
+ * "reported as zero" must never be conflated. */
+export function numOrUndefined(v: unknown): number | undefined {
+  if (v === undefined || v === null || v === "") return undefined;
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
 export function bool(v: unknown, fallback = false): boolean {
   return typeof v === "boolean" ? v : fallback;
 }
