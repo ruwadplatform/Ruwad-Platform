@@ -5,6 +5,7 @@
  * stubs — out of scope for the backend migration. Data Room / submission
  * drafts stay stubbed to a clean/empty state until that subsystem grows a
  * real frontend. */
+import { createResourceCacheCore } from "./resource-cache-core";
 import { flushSync } from "react-dom";
 import * as authApi from "./api/auth";
 import * as watchlistApi from "./api/watchlist";
@@ -69,46 +70,14 @@ export function subscribeStoreChange(onChange: () => void): () => void {
  * useSyncExternalStore's synchronous getSnapshot() and the fact that real
  * data now requires a network round trip. First read triggers a fetch in
  * the background and returns the fallback immediately; once the fetch
- * resolves, the cache updates and notifyStoreChange() triggers a re-render. */
+ * resolves, the cache updates and notifyStoreChange() triggers a re-render.
+ *
+ * A failed fetch is NOT retried by re-rendering: the shared core classifies
+ * the error, retries transient ones a bounded number of times with backoff
+ * and gives up on permanent ones (401/403/404...) — see
+ * lib/resource-cache-core.ts. */
 function createResourceCache<T>(fallback: T) {
-  let value = fallback;
-  let loaded = false;
-  let loading = false;
-  return {
-    get(): T {
-      return value;
-    },
-    isLoaded(): boolean {
-      return loaded;
-    },
-    set(v: T): void {
-      value = v;
-      loaded = true;
-      notifyStoreChange();
-    },
-    reset(): void {
-      value = fallback;
-      loaded = false;
-      loading = false;
-    },
-    ensureLoaded(fetcher: () => Promise<T>): void {
-      if (loaded || loading) return;
-      loading = true;
-      fetcher()
-        .then((v) => {
-          value = v;
-          loaded = true;
-        })
-        .catch(() => {
-          // leave the fallback in place — the next ensureLoaded() call (e.g.
-          // triggered by a re-render) will retry
-        })
-        .finally(() => {
-          loading = false;
-          notifyStoreChange();
-        });
-    },
-  };
+  return createResourceCacheCore(fallback, { notify: notifyStoreChange });
 }
 
 /* ------------------------------------------------------------------- SESSION
