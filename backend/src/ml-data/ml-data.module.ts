@@ -51,6 +51,11 @@ import { MlReadinessDashboardService } from "./ml-readiness-dashboard.service";
 import { FounderHistoricalDataController } from "./founder-historical-data.controller";
 import { ReadinessAdminController } from "./readiness-admin.controller";
 import { OrganizationsModule } from "../organizations/organizations.module";
+import { TeamMember } from "../directory-shared/team-member.entity";
+import { Investment } from "../investments/investment.entity";
+import { FeatureDerivationService } from "../scoring/feature-derivation.service";
+import { MlExperimentalInferenceService } from "./ml-experimental-inference.service";
+import { ExperimentalMlController } from "./experimental-ml.controller";
 
 /** Phase 1C/2A — ML training-data infrastructure, model registry and
  * shadow-prediction serving. Deliberately does NOT import ScoringModule
@@ -64,15 +69,16 @@ import { OrganizationsModule } from "../organizations/organizations.module";
   imports: [TypeOrmModule.forFeature([
     Startup, StartupScoringFeatures, StartupScoreHistory, StartupOutcomeEvent, StartupMlFeatureSnapshot, MlModel, MlTrainingRun, MlPrediction,
     HistoricalEvidence, HistoricalEvidenceAudit, StartupExternalIdentity, HistoricalImportBatch, HistoricalImportRow, HistoricalCohort, HistoricalCohortMember,
-    StartupFeatureApplicability, StartupOutcomeCoverage, StartupFounderCareer, HistoricalSubmission, FundingRound, DocumentRef,
+    StartupFeatureApplicability, StartupOutcomeCoverage, StartupFounderCareer, HistoricalSubmission, FundingRound, DocumentRef, TeamMember, Investment,
   ]), OrganizationsModule],
   providers: [
     OutcomeEventsService, MlSnapshotService, MlDataQualityService, MlCoverageService, MlClassBalanceService, MlReadinessService, MlDatasetExportService,
     MlInferenceClient, MlModelRegistryService, MlTrainingRunService, MlShadowPredictionService,
     StartupIdentityMatchingService, HistoricalEvidenceService, HistoricalImportBatchService, HistoricalSnapshotBuilder, HistoricalCohortService, HistoricalDataQualityService,
     MlTrainingDataService, FeatureApplicabilityService, OutcomeCoverageService, HistoricalSubmissionService, HistoricalContextService, MlReadinessDashboardService,
+    FeatureDerivationService, MlExperimentalInferenceService,
   ],
-  controllers: [MlDataController, OutcomeEventsController, MlModelsController, HistoricalDataController, ReadinessAdminController, FounderHistoricalDataController],
-  exports: [OutcomeEventsService, MlSnapshotService, MlInferenceClient, MlModelRegistryService, MlShadowPredictionService],
+  controllers: [MlDataController, OutcomeEventsController, MlModelsController, HistoricalDataController, ReadinessAdminController, FounderHistoricalDataController, ExperimentalMlController],
+  exports: [OutcomeEventsService, MlSnapshotService, MlInferenceClient, MlModelRegistryService, MlShadowPredictionService, MlExperimentalInferenceService],
 })
 export class MlDataModule {}

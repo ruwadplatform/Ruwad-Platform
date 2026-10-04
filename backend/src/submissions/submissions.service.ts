@@ -165,7 +165,7 @@ export class SubmissionsService {
       submissionId: id, eventType: wasResubmit ? SubmissionEventType.RESUBMITTED : SubmissionEventType.SUBMITTED, actorUserId: userId,
     }));
     await this.activity.log(userId, wasResubmit ? ActivityType.SUBMISSION_RESUBMITTED : ActivityType.SUBMISSION_SENT,
-      `${wasResubmit ? "Resubmitted" : "Submitted"} "${saved.title ?? "a listing"}" for review`, "/submissions");
+      `${wasResubmit ? "Resubmitted" : "Submitted"} "${saved.title ?? "a listing"}"${saved.kind === EntityKind.STARTUP ? "" : " for review"}`, "/submissions");
 
     // Phase 1 of email notifications only covers new Startup registrations —
     // an admin-workflow notification, so it's never gated by the
@@ -188,7 +188,7 @@ export class SubmissionsService {
       }
     }
 
-    return saved;
+    return this.autoPublishStartup(saved);
   }
 
   // ------------------------------------------------------------- admin-side
@@ -238,7 +238,26 @@ export class SubmissionsService {
     this.assertTransition(item.status, SubmissionStatus.APPROVED);
     if (item.userId === adminUserId) throw new ForbiddenException("You cannot approve your own submission");
     await this.assertPayloadValid(item.kind, item.payload);
+    return this.publishItem(item, { reviewerUserId: adminUserId });
+  }
 
+  /** Startup submissions are published the moment they are submitted — no admin step stands between a founder and their RUWĀD
+   * assessment. The same publish path an admin approval uses runs, with the submitter as owner. If publishing fails for any reason the
+   * submission simply stays SUBMITTED for an admin to pick up (the founder's submit has already succeeded), so this can never lose or
+   * half-publish a company. Other listing kinds (investors, hubs, research, multinationals) still require admin approval. */
+  private async autoPublishStartup(item: Submission): Promise<Submission> {
+    if (item.kind !== EntityKind.STARTUP || item.status !== SubmissionStatus.SUBMITTED) return item;
+    try {
+      return await this.publishItem(item, { reviewerUserId: null });
+    } catch (e) {
+      this.logger.error(`Auto-publish failed for submission ${item.id}; leaving it SUBMITTED for admin review: ${e instanceof Error ? e.message : "unknown error"}`);
+      return item;
+    }
+  }
+
+  private async publishItem(item: Submission, opts: { reviewerUserId: string | null }): Promise<Submission> {
+    const id = item.id;
+    const auto = opts.reviewerUserId === null;
     const publisher = this.publishersByKind.get(item.kind);
     if (!publisher) throw new BadRequestException(`No publisher registered for ${item.kind}`);
 
@@ -254,11 +273,12 @@ export class SubmissionsService {
       item.status = SubmissionStatus.APPROVED;
       item.publishedEntityId = entityId;
       item.reviewedAt = new Date();
-      item.reviewedByUserId = adminUserId;
+      if (opts.reviewerUserId) item.reviewedByUserId = opts.reviewerUserId;
       const savedSubmission = await manager.getRepository(Submission).save(item);
 
       await manager.getRepository(SubmissionReviewEvent).save(manager.getRepository(SubmissionReviewEvent).create({
-        submissionId: id, eventType: SubmissionEventType.APPROVED, actorUserId: adminUserId,
+        submissionId: id, eventType: SubmissionEventType.APPROVED, actorUserId: opts.reviewerUserId ?? item.userId,
+        message: auto ? "Published automatically on submission — no admin review required." : undefined,
       }));
 
       return savedSubmission;
@@ -268,7 +288,9 @@ export class SubmissionsService {
     // its own non-transactional repos, so calling it earlier could compute
     // against a startup id the rest of the app can't see yet. A failure here
     // never undoes the publish, matching how a failed notification below
-    // doesn't either.
+    // doesn't either. recalculateStartupScore() is also what hands the
+    // startup to the EXPERIMENTAL ML step (fire-and-forget, after the
+    // official score is saved), so one call is the whole assessment.
     if (item.kind === EntityKind.STARTUP) {
       try {
         // The wizard tags which scoring-relevant keys are still an untouched
@@ -311,7 +333,7 @@ export class SubmissionsService {
       }
     }
 
-    await this.activity.log(item.userId, ActivityType.SUBMISSION_APPROVED, `"${saved.title ?? "Your listing"}" was approved and published`, "/my-organizations");
+    await this.activity.log(item.userId, ActivityType.SUBMISSION_APPROVED, auto ? `"${saved.title ?? "Your listing"}" was published and is being assessed` : `"${saved.title ?? "Your listing"}" was approved and published`, "/my-organizations");
     return saved;
   }
 

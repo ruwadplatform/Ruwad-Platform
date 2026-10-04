@@ -14,6 +14,7 @@ import { initials, slugify } from "../common/slug.util";
 import { paginate, PaginatedResult } from "../common/pagination.dto";
 import { OrganizationsService } from "../organizations/organizations.service";
 import { ScoringService } from "../scoring/scoring.service";
+import { affectsScoring } from "./scoring-relevance";
 
 @Injectable()
 export class StartupsService {
@@ -68,6 +69,7 @@ export class StartupsService {
 
   async update(id: string, dto: UpdateStartupDto): Promise<Startup> {
     const startup = await this.findEntityOrThrow(id);
+    const reassess = affectsScoring(startup, dto);
     if (dto.name && dto.name !== startup.name) startup.slug = await this.uniqueSlug(dto.name, id);
     Object.assign(startup, {
       ...dto,
@@ -76,9 +78,12 @@ export class StartupsService {
     });
     const saved = await this.repo.save(startup);
     await this.applyRelations(id, dto);
-    await this.scoring.recalculateStartupScore(id, ScoreTrigger.STARTUP_UPDATED).catch((e) => {
-      this.logger.warn(`Rescoring failed for startup ${id}: ${e instanceof Error ? e.message : "unknown error"}`);
-    });
+    // Only a change that can move the score or the ML inputs starts a new assessment; a logo, link or wording edit does not.
+    if (reassess) {
+      await this.scoring.recalculateStartupScore(id, ScoreTrigger.STARTUP_UPDATED).catch((e) => {
+        this.logger.warn(`Rescoring failed for startup ${id}: ${e instanceof Error ? e.message : "unknown error"}`);
+      });
+    }
     return saved;
   }
 

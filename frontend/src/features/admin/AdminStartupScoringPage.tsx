@@ -15,6 +15,7 @@ import {
 import { ApiError } from "@/lib/api/client";
 import { REG_MILESTONES_DIGITAL_HEALTH, REG_MILESTONES_MEDICAL_DEVICE, REG_MILESTONES_THERAPEUTIC, MEDICAL_DEVICE_CATEGORIES, THERAPEUTIC_CATEGORIES, TRL_LABELS } from "@/data/reference";
 import type { ScoreFactorKey } from "@/types/entities";
+import { ExperimentalMlPanel } from "./ExperimentalMlPanel";
 
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong");
 
@@ -181,6 +182,8 @@ export function AdminStartupScoringPage({ id }: { id: string }) {
           <div className="stat-mini"><div className="sm-label">Calculated</div><div className="sm-val fs-15">{new Date(score.calculatedAt).toLocaleString()}</div></div>
         </div>
       </div>
+
+      <ExperimentalMlPanel startupId={id} />
 
       <div className="mt-16" style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
         {(Object.keys(FACTOR_LABELS) as ScoreFactorKey[]).map((key) => {

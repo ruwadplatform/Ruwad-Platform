@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     # --- Artifact storage ---
     artifact_dir: str = str(ML_DIR / "artifacts")
 
+    # --- Production artifact integrity (see app/inference/integrity.py) ---
+    # When true the service serves ONLY the model named by ML_EXPERIMENTAL_MODEL_VERSION, and only if its files match model_manifest.json
+    # byte for byte. /health then reports not-ready (503) if that model is missing or fails verification, and interactive docs are off.
+    require_verified_artifacts: bool = False
+    model_manifest_path: str = str(ML_DIR / "model_manifest.json")
+    ml_experimental_model_version: str = ""
+
     # --- FastAPI server ---
     port: int = 8001
     host: str = "127.0.0.1"

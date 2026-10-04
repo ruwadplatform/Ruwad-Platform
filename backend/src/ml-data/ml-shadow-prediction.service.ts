@@ -73,6 +73,8 @@ export class MlShadowPredictionService {
     let evaluated = 0;
     let stillImmature = 0;
     for (const pred of unevaluated) {
+      // Current-state EXPERIMENTAL predictions have no historical snapshot; MlExperimentalInferenceService evaluates those itself.
+      if (!pred.snapshotId || pred.modelStatus === MlModelStatus.EXPERIMENTAL) continue;
       const target = getTarget(pred.targetName);
       if (!target) continue;
       const snapshot = await this.snapshots.findOne({ where: { id: pred.snapshotId } });

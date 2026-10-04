@@ -73,6 +73,7 @@ export const TOP_NAV: NavGroup[] = [
       { label: "ML Data", icon: "bi", route: "/admin/ml-data", auth: true },
       { label: "ML Models", icon: "bi", route: "/admin/ml-models", auth: true },
       { label: "Historical Data", icon: "bi", route: "/admin/ml-data/historical", auth: true },
+      { label: "Experimental ML", icon: "bi", route: "/admin/ml-data/experimental", auth: true },
       { label: "Historical Entry Review", icon: "check", route: "/admin/ml-data/historical/review", auth: true },
     ],
   },

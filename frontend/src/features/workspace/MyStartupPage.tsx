@@ -16,6 +16,7 @@ import { fetchStartupBySlug } from "@/lib/api/startups";
 import { fetchDataRoomStatus, type DataRoomStatusResponse } from "@/lib/api/data-room";
 import { useKeyedResource } from "@/hooks/use-async-resource";
 import { useEffect, useState } from "react";
+import { StartupAssessmentSection } from "./StartupAssessmentSection";
 
 /** Unlike the directory-wide useStartups() hook (list summaries, cheap for
  * a grid), the founder/admin view needs full detail — team, rounds,
@@ -65,7 +66,7 @@ export function MyStartupPage() {
       <div>
         <IntelligencePageHeader title="My Startup" description="Your company's founder/admin management view." />
         <div className="mt-20">
-          <EmptyState icon="mystartup" title="No company linked to your account yet" body="Once your company profile is submitted and approved, its management view will appear here." />
+          <EmptyState icon="mystartup" title="No company linked to your account yet" body="Once you submit your company profile, its management view and your RUWĀD assessment will appear here." />
         </div>
       </div>
     );
@@ -114,6 +115,8 @@ export function MyStartupPage() {
           <div className="stat-mini"><div className="sm-label">Profile Views</div><div className="sm-val fs-15">{listing.views.toLocaleString()}</div></div>
         </div>
       )}
+
+      {s.entityId && <StartupAssessmentSection startupId={s.entityId} />}
 
       <div className="mt-20"><ProfileCompleteness checks={checks} /></div>
 

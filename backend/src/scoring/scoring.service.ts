@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger, Optional } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Startup } from "../startups/startup.entity";
@@ -20,6 +20,7 @@ import { FeatureDerivationService } from "./feature-derivation.service";
 import { MlSnapshotService } from "../ml-data/ml-snapshot.service";
 import { OutcomeEventsService } from "../ml-data/outcome-events.service";
 import { MlShadowPredictionService } from "../ml-data/ml-shadow-prediction.service";
+import { MlExperimentalInferenceService } from "../ml-data/ml-experimental-inference.service";
 
 const ENGINES: Record<FactorKey, (features: ScoringFeatures, startup: Startup) => FactorResult> = {
   growth: scoreGrowth,
@@ -47,6 +48,7 @@ export class ScoringService {
     private readonly mlSnapshots: MlSnapshotService,
     private readonly outcomeEvents: OutcomeEventsService,
     private readonly shadowPredictions: MlShadowPredictionService,
+    @Optional() private readonly experimental?: MlExperimentalInferenceService,
   ) {}
 
   async getFeatures(startupId: string): Promise<StartupScoringFeatures> {
@@ -79,6 +81,9 @@ export class ScoringService {
    * — a fresh extraction never silently clobbers a stronger existing value. */
   async mergeExtractedFeatures(startupId: string, patch: Partial<ScoringFeatures>, sourceDocumentId?: string): Promise<void> {
     await this.writeFeatures(startupId, patch, ScoreDataSource.PITCH_DECK_EXTRACTED, sourceDocumentId);
+    // New extracted facts are a reason to reassess: the engines (never the extractor) decide the score, and the ML step follows only if
+    // the stored features changed materially.
+    if (Object.keys(patch).length) await this.recalculateStartupScore(startupId, ScoreTrigger.PITCH_DECK_PROCESSED);
   }
 
   /** Publish-time entry point: a submission payload splits into what the
@@ -213,18 +218,25 @@ export class ScoringService {
       result = { ...emptyResult(), status: ScoreStatus.ERROR };
     }
 
-    const saved = await this.history.save(this.history.create({
+    // History is append-only and nothing is ever overwritten. A recalculation that lands on exactly the same result as the latest row
+    // (same status, score, confidence, version and factor detail) adds nothing new to say, so it is not recorded again; otherwise an
+    // unchanged resubmission or a no-op update would flood the history. Admin-initiated runs are always recorded, and so are errors.
+    const latestRow = await this.history.findOne({ where: { startupId }, order: { calculatedAt: "DESC" } });
+    const repeat = !!latestRow && result.status !== ScoreStatus.ERROR && !ALWAYS_RECORD.has(triggeredBy) && sameResult(latestRow, result);
+    const saved = repeat ? latestRow : await this.history.save(this.history.create({
       startupId, status: result.status, ruwadScore: result.ruwadScore ?? undefined, confidenceScore: result.confidenceScore ?? undefined,
       version: result.version, factors: result.factors, missingFactors: result.missingFactors, triggeredBy, calculatedAt: new Date(result.calculatedAt),
     }));
 
-    await this.startups.update(startupId, {
-      ruwadScore: saved.ruwadScore ?? undefined,
-      scoreStatus: saved.status,
-      scoreConfidence: saved.confidenceScore ?? undefined,
-      scoreVersion: saved.version,
-      scoreCalculatedAt: saved.calculatedAt,
-    });
+    if (!repeat) {
+      await this.startups.update(startupId, {
+        ruwadScore: saved.ruwadScore ?? undefined,
+        scoreStatus: saved.status,
+        scoreConfidence: saved.confidenceScore ?? undefined,
+        scoreVersion: saved.version,
+        scoreCalculatedAt: saved.calculatedAt,
+      });
+    }
 
     // Best-effort: an ML snapshotting failure must never block scoring
     // itself, same reasoning as the ML provider's own try/catch above.
@@ -245,6 +257,16 @@ export class ScoringService {
       } catch (e) {
         this.logger.warn(`Shadow prediction generation failed for ${startupId}, continuing: ${e instanceof Error ? e.message : "unknown error"}`);
       }
+    }
+
+    // EXPERIMENTAL live estimate: handed over after every reassessment, once the official score is saved. It is OFF unless
+    // ML_EXPERIMENTAL_INFERENCE_ENABLED=true, never awaited (a slow or dead ML service cannot delay scoring) and has no write path into
+    // `result` or `startups.ruwadScore`. Whether the model is actually asked again is decided there by the INPUT, not here: the same ML
+    // input vector (same model, schema and values) never produces a new call or a new row, so only a meaningful change to the ML inputs
+    // (including headcount, which the feature snapshot does not track) yields a new prediction. Cosmetic edits never reach this point
+    // (see startups/scoring-relevance.ts).
+    if (this.experimental) {
+      void this.experimental.onFeaturesChanged(startupId).catch((e) => this.logger.warn(`Experimental inference hook failed for ${startupId}, continuing: ${e instanceof Error ? e.message : "unknown error"}`));
     }
 
     return result;
@@ -269,6 +291,24 @@ export class ScoringService {
     }
     return out;
   }
+}
+
+const ALWAYS_RECORD = new Set<ScoreTrigger>([ScoreTrigger.ADMIN_RECALCULATION, ScoreTrigger.ADMIN_OVERRIDE]);
+
+/** Key-order-independent JSON, because jsonb returns object keys in a different order than the engines wrote them. */
+function stable(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+  if (value && typeof value === "object") {
+    const o = value as Record<string, unknown>;
+    return `{${Object.keys(o).filter((k) => o[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${stable(o[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(value ?? null);
+}
+
+function sameResult(row: StartupScoreHistory, result: ScoreResult): boolean {
+  const num = (v: unknown) => (v == null ? null : Number(v));
+  return row.status === result.status && num(row.ruwadScore) === num(result.ruwadScore) && num(row.confidenceScore) === num(result.confidenceScore)
+    && row.version === result.version && stable(row.factors) === stable(result.factors) && stable(row.missingFactors) === stable(result.missingFactors);
 }
 
 function compute(features: ScoringFeatures, startup: Startup): ScoreResult {

@@ -49,8 +49,15 @@ class BatchPredictResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: Literal["ok"]
+    status: Literal["ok", "degraded"]
     modelsAvailable: int
+    # Readiness of the explicitly configured model (null when none is configured). No paths, secrets or file contents.
+    modelLoaded: bool | None = None
+    modelVersion: str | None = None
+    statusType: Literal["EXPERIMENTAL"] | None = None
+    artifactVerified: bool | None = None
+    featureSchemaVersion: str | None = None
+    targetVersion: str | None = None
 
 
 class ModelSummary(BaseModel):
@@ -64,3 +71,44 @@ class ModelSummary(BaseModel):
 
 class ModelsResponse(BaseModel):
     models: list[ModelSummary]
+
+
+class ExperimentalPredictRequest(BaseModel):
+    startupId: str
+    featureSchemaVersion: str
+    features: dict[str, FeatureValue] = Field(default_factory=dict)
+    modelVersion: str
+
+
+class ExperimentalDriver(BaseModel):
+    feature: str
+    contribution: float
+    direction: Literal["UP", "DOWN"]
+
+
+class ExperimentalPredictResponse(BaseModel):
+    status: Literal["OK", "INSUFFICIENT_DATA"]
+    modelVersion: str
+    target: str
+    targetVersion: str
+    featureSchemaVersion: str
+    modelStatus: Literal["EXPERIMENTAL"] = "EXPERIMENTAL"
+    prediction: float | None = None
+    predictionType: Literal["PROBABILITY"] = "PROBABILITY"
+    reliability: Literal["VERY_LOW", "LOW"] | None = None
+    reliabilityReasons: list[str] = Field(default_factory=list)
+    featureCompleteness: float
+    populatedFeatures: list[str] = Field(default_factory=list)
+    missingFeatures: list[str] = Field(default_factory=list)
+    outOfRange: list[str] = Field(default_factory=list)
+    invalidFeatures: list[str] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+    trainingRows: int
+    trainingPositives: int | None = None
+    trainingNegatives: int | None = None
+    algorithm: str
+    datasetVersion: str | None = None
+    calibration: str = "NOT_RELIABLE_AT_CURRENT_SAMPLE_SIZE"
+    drivers: list[ExperimentalDriver] = Field(default_factory=list)
+    driversNote: str | None = None
+    warnings: list[str] = Field(default_factory=list)

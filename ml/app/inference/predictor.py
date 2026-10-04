@@ -19,6 +19,13 @@ class SchemaMismatchError(ValueError):
         super().__init__(f'Feature schema mismatch: model expects "{expected}", request has "{got}"')
 
 
+class ExperimentalModelNotServedError(ValueError):
+    """Experimental models are served ONLY by /predict/experimental (admin-internal, with its own gates), never by the generic /predict paths."""
+
+    def __init__(self, model_version: str):
+        super().__init__(f'Model "{model_version}" is EXPERIMENTAL and can only be served by /predict/experimental')
+
+
 class ModelNotFoundError(ValueError):
     def __init__(self, model_version: str):
         super().__init__(f'Unknown model version "{model_version}"')
@@ -52,6 +59,8 @@ def predict_one(loader: ModelLoader, request: PredictRequest) -> PredictResponse
     loaded = loader.get(request.modelVersion)
     if loaded is None:
         raise ModelNotFoundError(request.modelVersion)
+    if loaded.metadata.is_experimental:
+        raise ExperimentalModelNotServedError(request.modelVersion)
     if loaded.metadata.feature_schema_version != request.featureSchemaVersion:
         raise SchemaMismatchError(loaded.metadata.feature_schema_version, request.featureSchemaVersion)
 

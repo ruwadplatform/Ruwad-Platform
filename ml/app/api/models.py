@@ -4,11 +4,13 @@ this service actually have on disk right now."
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
 from ..inference.schemas import ModelsResponse, ModelSummary
+from .auth import verify_service_token
 
-router = APIRouter()
+# Introspection is for the trusted backend / operators only, never anonymous.
+router = APIRouter(dependencies=[Depends(verify_service_token)])
 
 
 @router.get("/models", response_model=ModelsResponse)
