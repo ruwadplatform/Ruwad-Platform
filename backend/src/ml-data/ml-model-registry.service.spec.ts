@@ -71,6 +71,24 @@ describe("MlModelRegistryService", () => {
       await expect(svc.updateStatus(testOnly.id, MlModelStatus.SHADOW)).rejects.toThrow(BadRequestException);
     });
 
+    it("an EXPERIMENTAL model (real data below the production gate) can never be promoted: only retired or rejected", async () => {
+      const exp = await svc.register(dto({ isExperimental: true }));
+      expect(exp.status).toBe(MlModelStatus.EXPERIMENTAL);
+      for (const next of [MlModelStatus.CANDIDATE, MlModelStatus.SHADOW, MlModelStatus.ACTIVE]) {
+        await expect(svc.updateStatus(exp.id, next)).rejects.toThrow(BadRequestException);
+      }
+      expect((await svc.updateStatus(exp.id, MlModelStatus.RETIRED)).status).toBe(MlModelStatus.RETIRED);
+    });
+
+    it("an experimental model is never eligible for shadow-prediction traffic", async () => {
+      await svc.register(dto({ isExperimental: true }));
+      expect(await svc.findEligibleForShadowPrediction()).toHaveLength(0);
+    });
+
+    it("a model cannot be both synthetic TEST_ONLY and EXPERIMENTAL", async () => {
+      await expect(svc.register(dto({ isTestOnly: true, isExperimental: true }))).rejects.toThrow(BadRequestException);
+    });
+
     it("a new (CANDIDATE) model can never jump straight to ACTIVE, only to SHADOW or REJECTED", async () => {
       const candidate = await svc.register(dto());
       await expect(svc.updateStatus(candidate.id, MlModelStatus.ACTIVE)).rejects.toThrow(BadRequestException);

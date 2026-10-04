@@ -95,6 +95,10 @@ class RuwadClient:
             params["verifiedOnly"] = "true"
         return self._get("/ml-data/export", params=params)
 
+    # ---- Phase 3A: readiness dashboard (provenance / coverage summary for dataset manifests) ----
+    def fetch_readiness_dashboard(self) -> dict[str, Any]:
+        return self._get("/ml-data/historical/readiness-dashboard")
+
     # ---- Phase 2A endpoints (registry + training runs) ----
     def register_model(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._post("/ml-data/models", payload)

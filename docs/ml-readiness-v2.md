@@ -42,3 +42,20 @@ Supporting documents are referenced through the existing Data Room document list
 ## 6. Privacy
 
 Historical financial/customer data is internal: owner-or-admin routes, admin review/dashboard routes, no field in any public startup payload. Founder names and role history are never exported.
+
+## 7. Experimental models and frozen datasets
+
+Production training stays blocked until Readiness V2 passes. A separate, clearly-labelled **experimental** path exists for exploring real data below the gate:
+
+- **Frozen dataset versions** (`ml/datasets/<version>/`, local, git-ignored): `dataset.csv` + `manifest.json` (version, readiness version, target and target version, eligibility and selection rules, row/positive/negative counts, excluded counts, coverage, provenance summary, Phase 3A git commit, SHA-256). Write-once; never overwritten. Only training-ELIGIBLE, labelled rows; `startupStage` is dropped because historical snapshots store the startup's *current* stage (it would leak later funding).
+- **`python -m app.training.experimental --dataset <dir>`**: needs both classes, otherwise it stops with `EXPERIMENTAL TRAINING BLOCKED: single-class dataset`. Evaluation is grouped leave-one-startup-out cross-validation with pooled out-of-fold metrics; per-fold metrics are `NOT_EVALUABLE`; a startup-level bootstrap shows the uncertainty; calibration is refused below 100 rows / 20 positives (`CALIBRATION NOT RELIABLE AT CURRENT SAMPLE SIZE`); SHAP is labelled exploratory.
+- Models register as **`EXPERIMENTAL`**: the registry refuses any move to CANDIDATE, SHADOW or ACTIVE (only RETIRED/REJECTED), they are never served shadow predictions, and their metrics carry `production: false`, `mlWeight: 0`.
+- **Retraining plan**: this is Experimental Model v1. When more defensible eligible snapshots exist, freeze Dataset v2, retrain, and compare v1 against v2 (then v3). Earlier versions are never overwritten.
+
+### Retraining policy (experimental)
+
+- **Normal trigger:** freeze a new dataset version and retrain **Experimental v2 after +25 to +50 new defensible TRAINING_ELIGIBLE snapshots** (labelled, with attested outcome coverage), measured against the row count of the previous frozen version.
+- **Earlier retraining only for:** a major feature-schema change, a target-definition change, or a serious data-correction issue that alters labels or features already in a frozen version.
+- **Never overwrite v1.** Each version is write-once and each model records its dataset version and hash.
+- **Sequence:** Dataset v1 → Experimental Model v1; Dataset v2 → Experimental Model v2; Dataset v3 → Experimental Model v3. Compare each against the previous one; no version replaces another.
+- Retraining does not change the production gate (200 usable / 40 positive / 40 negative / 60% coverage), and an experimental model never influences the public RUWAD Score (`ML_WEIGHT = 0`).

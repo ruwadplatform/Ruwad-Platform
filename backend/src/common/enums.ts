@@ -295,6 +295,11 @@ export enum LabelStatus {
  * structurally preventing a synthetic model from ever reaching `ACTIVE`. */
 export enum MlModelStatus {
   TEST_ONLY = "TEST_ONLY",
+  /** Trained on REAL data below the production readiness gate, for exploration
+   * only. Terminal apart from RETIRED/REJECTED: it can never become CANDIDATE,
+   * SHADOW or ACTIVE, and is never served shadow predictions. A production model
+   * must be trained separately once Readiness V2 passes. */
+  EXPERIMENTAL = "EXPERIMENTAL",
   CANDIDATE = "CANDIDATE",
   SHADOW = "SHADOW",
   ACTIVE = "ACTIVE",

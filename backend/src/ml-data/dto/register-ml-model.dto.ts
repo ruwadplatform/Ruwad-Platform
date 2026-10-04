@@ -19,5 +19,7 @@ export class RegisterMlModelDto {
   @IsOptional() @IsObject() metrics?: Record<string, unknown>;
   @IsString() artifactLocation!: string;
   @IsOptional() @IsBoolean() isTestOnly?: boolean;
+  /** Exploratory run on real data below the production readiness gate -> registered as EXPERIMENTAL (never promotable). */
+  @IsOptional() @IsBoolean() isExperimental?: boolean;
   @IsOptional() @IsDateString() trainedAt?: string;
 }

@@ -12,6 +12,8 @@ import { RegisterMlModelDto } from "./dto/register-ml-model.dto";
  * VALID_TRANSITIONS pattern. */
 const VALID_TRANSITIONS: Record<MlModelStatus, MlModelStatus[]> = {
   [MlModelStatus.TEST_ONLY]: [],
+  // Experimental (real data, below the production gate): never promotable, only withdrawn.
+  [MlModelStatus.EXPERIMENTAL]: [MlModelStatus.RETIRED, MlModelStatus.REJECTED],
   [MlModelStatus.CANDIDATE]: [MlModelStatus.SHADOW, MlModelStatus.REJECTED],
   [MlModelStatus.SHADOW]: [MlModelStatus.ACTIVE, MlModelStatus.RETIRED, MlModelStatus.REJECTED],
   [MlModelStatus.ACTIVE]: [MlModelStatus.RETIRED],
@@ -32,13 +34,14 @@ export class MlModelRegistryService {
   }
 
   /** Registers a newly-trained model. Never trusts a caller-supplied
-   * status — always CANDIDATE, or TEST_ONLY when the training run itself
-   * is flagged synthetic. This is the one place "a new model never starts
+   * status — always CANDIDATE, TEST_ONLY when the training run itself
+   * is flagged synthetic, or EXPERIMENTAL when it is flagged as an exploratory run on real data below the production gate. This is the one place "a new model never starts
    * ACTIVE" is enforced at the write layer, not left to convention. */
   async register(dto: RegisterMlModelDto): Promise<MlModel> {
     const existing = await this.findByVersion(dto.modelVersion);
     if (existing) throw new ConflictException(`Model version "${dto.modelVersion}" is already registered`);
-    const status = dto.isTestOnly ? MlModelStatus.TEST_ONLY : MlModelStatus.CANDIDATE;
+    if (dto.isTestOnly && dto.isExperimental) throw new BadRequestException("A model cannot be both TEST_ONLY (synthetic) and EXPERIMENTAL (real data).");
+    const status = dto.isTestOnly ? MlModelStatus.TEST_ONLY : dto.isExperimental ? MlModelStatus.EXPERIMENTAL : MlModelStatus.CANDIDATE;
     const row = this.repo.create({
       modelVersion: dto.modelVersion, targetName: dto.targetName, targetVersion: dto.targetVersion,
       featureSchemaVersion: dto.featureSchemaVersion, algorithm: dto.algorithm,

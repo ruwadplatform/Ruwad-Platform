@@ -16,9 +16,9 @@ from .artifact_store import ArtifactStore
 from .metadata import ModelMetadata
 
 
-def build_model_version(target_name: str, window_months: int, algorithm: str, *, is_test_only: bool = False) -> str:
+def build_model_version(target_name: str, window_months: int, algorithm: str, *, is_test_only: bool = False, is_experimental: bool = False) -> str:
     ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    prefix = "test-" if is_test_only else ""
+    prefix = "test-" if is_test_only else ("exp-" if is_experimental else "")
     return f"{prefix}{target_name}-{window_months}m-{algorithm}-{ts}"
 
 
@@ -40,6 +40,7 @@ def register_trained_model(
         "validationRows": metadata.validation_rows, "testRows": metadata.test_rows,
         "trainingPeriodStart": training_period_start, "trainingPeriodEnd": training_period_end,
         "metrics": metadata.metrics, "artifactLocation": metadata.model_version, "isTestOnly": metadata.is_test_only,
+        "isExperimental": metadata.is_experimental,
         "trainedAt": metadata.trained_at,
     }
     return client.register_model(payload)

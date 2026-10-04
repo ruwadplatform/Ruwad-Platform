@@ -135,7 +135,7 @@ export const createStartupOutcomeEvent = (startupId: string, input: CreateOutcom
 // See docs/ml-training-methodology.md. None of this ever touches the public
 // RUWĀD Score — it's internal tooling for reviewing/promoting shadow models.
 
-export type MlModelStatus = "TEST_ONLY" | "CANDIDATE" | "SHADOW" | "ACTIVE" | "RETIRED" | "REJECTED";
+export type MlModelStatus = "TEST_ONLY" | "EXPERIMENTAL" | "CANDIDATE" | "SHADOW" | "ACTIVE" | "RETIRED" | "REJECTED";
 export type MlTrainingRunStatus = "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "BLOCKED_NOT_READY";
 export type MlPredictionType = "PROBABILITY" | "REGRESSION_VALUE";
 

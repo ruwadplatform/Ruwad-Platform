@@ -17,11 +17,11 @@ import { ApiError } from "@/lib/api/client";
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong");
 
 const STATUS_LABEL: Record<MlModelStatus, string> = {
-  TEST_ONLY: "Test Only", CANDIDATE: "Candidate", SHADOW: "Shadow", ACTIVE: "Active", RETIRED: "Retired", REJECTED: "Rejected",
+  TEST_ONLY: "Test Only", EXPERIMENTAL: "Experimental", CANDIDATE: "Candidate", SHADOW: "Shadow", ACTIVE: "Active", RETIRED: "Retired", REJECTED: "Rejected",
 };
 function ModelStatusBadge({ status }: { status: MlModelStatus }) {
   const cls: Record<MlModelStatus, string> = {
-    TEST_ONLY: "badge-neutral", CANDIDATE: "badge-info", SHADOW: "badge-warn", ACTIVE: "badge-good", RETIRED: "badge-neutral", REJECTED: "badge-crit",
+    TEST_ONLY: "badge-neutral", EXPERIMENTAL: "badge-gold", CANDIDATE: "badge-info", SHADOW: "badge-warn", ACTIVE: "badge-good", RETIRED: "badge-neutral", REJECTED: "badge-crit",
   };
   return <span className={`badge ${cls[status]}`}>{STATUS_LABEL[status]}</span>;
 }
@@ -37,7 +37,7 @@ function RunStatusBadge({ status }: { status: MlTrainingRun["status"] }) {
 // backend enforces this regardless, this is just so a rejected click never
 // surprises an admin.
 const NEXT_STATUSES: Record<MlModelStatus, MlModelStatus[]> = {
-  TEST_ONLY: [], CANDIDATE: ["SHADOW", "REJECTED"], SHADOW: ["ACTIVE", "RETIRED", "REJECTED"], ACTIVE: ["RETIRED"], RETIRED: [], REJECTED: [],
+  TEST_ONLY: [], EXPERIMENTAL: ["RETIRED", "REJECTED"], CANDIDATE: ["SHADOW", "REJECTED"], SHADOW: ["ACTIVE", "RETIRED", "REJECTED"], ACTIVE: ["RETIRED"], RETIRED: [], REJECTED: [],
 };
 
 function metricSummary(metrics: Record<string, unknown>): string {
