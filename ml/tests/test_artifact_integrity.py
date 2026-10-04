@@ -95,10 +95,33 @@ def test_an_untouched_packaged_artifact_verifies(prod):
     assert r.ok and r.problems == []
 
 
+def test_verification_does_not_depend_on_line_endings(prod):
+    """Windows git (autocrlf) checks JSON out with CRLF, Linux with LF: the same artifact must verify on both."""
+    manifest = load_manifest(prod["manifest"])
+    for name in ("metadata.json", "training_profile.json"):
+        path = prod["dest"] / V / name
+        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    assert verify_model(prod["dest"], manifest, V).ok
+    # ...but a real content change is still caught
+    path = prod["dest"] / V / "training_profile.json"
+    path.write_bytes(path.read_bytes().replace(b"15", b"16"))
+    assert not verify_model(prod["dest"], manifest, V).ok
+
+
+def test_the_committed_json_files_use_lf_and_are_pinned_against_conversion():
+    d = ML_DIR / "model_artifacts" / REAL_V
+    for name in ("metadata.json", "training_profile.json"):
+        assert b"\r\n" not in (d / name).read_bytes(), f"{name} must be committed with LF line endings"
+    assert b"\r\n" not in (ML_DIR / "model_manifest.json").read_bytes()
+    attrs = (ML_DIR / ".gitattributes").read_text()
+    assert "model_artifacts/** -text" in attrs
+
+
 def test_the_packaged_files_are_byte_identical_to_the_trained_ones(prod):
     src = prod["tmp"] / "src" / V
-    for name in ("estimator.joblib", "preprocessor.joblib", "metadata.json"):
+    for name in ("estimator.joblib", "preprocessor.joblib"):
         assert (src / name).read_bytes() == (prod["dest"] / V / name).read_bytes()
+    assert (src / "metadata.json").read_bytes().replace(b"\r\n", b"\n") == (prod["dest"] / V / "metadata.json").read_bytes()
 
 
 def test_a_tampered_estimator_fails_verification_and_is_never_unpickled(prod, monkeypatch):

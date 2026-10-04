@@ -8,9 +8,9 @@
       "featureSchemaVersion": "ML-FEATURES-1.0",
       "files": {
         "estimator.joblib": "dde22fa9ec88fd9b02f44aa888fcf8de1b0ff50ce49abdfe1deb95eececafdad",
-        "metadata.json": "a447621ff4dc0b58954d0ed03026f15939429d03bfe40b20b5c6a24f4b9f24c9",
+        "metadata.json": "6d5cf07a3f606bd435e18072e3809ef9cc2cf834016e9c073c7440bc579e060b",
         "preprocessor.joblib": "89a2aafbd6f62398e3e0198de386bb319a7c9cb65a99e209ecd635e79b43afbe",
-        "training_profile.json": "daa055db601cf0c751fc41482b98fb71b105f6868a2bef86588a4b00690ba52d"
+        "training_profile.json": "14eb27ca715aecb7d037859640b9417dc29a5ef013b183d1b3db1c969aa69185"
       },
       "isExperimental": true,
       "selection": "Manual experimental configuration; no statistical winner.",

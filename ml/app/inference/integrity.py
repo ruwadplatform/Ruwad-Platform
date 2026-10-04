@@ -28,7 +28,12 @@ class VerificationResult:
 
 
 def sha256_file(path: Path) -> str:
+    """SHA-256 of the file. Text files (.json) are hashed with CRLF folded to LF, so the same artifact verifies on Windows (git autocrlf)
+    and on Linux; binary files (.joblib) are hashed byte for byte."""
     h = hashlib.sha256()
+    if path.suffix == ".json":
+        h.update(path.read_bytes().replace(b"\r\n", b"\n"))
+        return h.hexdigest()
     with path.open("rb") as f:
         for chunk in iter(lambda: f.read(1 << 16), b""):
             h.update(chunk)

@@ -3,7 +3,8 @@
     python -m app.inference.package_artifact --model-version exp-...-catboost-... [--source artifacts] [--dest model_artifacts]
 
 What is copied (nothing else ever leaves the artifact directory):
-  estimator.joblib, preprocessor.joblib, metadata.json   exactly as trained (byte-identical, hashed)
+  estimator.joblib, preprocessor.joblib                  exactly as trained (byte-identical, hashed)
+  metadata.json                                          same content, LF line endings
   training_profile.json                                  per-feature counts and COARSE bounds (see below), regenerated for packaging
 
 The packaged profile is deliberately coarser than the local one: with 3-12 populated values per feature, an exact min/max would be an
@@ -61,10 +62,12 @@ def package(source: Path, dest: Path, model_version: str, manifest_path: Path) -
         raise SystemExit("Refusing: this model is not flagged experimental.")
     out_dir = dest / model_version
     out_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("estimator.joblib", "preprocessor.joblib", "metadata.json"):
-        shutil.copyfile(src / name, out_dir / name)
+    for name in ("estimator.joblib", "preprocessor.joblib"):
+        shutil.copyfile(src / name, out_dir / name)  # byte-identical to the trained model
+    # metadata.json is copied with LF line endings (a Windows training run writes CRLF); its content is unchanged.
+    (out_dir / "metadata.json").write_bytes((src / "metadata.json").read_bytes().replace(b"\r\n", b"\n"))
     profile = json.loads((src / "training_profile.json").read_text(encoding="utf-8"))
-    (out_dir / "training_profile.json").write_text(json.dumps(coarse_profile(profile), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    (out_dir / "training_profile.json").write_bytes((json.dumps(coarse_profile(profile), indent=2, sort_keys=True) + "\n").encode("utf-8"))
 
     files = {name: sha256_file(out_dir / name) for name in ("estimator.joblib", "preprocessor.joblib", "metadata.json", "training_profile.json")}
     entry = {
@@ -78,7 +81,7 @@ def package(source: Path, dest: Path, model_version: str, manifest_path: Path) -
     if existing and existing.get("files") != files:
         raise SystemExit("Refusing: the manifest already pins different file hashes for this version (artifacts are write-once).")
     manifest["models"][model_version] = entry
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest_path.write_bytes((json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode("utf-8"))
     return entry
 
 
