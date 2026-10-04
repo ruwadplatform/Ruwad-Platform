@@ -1,0 +1,52 @@
+{
+  "datasetSha256": "6ade7027d9bac2d3a075717b2b49c46aa76973fb415c4da1d8f677ec93bbbf69",
+  "datasetVersion": "RUWAD-REAL-DATASET-v1",
+  "features": {
+    "customerCount": {
+      "count": 3,
+      "max": 500000,
+      "min": 20000
+    },
+    "founderCount": {
+      "count": 10,
+      "max": 6,
+      "min": 0.5
+    },
+    "fundingRounds": {
+      "count": 6,
+      "max": 2,
+      "min": 0.5
+    },
+    "geographicReach": {
+      "count": 1,
+      "max": 200,
+      "min": 30
+    },
+    "partnershipsCount": {
+      "count": 1,
+      "max": 5000,
+      "min": 1000
+    },
+    "teamSize": {
+      "count": 12,
+      "max": 200,
+      "min": 1
+    },
+    "totalFundingRaised": {
+      "count": 4,
+      "max": 4000000,
+      "min": 50000
+    }
+  },
+  "negatives": 11,
+  "note": "Aggregate statistics only; no rows. Bounds are coarse (lower halved, upper doubled, rounded outward to 1 significant figure).",
+  "populatedPerRowHistogram": {
+    "1": 3,
+    "2": 6,
+    "3": 3,
+    "4": 2,
+    "5": 1
+  },
+  "positives": 4,
+  "rows": 15
+}

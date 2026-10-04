@@ -1,0 +1,15 @@
+# Inference-only dependencies for the production ML service (Render: ruwad-ml). No training, tests, SHAP or XGBoost.
+# Pinned to the exact versions the experimental model was trained and verified with: joblib/scikit-learn/CatBoost artifacts are
+# version-sensitive, and the artifact is only loaded after its SHA-256 matches model_manifest.json.
+fastapi==0.141.1
+starlette==1.7.0
+uvicorn==0.54.0
+pydantic==2.13.5
+pydantic-settings==2.15.0
+python-dotenv==1.2.3
+numpy==2.5.3
+pandas==2.3.3
+scipy==1.18.1
+scikit-learn==1.9.1
+joblib==1.6.0
+catboost==1.2.10

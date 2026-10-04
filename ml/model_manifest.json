@@ -1,0 +1,23 @@
+{
+  "manifestVersion": 1,
+  "models": {
+    "exp-raisedNewRoundWithin6Months-6m-catboost-20261004070745": {
+      "algorithm": "catboost",
+      "datasetSha256": "6ade7027d9bac2d3a075717b2b49c46aa76973fb415c4da1d8f677ec93bbbf69",
+      "datasetVersion": "RUWAD-REAL-DATASET-v1",
+      "featureSchemaVersion": "ML-FEATURES-1.0",
+      "files": {
+        "estimator.joblib": "dde22fa9ec88fd9b02f44aa888fcf8de1b0ff50ce49abdfe1deb95eececafdad",
+        "metadata.json": "a447621ff4dc0b58954d0ed03026f15939429d03bfe40b20b5c6a24f4b9f24c9",
+        "preprocessor.joblib": "89a2aafbd6f62398e3e0198de386bb319a7c9cb65a99e209ecd635e79b43afbe",
+        "training_profile.json": "daa055db601cf0c751fc41482b98fb71b105f6868a2bef86588a4b00690ba52d"
+      },
+      "isExperimental": true,
+      "selection": "Manual experimental configuration; no statistical winner.",
+      "status": "EXPERIMENTAL",
+      "targetName": "raisedNewRoundWithin6Months",
+      "targetVersion": "FUNDING-6M-v1",
+      "trainingRows": 15
+    }
+  }
+}

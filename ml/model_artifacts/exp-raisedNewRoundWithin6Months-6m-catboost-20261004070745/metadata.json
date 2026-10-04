@@ -1,0 +1,178 @@
+{
+  "modelVersion": "exp-raisedNewRoundWithin6Months-6m-catboost-20261004070745",
+  "targetName": "raisedNewRoundWithin6Months",
+  "targetVersion": "FUNDING-6M-v1",
+  "featureSchemaVersion": "ML-FEATURES-1.0",
+  "algorithm": "catboost",
+  "predictionType": "PROBABILITY",
+  "hyperparameters": {
+    "iterations": 120,
+    "depth": 3,
+    "learning_rate": 0.05,
+    "early_stopping_rounds": null,
+    "verbose": false,
+    "allow_writing_files": false,
+    "random_seed": 42,
+    "loss_function": "Logloss",
+    "eval_metric": "AUC"
+  },
+  "featureCols": [
+    "customerCount",
+    "partnershipsCount",
+    "totalFundingRaised",
+    "fundingRounds",
+    "geographicReach",
+    "founderCount",
+    "teamSize"
+  ],
+  "categoricalCols": [
+    "regulatoryMilestone"
+  ],
+  "trainingRows": 15,
+  "validationRows": 0,
+  "testRows": 0,
+  "metrics": {
+    "experimental": true,
+    "production": false,
+    "publicScoreInfluence": false,
+    "mlWeight": 0,
+    "datasetVersion": "RUWAD-REAL-DATASET-v1",
+    "datasetSha256": "6ade7027d9bac2d3a075717b2b49c46aa76973fb415c4da1d8f677ec93bbbf69",
+    "gitCommit": "8f0dd96ac8242bf490af52e69059a80b91d4878a",
+    "readinessVersion": 2,
+    "targetVersion": "FUNDING-6M-v1",
+    "trainingRows": 15,
+    "positiveCount": 4,
+    "negativeCount": 11,
+    "evaluation": "Leave-one-startup-out grouped cross-validation, pooled out-of-fold predictions. Experimental evaluation on 15 eligible historical examples. Metrics are highly uncertain due to small sample size.",
+    "pooledOutOfFold": {
+      "n": 15,
+      "positives": 4,
+      "negatives": 11,
+      "threshold": 0.5,
+      "rocAuc": 0.5,
+      "prAuc": 0.3333333333333333,
+      "logLoss": 0.761538212076354,
+      "brierScore": 0.2772203802888172,
+      "precision": 0.2857142857142857,
+      "recall": 0.5,
+      "f1": 0.36363636363636365,
+      "baselinePrevalence": 0.26666666666666666,
+      "confusionMatrix": [
+        [
+          6,
+          5
+        ],
+        [
+          2,
+          2
+        ]
+      ]
+    },
+    "uncertainty": {
+      "status": "EXPLORATORY",
+      "rocAuc95": [
+        0.089,
+        0.913
+      ],
+      "prAuc95": [
+        0.112,
+        0.888
+      ],
+      "validResamples": 990,
+      "skippedSingleClass": 10
+    },
+    "perFold": {
+      "status": "NOT_EVALUABLE",
+      "reason": "each held-out startup contributes one or two rows of a single class",
+      "folds": 13
+    },
+    "majorityClassReference": {
+      "n": 15,
+      "positives": 4,
+      "negatives": 11,
+      "threshold": 0.5,
+      "rocAuc": 0.0,
+      "prAuc": 0.26666666666666666,
+      "logLoss": 0.6658656627092238,
+      "brierScore": 0.22796763675884557,
+      "precision": "NOT_EVALUABLE",
+      "recall": 0.0,
+      "f1": "NOT_EVALUABLE",
+      "baselinePrevalence": 0.26666666666666666,
+      "confusionMatrix": [
+        [
+          11,
+          0
+        ],
+        [
+          4,
+          0
+        ]
+      ]
+    },
+    "calibration": "CALIBRATION NOT RELIABLE AT CURRENT SAMPLE SIZE",
+    "featureImportance": {
+      "label": "EXPLORATORY \u2014 unstable at this sample size, not causal",
+      "available": true,
+      "top": [
+        {
+          "feature": "fundingRounds",
+          "meanAbsShap": 0.715594
+        },
+        {
+          "feature": "founderCount",
+          "meanAbsShap": 0.304015
+        },
+        {
+          "feature": "teamSize",
+          "meanAbsShap": 0.204743
+        },
+        {
+          "feature": "totalFundingRaised",
+          "meanAbsShap": 0.070155
+        },
+        {
+          "feature": "customerCount",
+          "meanAbsShap": 0.067223
+        },
+        {
+          "feature": "partnershipsCount",
+          "meanAbsShap": 0.011412
+        },
+        {
+          "feature": "geographicReach",
+          "meanAbsShap": 0.008538
+        }
+      ],
+      "reason": null
+    },
+    "limitations": [
+      "Very small dataset: a handful of positive examples and about a dozen startups.",
+      "Class imbalance: positives are a minority; precision/recall/F1 move by whole rows.",
+      "Low feature coverage: most core features are missing in most rows, so models mostly learn from team size and funding history.",
+      "Limited validation reliability: leave-one-startup-out on this few startups is exploratory; metrics have very wide uncertainty and no reliable ranking between models is possible.",
+      "Not out-of-time: snapshots from earlier and later years are mixed across folds; negatives lean earlier and positives later, so a model can pick up on era effects.",
+      "Labels depend on funding-coverage attestations of MEDIUM/HIGH confidence, not exhaustive verification.",
+      "Feature importance is exploratory and unstable; it is not causal."
+    ],
+    "productionGate": {
+      "ready": false,
+      "reasons": [
+        "Need at least 200 mature, training-eligible examples with defensible labels (have 15)",
+        "Need at least 40 positive examples (have 4)",
+        "Need at least 40 negative examples with attested outcome coverage (have 11)",
+        "Core feature coverage below 60% (have 23%, not-applicable features excluded)"
+      ],
+      "thresholds": {
+        "minTrainingRows": 200,
+        "minPositiveRows": 40,
+        "minNegativeRows": 40,
+        "minCoreFeatureCoverage": 0.6
+      }
+    }
+  },
+  "isTestOnly": false,
+  "isExperimental": true,
+  "trainedAt": "2026-10-04T07:07:45.811679+00:00"
+}
