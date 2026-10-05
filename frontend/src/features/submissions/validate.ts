@@ -25,6 +25,13 @@ export function fieldError(field: FieldDef, value: unknown, payload: Payload): s
   return undefined;
 }
 
+/** A repeater with `minItems` needs that many entries; a blank card the user added but never filled in still counts as missing (its own required fields report separately). */
+export function repeaterMinError(field: FieldDef, items: Payload[]): string | undefined {
+  if (!field.minItems || items.length >= field.minItems) return undefined;
+  const label = (field.itemLabel ?? "item").toLowerCase();
+  return field.minItems === 1 ? `Add at least one ${label}.` : `Add at least ${field.minItems} ${label}s.`;
+}
+
 export interface RepeaterErrors {
   [itemIndex: number]: Record<string, string>;
 }
@@ -56,6 +63,8 @@ export function validateStep(step: StepDef, payload: Payload): StepValidation {
     for (const f of section.fields) {
       if (f.type === "repeater") {
         const items = Array.isArray(payload[f.name]) ? (payload[f.name] as Payload[]) : [];
+        const minErr = repeaterMinError(f, items);
+        if (minErr) fieldErrors[f.name] = minErr;
         const errs = repeaterItemErrors(f, items);
         if (Object.keys(errs).length) repeaterErrors[f.name] = errs;
         continue;
@@ -81,8 +90,15 @@ export function completionPercentage(schema: EntitySchema, payload: Payload): nu
   for (const step of schema.steps) {
     for (const section of step.sections) {
       for (const f of section.fields) {
-        if (f.type === "repeater" || !f.required) continue;
         if (f.condition && !f.condition(payload)) continue; // hidden fields never count
+        if (f.type === "repeater") {
+          if (!f.minItems) continue;
+          const items = Array.isArray(payload[f.name]) ? (payload[f.name] as Payload[]) : [];
+          total += 1;
+          if (!repeaterMinError(f, items) && Object.keys(repeaterItemErrors(f, items)).length === 0) done += 1;
+          continue;
+        }
+        if (!f.required) continue;
         total += 1;
         if (!fieldError(f, payload[f.name], payload)) done += 1;
       }

@@ -30,6 +30,7 @@ export function SubmissionSection({ section, payload, showErrors, fieldErrors, r
                   field={f}
                   items={Array.isArray(payload[f.name]) ? (payload[f.name] as Payload[]) : []}
                   errors={showErrors ? repeaterErrors[f.name] : undefined}
+                  error={showErrors ? fieldErrors[f.name] : undefined}
                   onChange={(items) => onFieldChange(f.name, items)}
                 />
               </div>

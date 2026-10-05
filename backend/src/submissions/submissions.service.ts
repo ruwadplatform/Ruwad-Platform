@@ -23,6 +23,7 @@ import { CreateResearchDto } from "../research/dto/create-research.dto";
 import { CreateMultinationalDto } from "../multinationals/dto/create-multinational.dto";
 import { SubmissionAutofillService, type AutofillMeta } from "./submission-autofill.service";
 import { validateHubPayload } from "./hub-types";
+import { startupSubmissionProblems } from "./startup-submission-requirements";
 import { UsersService } from "../users/users.service";
 import { EmailService } from "../email/email.service";
 import { ScoringService } from "../scoring/scoring.service";
@@ -155,6 +156,10 @@ export class SubmissionsService {
     const item = await this.findOneForUser(userId, id);
     this.assertTransition(item.status, SubmissionStatus.SUBMITTED);
     await this.assertPayloadValid(item.kind, item.payload);
+    if (item.kind === EntityKind.STARTUP) {
+      const problems = startupSubmissionProblems(item.payload);
+      if (problems.length) throw new BadRequestException({ message: problems, error: "Bad Request", statusCode: 400 });
+    }
 
     const wasResubmit = item.status === SubmissionStatus.CHANGES_REQUESTED;
     item.status = SubmissionStatus.SUBMITTED;

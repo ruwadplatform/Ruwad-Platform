@@ -22,6 +22,8 @@ export interface FieldDef {
   itemFields?: FieldDef[];
   itemLabel?: string;
   maxItems?: number;
+  /** repeater only: at least this many items must be added before the step is valid. */
+  minItems?: number;
   full?: boolean;
   /** Shown/required only when this returns true for the current payload —
    * kept simple, no cross-step dependencies. */

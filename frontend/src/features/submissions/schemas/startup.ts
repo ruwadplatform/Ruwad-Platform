@@ -89,7 +89,7 @@ export const startupSchema: EntitySchema = {
       sections: [{
         fields: [
           {
-            name: "founders", label: "Founders & Team Members", type: "repeater", itemLabel: "Team Member", maxItems: 30, full: true,
+            name: "founders", label: "Founders & Team Members", type: "repeater", itemLabel: "Team Member", minItems: 1, maxItems: 30, full: true,
             itemFields: [
               { name: "name", label: "Full Name", type: "text", required: true, maxLength: 150 },
               { name: "title", label: "Title", type: "text", required: true, maxLength: 100 },
@@ -142,15 +142,15 @@ export const startupSchema: EntitySchema = {
         {
           title: "Traction & Growth",
           fields: [
-            { name: "annualRevenue", label: "Annual Revenue (SAR)", type: "number", min: 0 },
-            { name: "previousAnnualRevenue", label: "Previous Year's Annual Revenue (SAR)", type: "number", min: 0 },
-            { name: "recurringRevenue", label: "Recurring Revenue (SAR)", type: "number", min: 0, condition: (p) => !isTherapeutic(p) },
-            { name: "customerCount", label: "Current Customers", type: "number", min: 0 },
-            { name: "previousCustomerCount", label: "Previous Year's Customers", type: "number", min: 0 },
-            { name: "activeUsers", label: "Active Users", type: "number", min: 0, condition: (p) => DIGITAL_HEALTH_LIKE_CATEGORIES.includes(p.category as (typeof DIGITAL_HEALTH_LIKE_CATEGORIES)[number]) },
-            { name: "partnershipsCount", label: "Active Partnerships", type: "number", min: 0 },
-            { name: "monthlyBurn", label: "Monthly Burn (SAR)", type: "number", min: 0 },
-            { name: "cashAvailable", label: "Cash Available (SAR)", type: "number", min: 0 },
+            { name: "annualRevenue", label: "Annual Revenue (SAR)", type: "number", required: true, min: 0 },
+            { name: "previousAnnualRevenue", label: "Previous Year's Annual Revenue (SAR)", type: "number", required: true, min: 0 },
+            { name: "recurringRevenue", label: "Recurring Revenue (SAR)", type: "number", required: true, min: 0, condition: (p) => !isTherapeutic(p) },
+            { name: "customerCount", label: "Current Customers", type: "number", required: true, min: 0 },
+            { name: "previousCustomerCount", label: "Previous Year's Customers", type: "number", required: true, min: 0 },
+            { name: "activeUsers", label: "Active Users", type: "number", required: true, min: 0, condition: (p) => DIGITAL_HEALTH_LIKE_CATEGORIES.includes(p.category as (typeof DIGITAL_HEALTH_LIKE_CATEGORIES)[number]) },
+            { name: "partnershipsCount", label: "Active Partnerships", type: "number", required: true, min: 0 },
+            { name: "monthlyBurn", label: "Monthly Burn (SAR)", type: "number", required: true, min: 0 },
+            { name: "cashAvailable", label: "Cash Available (SAR)", type: "number", required: true, min: 0 },
           ],
         },
       ],
@@ -165,14 +165,14 @@ export const startupSchema: EntitySchema = {
           { name: "ce", label: "CE Mark Status", type: "select", required: true, options: REG_STATUS },
           { name: "clinicalStatus", label: "Clinical Status", type: "text", required: true, maxLength: 150 },
           { name: "patentStatus", label: "Patent Status", type: "text", required: true, maxLength: 150 },
-          { name: "patentsGranted", label: "Patents Granted", type: "number", min: 0 },
-          { name: "patentsPending", label: "Patents Pending", type: "number", min: 0 },
+          { name: "patentsGranted", label: "Patents Granted", type: "number", required: true, min: 0 },
+          { name: "patentsPending", label: "Patents Pending", type: "number", required: true, min: 0 },
           // Three mutually-exclusive views of the same "regulatoryMilestone" key — the pathway (and so the
           // option list) is decided by Healthcare Category, mirroring regulatory.engine.ts's pathwayFor()
           // exactly, including its digital-health default for every category not in the other two lists.
-          { name: "regulatoryMilestone", label: "Regulatory Strategy Status", type: "select", options: REG_MILESTONES_MEDICAL_DEVICE, condition: isMedicalDevice, hint: "Where this product stands in the medical device regulatory pathway." },
-          { name: "regulatoryMilestone", label: "Regulatory Strategy Status", type: "select", options: REG_MILESTONES_THERAPEUTIC, condition: isTherapeutic, hint: "Where this product stands in the therapeutic development pathway." },
-          { name: "regulatoryMilestone", label: "Regulatory Strategy Status", type: "select", options: REG_MILESTONES_DIGITAL_HEALTH, condition: (p) => !isMedicalDevice(p) && !isTherapeutic(p), hint: "Where this product stands in the digital health regulatory pathway." },
+          { name: "regulatoryMilestone", label: "Regulatory Strategy Status", type: "select", required: true, options: REG_MILESTONES_MEDICAL_DEVICE, condition: isMedicalDevice, hint: "Where this product stands in the medical device regulatory pathway." },
+          { name: "regulatoryMilestone", label: "Regulatory Strategy Status", type: "select", required: true, options: REG_MILESTONES_THERAPEUTIC, condition: isTherapeutic, hint: "Where this product stands in the therapeutic development pathway." },
+          { name: "regulatoryMilestone", label: "Regulatory Strategy Status", type: "select", required: true, options: REG_MILESTONES_DIGITAL_HEALTH, condition: (p) => !isMedicalDevice(p) && !isTherapeutic(p), hint: "Where this product stands in the digital health regulatory pathway." },
         ],
       }],
     },
@@ -194,10 +194,10 @@ export const startupSchema: EntitySchema = {
         {
           title: "Primary Contact",
           fields: [
-            { name: "contactName", label: "Contact Name", type: "text", maxLength: 150 },
-            { name: "contactEmail", label: "Contact Email", type: "text", maxLength: 150 },
-            { name: "contactPhone", label: "Contact Phone", type: "text", maxLength: 40 },
-            { name: "contactLinkedin", label: "Contact LinkedIn", type: "text", maxLength: 200 },
+            { name: "contactName", label: "Contact Name", type: "text", required: true, maxLength: 150 },
+            { name: "contactEmail", label: "Contact Email", type: "text", required: true, maxLength: 150 },
+            { name: "contactPhone", label: "Contact Phone", type: "text", required: true, maxLength: 40 },
+            { name: "contactLinkedin", label: "Contact LinkedIn", type: "text", required: true, maxLength: 200 },
           ],
         },
         {

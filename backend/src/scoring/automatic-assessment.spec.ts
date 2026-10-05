@@ -48,8 +48,16 @@ function scoring(opts: { snapshot?: unknown; experimental?: any; startupRow?: an
 }
 
 // ---------------------------------------------------------------- submissions
+/** What a startup must now provide to be submitted: a team member, all traction answers, patents + regulatory status, a primary contact. */
+const SUBMITTABLE_STARTUP = {
+  category: "Digital Health", founders: [{ name: "Dana A", title: "CEO", isFounder: true }],
+  annualRevenue: 0, previousAnnualRevenue: 0, recurringRevenue: 0, customerCount: 0, previousCustomerCount: 0, activeUsers: 0, partnershipsCount: 0, monthlyBurn: 0, cashAvailable: 0,
+  patentsGranted: 0, patentsPending: 0, regulatoryMilestone: "applicability assessed",
+  contactName: "Dana A", contactEmail: "dana@acme.example", contactPhone: "+966500000000", contactLinkedin: "https://linkedin.example/dana",
+};
+
 function submissions(kind: EntityKind, opts: { payload?: Record<string, unknown>; publishFails?: boolean; scoringFails?: boolean; scoring?: any } = {}) {
-  const item: any = { id: "sub-1", userId: "founder-1", kind, status: SubmissionStatus.DRAFT, payload: opts.payload ?? { name: "Acme" }, title: "Acme" };
+  const item: any = { id: "sub-1", userId: "founder-1", kind, status: SubmissionStatus.DRAFT, payload: opts.payload ?? (kind === EntityKind.STARTUP ? { name: "Acme", ...SUBMITTABLE_STARTUP } : { name: "Acme" }), title: "Acme" };
   const memberships: any[] = [];
   const reviewEvents: any[] = [];
   const repo: any = { findOne: jest.fn(async () => item), save: jest.fn(async (x: any) => Object.assign(item, x)) };
@@ -117,7 +125,7 @@ describe("startup submission: admin approval publishes, then scoring and ML run 
     expect(t.reviewEvents.find((e) => e.eventType === SubmissionEventType.APPROVED)).toMatchObject({ actorUserId: "admin-1" });
   });
   it("4+7. that single approval runs the existing scoring pipeline: founder/AI values first, then the score, with no second admin action", async () => {
-    const t = submissions(EntityKind.STARTUP, { payload: { name: "Acme", annualRevenue: 1_000_000, customerCount: 40, aiFilledScoringKeys: ["customerCount"] } });
+    const t = submissions(EntityKind.STARTUP, { payload: { name: "Acme", ...SUBMITTABLE_STARTUP, annualRevenue: 1_000_000, customerCount: 40, aiFilledScoringKeys: ["customerCount"] } });
     await submit(t);
     t.item.status = SubmissionStatus.UNDER_REVIEW;
     await t.svc.approve("admin-1", "sub-1");

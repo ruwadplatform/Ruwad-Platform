@@ -97,13 +97,18 @@ function world(opts: { mlEnabled?: boolean } = {}) {
 }
 
 // ---------------------------------------------------------------- the two founder submissions
-/** Everything the wizard marks required, and nothing optional (what a minimal real submission looks like). */
+/** Everything the wizard marks required, and nothing optional (what a minimal real submission looks like).
+ * That now includes one team member, every Traction & Growth answer (zeros), patents and regulatory status, and the primary contact. */
 const REQUIRED_ONLY = {
   name: "Sparse Health", category: "Digital Health", subsector: "Telehealth", tagline: "Virtual care", country: "Saudi Arabia", city: "Riyadh", hq: "Riyadh, Saudi Arabia",
   founded: 2024, stage: "Seed", businessModel: "SaaS", desc: "A virtual care platform.", problem: "Access to care.", solution: "Video consults.", advantage: "Arabic-first.",
   employees: 0, marketTam: "SAR 2B", marketSam: "SAR 500M", marketSom: "SAR 50M", fundingTotal: 0, valuation: 0,
   sfda: "Not Submitted", fda: "N/A", ce: "N/A", clinicalStatus: "Not disclosed", patentStatus: "None",
   legalName: "Sparse Health LLC", website: "https://sparse.example", email: "hello@sparse.example", phone: "+966500000001", linkedin: "https://linkedin.example/sparse",
+  founders: [{ name: "Sparse Founder", title: "Founder" }],
+  annualRevenue: 0, previousAnnualRevenue: 0, recurringRevenue: 0, customerCount: 0, previousCustomerCount: 0, activeUsers: 0, partnershipsCount: 0, monthlyBurn: 0, cashAvailable: 0,
+  patentsGranted: 0, patentsPending: 0, regulatoryMilestone: "applicability assessed",
+  contactName: "Sparse Founder", contactEmail: "founder@sparse.example", contactPhone: "+966500000002", contactLinkedin: "https://linkedin.example/sparse-founder",
 };
 
 /** A startup that filled the form in properly: team, traction, funding rounds, technology, regulatory pathway. */
@@ -196,15 +201,17 @@ describe("founder assessment, end to end", () => {
     expect(view.ruwadScore).toMatchObject({ state: "PENDING", value: null, dataConfidence: null, message: PENDING_MESSAGE });
     expect(w.startups.rows.find((s) => s.id === startupId)).toMatchObject({ scoreStatus: ScoreStatus.INSUFFICIENT_DATA, ruwadScore: undefined });
 
-    // why, in the engine's own terms
+    // why, in the engine's own terms: the required answers (a team member, zero-valued traction, patents, regulatory status) make
+    // four factors calculable, but they rest on under half of their inputs, so the confidence rule keeps the score pending
     expect(view.completion).toBeDefined();
     expect(view.completion!.factorsRequired).toBe(MIN_FACTOR_COVERAGE);
-    expect(view.completion!.factorsAvailable).toBeLessThan(MIN_FACTOR_COVERAGE);
-    expect(view.completion!.blockers[0]).toMatch(/Only \d of 6 scoring factors can be calculated .* at least 4 are needed/);
+    expect(view.completion!.factorsAvailable).toBe(4);
+    expect(view.completion!.meanConfidence).toBeLessThan(MIN_OVERALL_CONFIDENCE);
+    expect(view.completion!.blockers[0]).toMatch(/rest on \d+% of their inputs on average; at least 50% is needed/);
 
     // unavailable factors are shown as unavailable (null), never as a number, each with the founder-fillable fields that would unlock it
     const unavailable = view.factors.filter((f) => f.status === "UNAVAILABLE");
-    expect(unavailable.map((f) => f.key).sort()).toEqual(["financial", "growth", "team", "technology"]); // market and regulatory are the only two with inputs
+    expect(unavailable.map((f) => f.key).sort()).toEqual(["financial", "growth"]); // no revenue/customer baseline and no funding rounds yet
     for (const f of unavailable) {
       expect(f.score).toBeNull();
       expect(f.missingFields.length).toBeGreaterThan(0);
@@ -212,17 +219,17 @@ describe("founder assessment, end to end", () => {
     }
     const labels = (k: string) => view.factors.find((f) => f.key === k)!.missingFields.map((m) => m.label);
     expect(labels("growth")).toEqual(expect.arrayContaining(["Annual Revenue (SAR)", "Previous Year's Annual Revenue (SAR)", "Current Customers"]));
-    expect(labels("team")).toEqual(expect.arrayContaining(["Founders & Team Members (mark who is a founder)", "Founder: Years of Relevant Experience"]));
     expect(labels("financial")).toEqual(expect.arrayContaining(["Cash Available (SAR)", "Monthly Burn (SAR)", "Funding Round amounts"]));
-    expect(labels("technology")).toEqual(expect.arrayContaining(["Patents Granted", "Proprietary Technology", "Technology Readiness Level"]));
     // internal engine keys and analyst-only inputs are never shown to a founder
     const everything = JSON.stringify(view.factors.map((f) => f.missingFields));
     expect(everything).not.toMatch(/leadershipCompleteness|technicalTeamStrength|burnMultiple|quarterlyRevenueGrowth|missingInputs/);
 
-    // ML insufficient: no prediction, no number, and it did not stop the (pending) assessment from being produced
-    expect(w.predictions.rows.every((p) => p.outcome === "INSUFFICIENT_DATA" && p.prediction == null)).toBe(true);
-    expect(view.predictiveIntelligence.models[0]).toMatchObject({ status: "INSUFFICIENT_DATA", message: "Insufficient structured data for an experimental prediction." });
-    expect(view.predictiveIntelligence.models[0].estimatePercent).toBeUndefined();
+    // the required answers are enough input for the experimental model, so it predicts - but that prediction is separate: the
+    // official score stays pending and no number from the model leaks into it
+    expect(w.predictions.rows).toHaveLength(1);
+    expect(w.predictions.rows[0]).toMatchObject({ outcome: "PREDICTED", modelStatus: MlModelStatus.EXPERIMENTAL });
+    expect(view.predictiveIntelligence.models[0]).toMatchObject({ status: "AVAILABLE" });
+    expect(view.ruwadScore.value).toBeNull();
   });
 
   it("thin headcount-only data is NOT scored: the confidence rule blocks it and says so (no threshold was lowered)", async () => {
@@ -231,8 +238,8 @@ describe("founder assessment, end to end", () => {
     const view = await w.assessment.get(startupId);
     // Team Strength now calculates from the founder's headcount (a real structured input), so 4 factors exist...
     expect(view.factors.find((f) => f.key === "team")!.status).toBe("AVAILABLE");
-    expect(view.completion!.factorsAvailable).toBe(4);
-    // ...but they rest on a third of their inputs, so the engine's >=50% average-confidence rule keeps the overall score pending
+    expect(view.completion!.factorsAvailable).toBe(5);
+    // ...but they rest on under half of their inputs, so the engine's >=50% average-confidence rule keeps the overall score pending
     expect(view.ruwadScore).toMatchObject({ state: "PENDING", value: null });
     expect(view.completion!.meanConfidence).toBeLessThan(MIN_OVERALL_CONFIDENCE);
     expect(view.completion!.blockers.join(" ")).toMatch(/rest on \d+% of their inputs on average; at least 50% is needed/);

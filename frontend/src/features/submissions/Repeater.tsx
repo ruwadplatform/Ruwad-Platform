@@ -10,6 +10,8 @@ interface RepeaterProps {
   field: FieldDef;
   items: ItemRecord[];
   errors?: Record<number, Record<string, string>>;
+  /** Shown under the list, e.g. when `minItems` is not yet met. */
+  error?: string;
   onChange: (items: ItemRecord[]) => void;
 }
 
@@ -18,7 +20,7 @@ interface RepeaterProps {
  * of a bespoke repeater per entity type, per the "reusable repeatable-field
  * components" requirement. Built against the pre-existing .repeater-card
  * CSS shell. */
-export function Repeater({ field, items, errors, onChange }: RepeaterProps) {
+export function Repeater({ field, items, errors, error, onChange }: RepeaterProps) {
   const itemFields = field.itemFields ?? [];
   const atMax = field.maxItems ? items.length >= field.maxItems : false;
 
@@ -44,7 +46,7 @@ export function Repeater({ field, items, errors, onChange }: RepeaterProps) {
 
   return (
     <div className={`field${field.full ? " field-full" : ""}`}>
-      <label>{field.label}</label>
+      <label>{field.label}{!!field.minItems && <span className="req">*</span>}</label>
       {items.map((item, i) => (
         <div className="repeater-card" key={i}>
           <button type="button" className="rc-remove" aria-label={`Remove ${field.itemLabel ?? "item"}`} onClick={() => removeItem(i)}>
@@ -78,6 +80,7 @@ export function Repeater({ field, items, errors, onChange }: RepeaterProps) {
       <button type="button" className="btn btn-outline btn-sm" disabled={atMax} onClick={addItem}>
         <RuwadIcon name="plus" size={13} /> Add {field.itemLabel ?? "Item"}
       </button>
+      {error && <div className="err"><RuwadIcon name="help" size={12} /> {error}</div>}
     </div>
   );
 }
