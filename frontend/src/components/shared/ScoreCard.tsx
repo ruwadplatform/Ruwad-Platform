@@ -93,8 +93,8 @@ function PendingScoreCard({ status, score, isOwner }: { status: ScoreStatus; sco
       <p className="muted small mt-4">{body}</p>
       {status === "STALE" && score != null && <div className="small muted mt-8">Last calculated score: {score.toFixed(1)} / 10</div>}
       {isOwner && (
-        <a href="/my-organizations" className="small mt-8" style={{ display: "block", textDecoration: "underline" }}>
-          Complete your company information
+        <a href="/workspace/startup" className="small mt-8" style={{ display: "block", textDecoration: "underline" }}>
+          See exactly what is needed to complete your assessment
         </a>
       )}
     </div>
