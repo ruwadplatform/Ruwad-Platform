@@ -106,6 +106,19 @@ export class ScoringService {
     await this.writeFeatures(startupId, patch, ScoreDataSource.SYSTEM_DERIVED);
   }
 
+  /** Values read from an EXISTING record the platform already holds (the directory row's headcount, verified dated evidence): rank 1,
+   * above system-derived counts and below anything a founder, a pitch deck or an admin supplied. Same precedence-checked writer as
+   * every other source, and idempotent: a value that is already stored from this source is not rewritten. */
+  async applyExternalFeatures(startupId: string, patch: Partial<ScoringFeatures>): Promise<void> {
+    const row = await this.getFeatures(startupId);
+    const fresh: Partial<ScoringFeatures> = {};
+    for (const key of Object.keys(patch) as ScoringFeatureKey[]) {
+      const same = row.provenance[key]?.source === ScoreDataSource.EXTERNAL_SOURCE && row.features[key] === patch[key];
+      if (!same) (fresh as Record<string, unknown>)[key] = patch[key];
+    }
+    await this.writeFeatures(startupId, fresh, ScoreDataSource.EXTERNAL_SOURCE);
+  }
+
   /** Admin-only: marks existing feature values as verified without changing
    * them, bumping their provenance to VERIFIED_DOCUMENT rank so a later
    * lower-ranked write can't silently override a value a human has checked.
@@ -144,15 +157,21 @@ export class ScoringService {
     const nextFeatures: Partial<ScoringFeatures> = { ...row.features };
     const nextProvenance: FeatureProvenance = { ...row.provenance };
     let newRegulatoryMilestone: string | undefined;
+    let changed = false;
     for (const key of Object.keys(patch) as ScoringFeatureKey[]) {
       const value = patch[key];
       if (value === undefined) continue;
       const existingRank = row.provenance[key] ? SOURCE_RANK[row.provenance[key]!.source] : -1;
       if (SOURCE_RANK[source] < existingRank) continue;
+      // Writing the same value from the same source again is a no-op: it keeps the original provenance timestamp, so re-running an
+      // import or a backfill leaves the stored features byte-for-byte unchanged.
+      if (key in row.features && row.features[key] === value && row.provenance[key]?.source === source && row.provenance[key]?.sourceDocumentId === sourceDocumentId) continue;
+      changed = true;
       if (key === "regulatoryMilestone" && value !== row.features.regulatoryMilestone) newRegulatoryMilestone = value as string;
       (nextFeatures as Record<string, unknown>)[key] = value;
       nextProvenance[key] = { source, verified: source === ScoreDataSource.VERIFIED_DOCUMENT, sourceDocumentId, extractedAt: now };
     }
+    if (!changed) return;
     row.startupId = startupId;
     row.features = nextFeatures;
     row.provenance = nextProvenance;
@@ -286,12 +305,12 @@ export class ScoringService {
    *    3. recalculateStartupScore()        the six deterministic engines -> overall RUWAD Score /10 (or INSUFFICIENT_DATA, never a made-up number)
    *    4. runExperimentalMlInference()     the separate experimental estimate, after the official score is saved
    * Nothing here is invented: a value that was not provided or derivable simply stays missing. */
-  async assessStartup(startupId: string, input: { founderPatch?: Partial<ScoringFeatures>; aiPatch?: Partial<ScoringFeatures>; sourceDocumentId?: string; trigger: ScoreTrigger }): Promise<ScoreResult> {
+  async assessStartup(startupId: string, input: { founderPatch?: Partial<ScoringFeatures>; aiPatch?: Partial<ScoringFeatures>; sourceDocumentId?: string; trigger: ScoreTrigger; runMl?: boolean }): Promise<ScoreResult> {
     await this.applyFounderAndAiFeatures(startupId, input.founderPatch ?? {}, input.aiPatch ?? {}, input.sourceDocumentId);
     const derived = await this.derivation.deriveScoringFeatures(startupId);
     if (Object.keys(derived).length) await this.applyDerivedFeatures(startupId, derived);
     const result = await this.recalculateStartupScore(startupId, input.trigger, { derivedAlreadyApplied: true, deferMl: true });
-    this.runExperimentalMlInference(startupId);
+    if (input.runMl !== false) this.runExperimentalMlInference(startupId);
     return result;
   }
 

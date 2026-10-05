@@ -3,6 +3,8 @@ import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
 import { ScoringService } from "./scoring.service";
 import { SetScoringFeaturesDto } from "./dto/set-features.dto";
 import { VerifyFeaturesDto } from "./dto/verify-features.dto";
+import { BackfillExistingStartupsDto } from "./dto/backfill-existing.dto";
+import { ExistingStartupBackfillService } from "./existing-startup-backfill.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { Roles } from "../common/decorators/roles.decorator";
@@ -66,10 +68,17 @@ export class ScoringController {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.RUWAD_ADMIN, UserRole.SUPER_ADMIN)
 export class ScoringAdminController {
-  constructor(private readonly scoring: ScoringService) {}
+  constructor(private readonly scoring: ScoringService, private readonly existingBackfill: ExistingStartupBackfillService) {}
 
   @Post("backfill")
   backfill() {
     return this.scoring.backfillAll();
+  }
+
+  /** Calculates the RUWAD Score for startups that already exist, from what the platform already holds (see
+   * ExistingStartupBackfillService). DRY RUN BY DEFAULT: send `{ "dryRun": false }` to write. Idempotent. Never involves the ML model. */
+  @Post("backfill-existing")
+  backfillExisting(@Body() dto: BackfillExistingStartupsDto) {
+    return this.existingBackfill.run({ dryRun: dto.dryRun !== false, startupIds: dto.startupIds });
   }
 }

@@ -55,6 +55,33 @@ factors (e.g. 7.4 / 10 at 72% data confidence in the regression test).
 Units: "Total Funding Raised" and "Valuation" are stored and shown in **SAR millions** across the platform; the wizard labels now say so
 (they previously said "SAR", which let a founder enter raw riyals and saturate the Financial factor).
 
+## Scoring startups that already exist (backfill)
+
+`POST /api/scoring/admin/backfill-existing` (RUWAD_ADMIN / SUPER_ADMIN only) calculates the RUWĀD Score for startups that are already in the
+database, without asking founders to resubmit. Body: `{ "dryRun": true | false, "startupIds": [uuid, ...] }`. **`dryRun` defaults to true:**
+nothing is written unless `dryRun: false` is sent explicitly. `startupIds` is optional (omit it to cover every startup).
+
+Per startup it reads what the platform already holds and maps it with the existing provenance/precedence rules (a weaker source never
+overwrites a stronger one):
+
+| Source | Becomes | Provenance tier |
+|---|---|---|
+| directory record `employees` (only when > 0) | `teamSize` | `EXTERNAL_SOURCE` (existing record) |
+| verified dated evidence (not licensed, not rejected / superseded / conflicting, dated in the past, numeric, schema key; latest date wins) | the matching feature | `EXTERNAL_SOURCE` |
+| the approved submission's founder and pitch-deck values, where one exists | the same mapping approval uses | `FOUNDER_SUBMITTED` / `PITCH_DECK_EXTRACTED` |
+| team members, funding rounds and amounts, investors | derived features | `SYSTEM_DERIVED` |
+
+then runs `assessStartup()` (without the ML step) through the normal `ScoringService`. Nothing is invented, the thresholds and weights are the
+existing ones (`RULE_WEIGHT=1`, `ML_WEIGHT=0`), and the experimental model is never involved.
+
+* **Dry run** runs the real derivation, precedence rules, engines and scoring service over in-memory copies of the rows, so it cannot write.
+* **Apply** writes through the normal services. A startup that cannot reach the rule is recorded as `INSUFFICIENT_DATA` (Pending) with its real
+  missing inputs. It is **idempotent**: trigger `BACKFILL` is not an always-record trigger and unchanged feature writes are no-ops, so a re-run
+  adds no history row and leaves features byte-for-byte unchanged.
+* The report lists, per startup: status, score, the six factors with confidence, confidence, missing factors, what was mapped and whether it
+  would change the stored status; plus totals, average confidence, the most commonly missing fields, who is ready to score and who needs data.
+* Migration `1793400000000` adds `BACKFILL` to the score-trigger enum (additive).
+
 ## Safety invariants (enforced in code and covered by tests)
 
 | Invariant | Where |

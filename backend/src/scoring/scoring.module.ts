@@ -18,6 +18,9 @@ import { MlDataModule } from "../ml-data/ml-data.module";
 import { OrganizationsModule } from "../organizations/organizations.module";
 import { StartupAssessmentService } from "./startup-assessment.service";
 import { StartupAssessmentController } from "./startup-assessment.controller";
+import { ExistingStartupBackfillService } from "./existing-startup-backfill.service";
+import { HistoricalEvidence } from "../ml-data/historical/historical-evidence.entity";
+import { Submission } from "../submissions/submission.entity";
 
 /** Single source of truth for RUWĀD startup scoring. Other modules
  * (StartupsModule, SubmissionsModule) import this to call
@@ -32,9 +35,9 @@ import { StartupAssessmentController } from "./startup-assessment.controller";
  * provider.ts's own doc comment. The REAL Phase 2A shadow-prediction path
  * is MlShadowPredictionService (ml-data module), not this provider. */
 @Module({
-  imports: [TypeOrmModule.forFeature([Startup, TeamMember, FundingRound, Investment, StartupScoreHistory, StartupScoringFeatures, StartupScoringFeatureAudit]), MlDataModule, OrganizationsModule],
+  imports: [TypeOrmModule.forFeature([Startup, TeamMember, FundingRound, Investment, StartupScoreHistory, StartupScoringFeatures, StartupScoringFeatureAudit, HistoricalEvidence, Submission]), MlDataModule, OrganizationsModule],
   providers: [
-    ScoringService, StartupAssessmentService, FeatureDerivationService, DisabledMlProvider, HttpMlScoringProvider,
+    ScoringService, StartupAssessmentService, ExistingStartupBackfillService, FeatureDerivationService, DisabledMlProvider, HttpMlScoringProvider,
     {
       provide: ML_SCORING_PROVIDER,
       useFactory: (config: ConfigService, http: HttpMlScoringProvider, disabled: DisabledMlProvider): MlScoringProvider =>

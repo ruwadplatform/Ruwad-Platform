@@ -112,6 +112,9 @@ export enum ScoreTrigger {
   PITCH_DECK_PROCESSED = "PITCH_DECK_PROCESSED",
   ADMIN_RECALCULATION = "ADMIN_RECALCULATION",
   ADMIN_OVERRIDE = "ADMIN_OVERRIDE",
+  /** The existing-startup backfill (see scoring/existing-startup-backfill.service.ts). Unlike an admin recalculation it is NOT always
+   * recorded: re-running it with unchanged data adds no history row. */
+  BACKFILL = "BACKFILL",
 }
 
 /** Where one scoring-feature value came from — feeds confidence, never the
