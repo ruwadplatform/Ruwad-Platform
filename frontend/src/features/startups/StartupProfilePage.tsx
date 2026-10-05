@@ -149,8 +149,8 @@ function Overview({ s, loggedIn, isOwner }: { s: Startup; loggedIn: boolean; isO
   const { data: allStartups } = useStartups();
   const { hydrated } = useSession();
   return (
-    <div className="profile-body">
-      <div>
+    <div className="profile-body profile-body--score">
+      <div className="profile-main">
         <div className="stat-mini-row">
           {!hydrated ? (
             <div className="stat-mini"><div className="sm-label">Total Funding</div><div className="sm-val"><span className="skel" style={{ width: 60 }} /></div></div>
@@ -176,7 +176,7 @@ function Overview({ s, loggedIn, isOwner }: { s: Startup; loggedIn: boolean; isO
           </div>
         </div>
       </div>
-      <div><ScoreCard score={s.ruwadScore} status={s.scoreStatus} confidence={s.scoreConfidence} version={s.scoreVersion} factors={s.factors} category={s.category} peers={allStartups} loggedIn={loggedIn} isOwner={isOwner} /></div>
+      <aside className="profile-side"><ScoreCard score={s.ruwadScore} status={s.scoreStatus} confidence={s.scoreConfidence} version={s.scoreVersion} factors={s.factors} category={s.category} peers={allStartups} loggedIn={loggedIn} isOwner={isOwner} /></aside>
     </div>
   );
 }

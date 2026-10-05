@@ -129,6 +129,35 @@
 .score-card{display:flex;gap:18px;align-items:center}
 .score-card .sc-sub{flex:1}
 
+/* Startup Overview: main column + a readable fixed-range score sidebar. Scoped by modifier so the shared
+   .profile-body (other entity profiles) keeps its own 1fr 300px layout. */
+.profile-body--score{grid-template-columns:minmax(0,1fr) minmax(300px,320px);gap:24px}
+.profile-body--score>.profile-main,.profile-body--score>.profile-side{min-width:0}
+@media(max-width:1100px){.profile-body--score{gap:16px}}
+@media(max-width:900px){.profile-body--score{grid-template-columns:1fr}}
+
+/* RUWĀD Score card: one vertical stack, nothing positioned side by side except label + value. */
+.rscore{--rscore-accent:#45AEC8;--rscore-track:#EDF0F3;display:flex;flex-direction:column;gap:20px;padding:22px;width:100%;min-width:0;box-shadow:none;word-break:normal;overflow-wrap:normal}
+.rscore-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rscore-title{font-size:var(--fs-12);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text)}
+.rscore-info{display:inline-flex;color:var(--muted);cursor:help}
+.rscore-gauge{position:relative;width:120px;height:120px;margin:0 auto;flex:none}
+.rscore-gauge svg{display:block;transform:rotate(-90deg)}
+.rscore-gauge-track{stroke:var(--rscore-track)}
+.rscore-gauge-fill{stroke:var(--rscore-accent)}
+.rscore-gauge-val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.rscore-gauge-val b{font-size:var(--fs-34);font-weight:700;line-height:1;color:var(--text)}
+.rscore-gauge-val span{font-size:var(--fs-12);color:var(--muted)}
+.rscore-confidence,.rscore-factor{display:flex;flex-direction:column;gap:7px;min-width:0}
+.rscore-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-width:0}
+.rscore-label{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-13);color:var(--text);min-width:0}
+.rscore-value{font-size:var(--fs-13);font-weight:600;font-variant-numeric:tabular-nums;color:var(--text);flex:none}
+.rscore-bar{height:6px;width:100%;background:var(--rscore-track);border-radius:var(--radius-pill);overflow:hidden}
+.rscore-bar-fill{height:100%;background:var(--rscore-accent);border-radius:var(--radius-pill)}
+.rscore-desc{margin:0;font-size:var(--fs-12);line-height:1.5;color:var(--muted);width:100%}
+.rscore-note{margin-top:-8px}
+.rscore-factors{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:15px}
+
 /* ============ FUNDING TIMELINE ============ */
 .funding-timeline{position:relative;padding-left:20px}
 .funding-timeline::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border)}

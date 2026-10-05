@@ -2,7 +2,6 @@
 
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { LockedTeaser } from "./LockedTeaser";
-import { valenceColor } from "@/lib/scoring";
 import type { ScoreFactorKey, ScoreFactors, ScoreStatus } from "@/types/entities";
 
 const SUBS: { label: string; key: ScoreFactorKey; why: string }[] = [
@@ -15,6 +14,13 @@ const SUBS: { label: string; key: ScoreFactorKey; why: string }[] = [
 ];
 
 const METHODOLOGY_TOOLTIP = "The RUWĀD Score is a data-driven assessment of a company's growth, financial strength, market potential, team, regulatory readiness and technology differentiation. Data Confidence reflects the completeness and reliability of the information available for the assessment.";
+
+const CONFIDENCE_TOOLTIP = "Data Confidence indicates how much of the information required to calculate the RUWĀD Score is currently available.";
+
+const GAUGE_SIZE = 120;
+const GAUGE_RADIUS = 52;
+const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
+const clampPct = (n: number) => Math.min(100, Math.max(0, n));
 
 const EXISTING_DATA_NOTE = "Based only on the information already on file for this company. A factor with no data counts as 0, so the score rises as more information is added.";
 
@@ -46,37 +52,56 @@ export function ScoreCard({ score, status, confidence, version, factors, categor
 
   if (status !== "CALCULATED" || score == null) return <PendingScoreCard status={status} score={score} isOwner={isOwner} />;
 
-  const pct = (score / 10) * 339.3;
+  const scorePct = clampPct(score * 10);
+  const confidencePct = confidence != null ? clampPct(Math.round(confidence * 100)) : null;
   return (
-    <div className="panel panel-pad">
-      <div className="eyebrow brand mb-8" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-        RUWĀD Score <span title={METHODOLOGY_TOOLTIP}><RuwadIcon name="help" size={12} /></span>
+    <div className="panel rscore">
+      <div className="rscore-head">
+        <span className="rscore-title">RUWĀD Score</span>
+        <span className="rscore-info" title={METHODOLOGY_TOOLTIP} tabIndex={0} role="img" aria-label="About the RUWĀD Score"><RuwadIcon name="help" size={14} /></span>
       </div>
-      <div className="score-card mb-16">
-        <div className="score-ring">
-          <svg width={104} height={104}>
-            <circle cx={52} cy={52} r={45} fill="none" stroke="var(--border)" strokeWidth={9} />
-            <circle cx={52} cy={52} r={45} fill="none" stroke={valenceColor(score, 10)} strokeWidth={9} strokeLinecap="round" strokeDasharray={`${pct} 400`} />
-          </svg>
-          <div className="score-ring-val"><b>{score.toFixed(1)}</b><span>/ 10</span></div>
-        </div>
-        <div className="sc-sub small muted">Composite score computed from the six factors below.</div>
-        {confidence != null && (
-          <div className="small muted mt-4" title={METHODOLOGY_TOOLTIP}>Data Confidence: {Math.round(confidence * 100)}%</div>
-        )}
-        {version?.endsWith("EXISTING-DATA") && <div className="fs-11 muted mt-4">{EXISTING_DATA_NOTE}</div>}
+
+      <div className="rscore-gauge" role="img" aria-label={`RUWĀD Score ${score.toFixed(1)} out of 10`}>
+        <svg width={GAUGE_SIZE} height={GAUGE_SIZE} viewBox={`0 0 ${GAUGE_SIZE} ${GAUGE_SIZE}`}>
+          <circle className="rscore-gauge-track" cx={GAUGE_SIZE / 2} cy={GAUGE_SIZE / 2} r={GAUGE_RADIUS} fill="none" strokeWidth={9} />
+          <circle className="rscore-gauge-fill" cx={GAUGE_SIZE / 2} cy={GAUGE_SIZE / 2} r={GAUGE_RADIUS} fill="none" strokeWidth={9} strokeLinecap="round" strokeDasharray={`${(scorePct / 100) * GAUGE_CIRCUMFERENCE} ${GAUGE_CIRCUMFERENCE}`} />
+        </svg>
+        <div className="rscore-gauge-val"><b>{score.toFixed(1)}</b><span>/ 10</span></div>
       </div>
-      {SUBS.map(({ label, key, why }) => {
-        const f = factors[key];
-        const hasScore = f?.score != null;
-        return (
-          <div className="subscore-row" title={hasScore ? why : "Not enough data reported for this factor yet."} key={key}>
-            <div className="sl">{label}</div>
-            <div className="subscore-track"><div className="subscore-fill" style={{ width: `${hasScore ? f.score! * 10 : 0}%`, background: hasScore ? valenceColor(f.score! * 10, 100) : "var(--border)" }} /></div>
-            <div className="sv mono">{hasScore ? f.score!.toFixed(1) : "—"}</div>
+
+      {confidencePct != null && (
+        <div className="rscore-confidence" title={CONFIDENCE_TOOLTIP}>
+          <div className="rscore-row">
+            <span className="rscore-label">Data Confidence <RuwadIcon name="help" size={12} /></span>
+            <span className="rscore-value">{confidencePct}%</span>
           </div>
-        );
-      })}
+          <div className="rscore-bar" role="progressbar" aria-label="Data Confidence" aria-valuemin={0} aria-valuemax={100} aria-valuenow={confidencePct}>
+            <div className="rscore-bar-fill" style={{ width: `${confidencePct}%` }} />
+          </div>
+        </div>
+      )}
+
+      <p className="rscore-desc">Composite score computed from the six factors below.</p>
+      {version?.endsWith("EXISTING-DATA") && <p className="rscore-desc rscore-note">{EXISTING_DATA_NOTE}</p>}
+
+      <ul className="rscore-factors">
+        {SUBS.map(({ label, key, why }) => {
+          const f = factors[key];
+          const hasScore = f?.score != null;
+          const value = hasScore ? f.score! : null;
+          return (
+            <li className="rscore-factor" title={hasScore ? why : "Not enough data reported for this factor yet."} key={key}>
+              <div className="rscore-row">
+                <span className="rscore-label">{label}</span>
+                <span className="rscore-value">{value != null ? value.toFixed(1) : "—"}</span>
+              </div>
+              <div className="rscore-bar" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={10} aria-valuenow={value ?? undefined}>
+                <div className="rscore-bar-fill" style={{ width: `${value != null ? clampPct(value * 10) : 0}%` }} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
