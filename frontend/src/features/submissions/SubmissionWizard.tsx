@@ -363,26 +363,22 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
 
 function SubmissionConfirmation({ submission, schema }: { submission: ApiSubmission; schema: EntitySchema }) {
   const router = useRouter();
-  // Startups are published as soon as they are submitted; the founder goes straight to their assessment. Any other kind (or a startup
-  // whose automatic publish could not complete) is still waiting for the RUWĀD review team.
-  const published = submission.status === "APPROVED";
   return (
     <div className="mt-20">
       <div className="panel panel-pad" style={{ textAlign: "center", padding: "40px 24px" }}>
         <RuwadIcon name="check" size={36} />
-        <h2 className="mt-16">{published ? "Your company is live" : "Submitted for review"}</h2>
+        <h2 className="mt-16">Submitted for review</h2>
         <p className="muted small mt-8">
-          {published
-            ? "We're processing your RUWĀD assessment now. Your score and your experimental Predictive Intelligence will appear on your startup page."
-            : `Your ${schema.label.toLowerCase()} submission has been sent to the RUWĀD review team.`}
+          Your {schema.label.toLowerCase()} submission has been sent to the RUWĀD review team.
+          {schema.label.toLowerCase().includes("startup") ? " Once it is approved and published, your RUWĀD assessment is calculated automatically and appears on your startup page." : ""}
         </p>
         <div className="stat-mini-row mt-20" style={{ maxWidth: 420, margin: "20px auto 0" }}>
           <div className="stat-mini"><div className="sm-label">Reference</div><div className="sm-val fs-15">{submission.id.slice(0, 8).toUpperCase()}</div></div>
-          <div className="stat-mini"><div className="sm-label">Status</div><div className="sm-val fs-15">{published ? "Published" : "Submitted"}</div></div>
+          <div className="stat-mini"><div className="sm-label">Status</div><div className="sm-val fs-15">Submitted</div></div>
         </div>
         <div className="flex gap-8 mt-20" style={{ justifyContent: "center" }}>
           <button className="btn btn-outline" onClick={() => router.push("/workspace")}>Back to Workspace</button>
-          <button className="btn btn-primary" onClick={() => router.push(published ? "/workspace/startup" : "/workspace")}>{published ? "View my assessment" : "View Submission"}</button>
+          <button className="btn btn-primary" onClick={() => router.push("/workspace")}>View Submission</button>
         </div>
       </div>
     </div>

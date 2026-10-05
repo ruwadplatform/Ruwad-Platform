@@ -7,16 +7,19 @@
 ## What a founder gets
 
 ```
-Founder submits startup → startup is published (no admin step) → ScoringService.recalculateStartupScore()
+Founder submits startup → SUBMITTED → admin reviews → admin APPROVES → startup PUBLISHED
+   → ScoringService.recalculateStartupScore()                       (automatic)
    → official RUWĀD Score (deterministic, 6 engines; saved first)
-   → experimental ML (async, never awaited) → ml_predictions
-→ My Startup: RUWĀD Score + six factors + data confidence, and a separate "Predictive Intelligence" card
+   → experimental ML (async, never awaited) → ml_predictions        (automatic, if enough data)
+→ My Startup: RUWĀD Score (or Pending) + six factors + data confidence, and a separate "Predictive Intelligence" card
 ```
 
+* Admin approval is required **only to publish** the startup (`SubmissionsService.approve`, reached from the admin UI or the Accept link in
+  the admin email). Nothing is created before approval: no directory row, no owner, no score. Reject and request-changes publish nothing.
+  Other listing kinds (investor, hub, research, multinational) follow the same approval flow, unchanged.
+* After approval no further admin action is needed: the same call runs scoring and then hands the startup to the experimental ML step.
+  The founder never requests scoring. Verification affects confidence and provenance only (`ADMIN_VERIFIED` is never required).
 * `recalculateStartupScore()` is the single orchestrator; nothing is duplicated.
-* No admin or founder approval is needed for a score or a prediction. Startup submissions publish on submit
-  (`SubmissionsService.autoPublishStartup`). If publishing fails, the submission stays `SUBMITTED` for an admin. Other listing kinds
-  still need admin approval.
 * `RULE_WEIGHT = 1`, `ML_WEIGHT = 0`. The ML result is stored beside the score and never read by `ScoringService`.
 
 ## Safety invariants (enforced in code and covered by tests)

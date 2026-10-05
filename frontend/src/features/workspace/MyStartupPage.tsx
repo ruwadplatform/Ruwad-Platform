@@ -66,7 +66,7 @@ export function MyStartupPage() {
       <div>
         <IntelligencePageHeader title="My Startup" description="Your company's founder/admin management view." />
         <div className="mt-20">
-          <EmptyState icon="mystartup" title="No company linked to your account yet" body="Once you submit your company profile, its management view and your RUWĀD assessment will appear here." />
+          <EmptyState icon="mystartup" title="No company linked to your account yet" body="Once your company profile is submitted and approved, its management view and your RUWĀD assessment will appear here." />
         </div>
       </div>
     );

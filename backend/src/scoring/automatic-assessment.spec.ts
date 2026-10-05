@@ -48,7 +48,7 @@ function scoring(opts: { snapshot?: unknown; experimental?: any; startupRow?: an
 }
 
 // ---------------------------------------------------------------- submissions
-function submissions(kind: EntityKind, opts: { payload?: Record<string, unknown>; publishFails?: boolean; scoringFails?: boolean } = {}) {
+function submissions(kind: EntityKind, opts: { payload?: Record<string, unknown>; publishFails?: boolean; scoringFails?: boolean; scoring?: any } = {}) {
   const item: any = { id: "sub-1", userId: "founder-1", kind, status: SubmissionStatus.DRAFT, payload: opts.payload ?? { name: "Acme" }, title: "Acme" };
   const memberships: any[] = [];
   const reviewEvents: any[] = [];
@@ -61,72 +61,168 @@ function submissions(kind: EntityKind, opts: { payload?: Record<string, unknown>
     }),
   };
   const dataSource: any = { transaction: jest.fn(async (cb: any) => cb(manager)) };
-  const scoringSvc: any = {
+  const scoringSvc: any = opts.scoring ?? {
     applyFounderAndAiFeatures: jest.fn(async () => undefined),
     recalculateStartupScore: jest.fn(async () => { if (opts.scoringFails) throw new Error("engine down"); return { status: ScoreStatus.CALCULATED }; }),
   };
   const publisher = (k: EntityKind) => ({ kind: k, publish: jest.fn(async () => { if (opts.publishFails) throw new Error("db"); return "startup-1"; }) });
+  const publishers = [EntityKind.STARTUP, EntityKind.INVESTOR, EntityKind.HUB, EntityKind.RESEARCH, EntityKind.MULTINATIONAL].map(publisher);
   const svc = new SubmissionsService(
     repo, events, dataSource, { log: jest.fn(async () => undefined) } as any, {} as any,
     { findByIdOrThrow: jest.fn(async () => ({ firstName: "F", lastName: "O", email: "f@x.y" })) } as any, { sendStartupSubmissionReceived: jest.fn(async () => undefined) } as any,
     scoringSvc, { createSystemEventIfNew: jest.fn(async () => null) } as any,
-    publisher(EntityKind.STARTUP) as any, publisher(EntityKind.INVESTOR) as any, publisher(EntityKind.HUB) as any, publisher(EntityKind.RESEARCH) as any, publisher(EntityKind.MULTINATIONAL) as any,
+    publishers[0] as any, publishers[1] as any, publishers[2] as any, publishers[3] as any, publishers[4] as any,
   );
   jest.spyOn(svc as any, "assertPayloadValid").mockResolvedValue(undefined);
-  return { svc, item, memberships, reviewEvents, scoringSvc };
+  return { svc, item, memberships, reviewEvents, scoringSvc, dataSource, publishers, repo };
 }
 
-describe("founder submission -> automatic RUWAD assessment, with no admin step", () => {
-  const submit = (t: ReturnType<typeof submissions>) => { t.item.status = SubmissionStatus.DRAFT; return t.svc.submit("founder-1", "sub-1"); };
+describe("startup submission: admin approval publishes, then scoring and ML run automatically", () => {
+  type T = ReturnType<typeof submissions>;
+  const submit = (t: T) => { t.item.status = SubmissionStatus.DRAFT; return t.svc.submit("founder-1", "sub-1"); };
+  const nothingPublished = (t: T) => {
+    for (const p of t.publishers) expect(p.publish).not.toHaveBeenCalled();
+    expect(t.dataSource.transaction).not.toHaveBeenCalled();
+    expect(t.memberships).toEqual([]);
+    expect(t.scoringSvc.recalculateStartupScore).not.toHaveBeenCalled();
+    expect(t.scoringSvc.applyFounderAndAiFeatures).not.toHaveBeenCalled();
+  };
 
-  it("publishes a startup the moment it is submitted and runs deterministic scoring — no admin review", async () => {
+  it("1+2. a founder's submit leaves the startup SUBMITTED and creates nothing public: no directory row, no owner, no score", async () => {
+    for (const kind of [EntityKind.STARTUP, EntityKind.INVESTOR, EntityKind.HUB, EntityKind.RESEARCH, EntityKind.MULTINATIONAL]) {
+      const t = submissions(kind);
+      const out = await submit(t);
+      expect(out.status).toBe(SubmissionStatus.SUBMITTED);
+      expect(out.publishedEntityId).toBeUndefined();
+      expect(t.reviewEvents.map((e) => e.eventType)).toEqual([SubmissionEventType.SUBMITTED]);
+      nothingPublished(t);
+    }
+  });
+  it("the founder cannot publish by any other route: re-submitting or approving their own submission is refused", async () => {
     const t = submissions(EntityKind.STARTUP);
-    const out = await submit(t);
+    await submit(t);
+    await expect(t.svc.submit("founder-1", "sub-1")).rejects.toThrow(); // SUBMITTED -> SUBMITTED is not allowed
+    t.item.status = SubmissionStatus.UNDER_REVIEW;
+    await expect(t.svc.approve("founder-1", "sub-1")).rejects.toThrow(ForbiddenException);
+    nothingPublished(t);
+  });
+  it("3. an admin approving publishes the startup and makes the founder its owner", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await submit(t);
+    t.item.status = SubmissionStatus.UNDER_REVIEW;
+    const out = await t.svc.approve("admin-1", "sub-1");
     expect(out.status).toBe(SubmissionStatus.APPROVED);
     expect(out.publishedEntityId).toBe("startup-1");
-    expect(t.scoringSvc.recalculateStartupScore).toHaveBeenCalledWith("startup-1", ScoreTrigger.SUBMISSION_PUBLISHED);
-    expect(out.reviewedByUserId).toBeUndefined(); // no reviewer was involved
-  });
-  it("the submitter becomes OWNER, and the audit trail says it was automatic", async () => {
-    const t = submissions(EntityKind.STARTUP);
-    await submit(t);
+    expect(out.reviewedByUserId).toBe("admin-1");
+    expect(t.publishers[0].publish).toHaveBeenCalledTimes(1);
     expect(t.memberships).toEqual([expect.objectContaining({ userId: "founder-1", kind: EntityKind.STARTUP, entityId: "startup-1", role: MembershipRole.OWNER })]);
-    const approved = t.reviewEvents.find((e) => e.eventType === SubmissionEventType.APPROVED);
-    expect(approved).toMatchObject({ actorUserId: "founder-1" });
-    expect(approved.message).toMatch(/no admin review required/i);
+    expect(t.reviewEvents.find((e) => e.eventType === SubmissionEventType.APPROVED)).toMatchObject({ actorUserId: "admin-1" });
   });
-  it("founder values and AI-extracted pitch-deck values are applied BEFORE scoring, so extraction feeds the assessment", async () => {
+  it("4+7. that single approval runs the existing scoring pipeline: founder/AI values first, then the score, with no second admin action", async () => {
     const t = submissions(EntityKind.STARTUP, { payload: { name: "Acme", annualRevenue: 1_000_000, customerCount: 40, aiFilledScoringKeys: ["customerCount"] } });
     await submit(t);
+    t.item.status = SubmissionStatus.UNDER_REVIEW;
+    await t.svc.approve("admin-1", "sub-1");
     const [founderPatch, aiPatch] = t.scoringSvc.applyFounderAndAiFeatures.mock.calls[0].slice(1, 3);
     expect(founderPatch).toMatchObject({ annualRevenue: 1_000_000 });
     expect(aiPatch).toMatchObject({ customerCount: 40 });
+    expect(t.scoringSvc.recalculateStartupScore).toHaveBeenCalledTimes(1);
+    expect(t.scoringSvc.recalculateStartupScore).toHaveBeenCalledWith("startup-1", ScoreTrigger.SUBMISSION_PUBLISHED);
     expect(t.scoringSvc.applyFounderAndAiFeatures.mock.invocationCallOrder[0]).toBeLessThan(t.scoringSvc.recalculateStartupScore.mock.invocationCallOrder[0]);
+  });
+  it("5+6. approval -> official score saved -> experimental ML starts automatically; the owner then reads Score + Predictive Intelligence", async () => {
+    const sc = scoring({ startupRow: { ...richStartup("startup-1") }, derived: RICH_FEATURES });
+    const t = submissions(EntityKind.STARTUP, { scoring: sc.svc });
+    await submit(t);
+    expect(sc.history.rows).toHaveLength(0); // nothing scored before approval
+    expect(sc.experimental.onFeaturesChanged).not.toHaveBeenCalled();
+    t.item.status = SubmissionStatus.UNDER_REVIEW;
+    await t.svc.approve("admin-1", "sub-1");
+    expect(sc.history.rows).toHaveLength(1);
+    expect(sc.history.rows[0]).toMatchObject({ startupId: "startup-1", triggeredBy: ScoreTrigger.SUBMISSION_PUBLISHED });
+    expect(sc.experimental.onFeaturesChanged).toHaveBeenCalledWith("startup-1");
+
+    // what the founder is shown after approval: the official score and a separate experimental card
+    const card = { target: "raisedNewRoundWithin6Months", title: "6-Month Funding Outlook", status: "AVAILABLE", estimatePercent: 30, experimental: true, includedInRuwadScore: false };
+    const view = await new StartupAssessmentService(sc.svc, { ownerView: async () => ({ models: [card] }) } as any).get("startup-1");
+    expect(view.ruwadScore.state).toBe("READY");
+    expect(view.predictiveIntelligence.models[0]).toMatchObject({ experimental: true, includedInRuwadScore: false });
+  });
+  it("6. if the score cannot be calculated yet the founder sees Pending (never 0), and ML data gaps never block that", async () => {
+    const sc = scoring({ startupRow: { id: "startup-1", name: "Bare", category: "Digital Health", sfda: "N/A", fda: "N/A", ce: "N/A", marketTam: "", marketSam: "", marketSom: "", fundingTotal: 0 } });
+    const t = submissions(EntityKind.STARTUP, { scoring: sc.svc });
+    await submit(t);
+    t.item.status = SubmissionStatus.UNDER_REVIEW;
+    await t.svc.approve("admin-1", "sub-1");
+    const view = await new StartupAssessmentService(sc.svc, { ownerView: async () => ({ models: [] }) } as any).get("startup-1");
+    expect(view.ruwadScore).toMatchObject({ state: "PENDING", value: null, message: PENDING_MESSAGE });
+  });
+  it("an ML failure after approval does not undo the publish or the score", async () => {
+    const sc = scoring({ startupRow: { ...richStartup("startup-1") }, derived: RICH_FEATURES, experimental: { onFeaturesChanged: jest.fn(async () => { throw new Error("fastapi down"); }) } });
+    const t = submissions(EntityKind.STARTUP, { scoring: sc.svc });
+    await submit(t);
+    t.item.status = SubmissionStatus.UNDER_REVIEW;
+    const out = await t.svc.approve("admin-1", "sub-1");
+    await new Promise((r) => setImmediate(r));
+    expect(out.status).toBe(SubmissionStatus.APPROVED);
+    expect(sc.history.rows).toHaveLength(1);
   });
   it("an assessment failure never undoes the publish", async () => {
     const t = submissions(EntityKind.STARTUP, { scoringFails: true });
-    const out = await submit(t);
+    await submit(t);
+    t.item.status = SubmissionStatus.UNDER_REVIEW;
+    expect((await t.svc.approve("admin-1", "sub-1")).status).toBe(SubmissionStatus.APPROVED);
+  });
+  it("8. reject still works: the startup is never published and nothing is scored", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await submit(t);
+    t.item.status = SubmissionStatus.UNDER_REVIEW;
+    const out = await t.svc.reject("admin-1", "sub-1", { reason: "Not a healthcare company" } as any);
+    expect(out.status).toBe(SubmissionStatus.REJECTED);
+    expect(out.reviewerNote).toBe("Not a healthcare company");
+    nothingPublished(t);
+  });
+  it("request-changes still works and the founder can resubmit; still nothing is published", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await submit(t);
+    t.item.status = SubmissionStatus.UNDER_REVIEW;
+    expect((await t.svc.requestChanges("admin-1", "sub-1", { message: "Add your team" } as any)).status).toBe(SubmissionStatus.CHANGES_REQUESTED);
+    expect((await t.svc.submit("founder-1", "sub-1")).status).toBe(SubmissionStatus.SUBMITTED);
+    nothingPublished(t);
+  });
+  it("9. the admin email Accept link works again: SUBMITTED -> review started -> approved -> published and scored, with that one click", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await submit(t);
+    const out = await t.svc.decideFromEmail("admin-1", "accept-token-sid", "approve");
     expect(out.status).toBe(SubmissionStatus.APPROVED);
+    expect(out.reviewedByUserId).toBe("admin-1");
+    expect(t.publishers[0].publish).toHaveBeenCalledTimes(1);
+    expect(t.scoringSvc.recalculateStartupScore).toHaveBeenCalledTimes(1);
   });
-  it("if publishing itself fails the submission stays SUBMITTED for an admin, and the founder's submit still succeeds", async () => {
-    const t = submissions(EntityKind.STARTUP, { publishFails: true });
-    const out = await submit(t);
-    expect(out.status).toBe(SubmissionStatus.SUBMITTED);
-    expect(t.scoringSvc.recalculateStartupScore).not.toHaveBeenCalled();
+  it("9. the admin email Reject link works again and publishes nothing", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await submit(t);
+    const out = await t.svc.decideFromEmail("admin-1", "reject-token-sid", "reject", "Duplicate listing");
+    expect(out.status).toBe(SubmissionStatus.REJECTED);
+    expect(out.reviewerNote).toBe("Duplicate listing");
+    nothingPublished(t);
   });
-  it("only startups are auto-published: other listing kinds still wait for admin approval", async () => {
-    for (const kind of [EntityKind.INVESTOR, EntityKind.HUB, EntityKind.RESEARCH, EntityKind.MULTINATIONAL]) {
+  it("other listing kinds are unchanged: submit waits, admin approval publishes (with no startup scoring)", async () => {
+    for (const [kind, idx] of [[EntityKind.INVESTOR, 1], [EntityKind.HUB, 2], [EntityKind.RESEARCH, 3], [EntityKind.MULTINATIONAL, 4]] as const) {
       const t = submissions(kind);
       expect((await submit(t)).status).toBe(SubmissionStatus.SUBMITTED);
+      expect(t.publishers[idx].publish).not.toHaveBeenCalled();
+      t.item.status = SubmissionStatus.UNDER_REVIEW;
+      expect((await t.svc.approve("admin-1", "sub-1")).status).toBe(SubmissionStatus.APPROVED);
+      expect(t.publishers[idx].publish).toHaveBeenCalledTimes(1);
+      expect(t.scoringSvc.recalculateStartupScore).not.toHaveBeenCalled();
     }
   });
-  it("the admin approve path still works and still records the admin as the reviewer", async () => {
-    const t = submissions(EntityKind.STARTUP);
-    t.item.status = SubmissionStatus.UNDER_REVIEW;
-    t.item.userId = "founder-1";
-    const out = await t.svc.approve("admin-1", "sub-1");
-    expect(out.reviewedByUserId).toBe("admin-1");
-    expect(t.reviewEvents.find((e) => e.eventType === SubmissionEventType.APPROVED)).toMatchObject({ actorUserId: "admin-1" });
+  it("there is no auto-publish path left in the submission service", () => {
+    const src = readFileSync(join(__dirname, "..", "submissions", "submissions.service.ts"), "utf8");
+    expect(src).not.toMatch(/autoPublish|Published automatically|reviewerUserId:\s*null/);
+    const submitBody = src.slice(src.indexOf("async submit("), src.indexOf("// ------------------------------------------------------------- admin-side"));
+    expect(submitBody).not.toMatch(/publishItem|publisher\.publish|recalculateStartupScore/);
   });
 });
 

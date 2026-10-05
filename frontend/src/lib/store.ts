@@ -581,8 +581,6 @@ export async function saveSubmissionDraft(id: string, patch: { payload?: Record<
 export async function submitSubmissionForReview(id: string): Promise<ApiSubmission> {
   const saved = await submissionsApi.submitSubmission(id);
   upsertSubmissionInCache(saved);
-  // A startup submission is published on submit (no admin step): the submitter now owns a listing, so refresh the owned-listing cache.
-  if (saved.status === "APPROVED") ownedListingsCache.reset();
   return saved;
 }
 export async function deleteDraftSubmission(id: string): Promise<void> {
