@@ -326,7 +326,7 @@ describe("only meaningful startup edits start a new assessment", () => {
 // ---------------------------------------------------------------- the founder view
 describe("owner assessment view", () => {
   const calc = (over: any = {}) => ({
-    status: ScoreStatus.CALCULATED, ruwadScore: 8.1, confidenceScore: 0.82, version: "RUWAD-2.0", calculatedAt: new Date().toISOString(), missingFactors: [],
+    status: ScoreStatus.CALCULATED, ruwadScore: 8.1, confidenceScore: 0.82, version: "RUWAD-2.0", calculatedAt: "2026-10-05T00:00:00.000Z", missingFactors: [],
     factors: Object.fromEntries(["growth", "financial", "market", "team", "regulatory", "technology"].map((k) => [k, { score: 8, confidence: 0.8, reason: `${k} reason`, inputsUsed: [], missingInputs: [] }])), ...over,
   });
   const make = (score: any, pi: any = { models: [] }) => new StartupAssessmentService({ getScoreForStartup: async () => score } as any, { ownerView: async () => pi } as any);
@@ -384,12 +384,12 @@ describe("who may read an assessment (and so a prediction)", () => {
 
 describe("the public startup profile and the admin review queues stay out of the founder pipeline", () => {
   it("StartupsService.toDetail (the public payload) carries no prediction or Predictive Intelligence", async () => {
-    const startup = { id: "s1", name: "Acme", verified: "unclaimed", fundingTotal: 10, valuation: 0, ruwadScore: 8.1, scoreStatus: ScoreStatus.CALCULATED };
+    const startup = { id: "s1", name: "Acme", verified: "unclaimed", fundingTotal: 10, valuation: 0, ruwadScore: 8.1, scoreStatus: ScoreStatus.CALCULATED, scoringBasis: "EXISTING_DATA" };
     const shared = { getSectorNames: async () => [], getTeamMembers: async () => [], getProducts: async () => [], getContact: async () => null };
     const scoringSvc: any = { getScoreForStartup: async () => ({ status: ScoreStatus.CALCULATED, ruwadScore: 8.1, confidenceScore: 0.9, version: "v", calculatedAt: "", missingFactors: [], factors: { growth: { score: 8, confidence: 1, reason: "r", inputsUsed: [], missingInputs: [] } } }) };
     const svc = new StartupsService(fakeRepo([startup]) as any, fakeRepo() as any, fakeRepo() as any, shared as any, { findForTarget: async () => [] } as any, { pendingClaimForEntity: async () => false } as any, scoringSvc);
     const json = JSON.stringify(await svc.toDetail(startup as any));
-    for (const leak of ["predictiveIntelligence", "estimatePercent", "Experimental", "inputFeatures", "modelVersion", "raisedNewRoundWithin6Months"]) expect(json).not.toContain(leak);
+    for (const leak of ["predictiveIntelligence", "estimatePercent", "Experimental", "inputFeatures", "modelVersion", "raisedNewRoundWithin6Months", "scoringBasis", "EXISTING_DATA"]) expect(json).not.toContain(leak);
   });
   it("scoring, submission and assessment code does not depend on any admin ML review service or controller", () => {
     const src = (f: string) => readFileSync(join(__dirname, "..", f), "utf8");

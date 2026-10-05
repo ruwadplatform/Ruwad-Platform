@@ -176,7 +176,7 @@ function Overview({ s, loggedIn, isOwner }: { s: Startup; loggedIn: boolean; isO
           </div>
         </div>
       </div>
-      <div><ScoreCard score={s.ruwadScore} status={s.scoreStatus} confidence={s.scoreConfidence} factors={s.factors} category={s.category} peers={allStartups} loggedIn={loggedIn} isOwner={isOwner} /></div>
+      <div><ScoreCard score={s.ruwadScore} status={s.scoreStatus} confidence={s.scoreConfidence} version={s.scoreVersion} factors={s.factors} category={s.category} peers={allStartups} loggedIn={loggedIn} isOwner={isOwner} /></div>
     </div>
   );
 }

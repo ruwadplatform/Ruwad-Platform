@@ -48,7 +48,7 @@ export interface AssessmentCompletion {
 
 export interface StartupAssessment {
   startupId: string;
-  ruwadScore: { state: AssessmentScoreState; value: number | null; outOf: 10; dataConfidence: number | null; version: string; calculatedAt: string; message?: string };
+  ruwadScore: { state: AssessmentScoreState; value: number | null; outOf: 10; dataConfidence: number | null; version: string; calculatedAt: string; message?: string; basis: "STANDARD" | "EXISTING_DATA"; basisNote?: string };
   /** Only while the score is PENDING: exactly why, and what to add. */
   completion?: AssessmentCompletion;
   factors: AssessmentFactor[];

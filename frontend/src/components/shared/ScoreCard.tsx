@@ -16,10 +16,14 @@ const SUBS: { label: string; key: ScoreFactorKey; why: string }[] = [
 
 const METHODOLOGY_TOOLTIP = "The RUWĀD Score is a data-driven assessment of a company's growth, financial strength, market potential, team, regulatory readiness and technology differentiation. Data Confidence reflects the completeness and reliability of the information available for the assessment.";
 
+const EXISTING_DATA_NOTE = "Based only on the information already on file for this company. A factor with no data counts as 0, so the score rises as more information is added.";
+
 interface ScoreCardProps {
   score: number | null;
   status: ScoreStatus;
   confidence: number | null;
+  /** The score's methodology version; the existing-startup basis carries an "-EXISTING-DATA" suffix and is labelled as such. */
+  version?: string | null;
   factors: ScoreFactors;
   category: string;
   peers: { category: string; ruwadScore: number | null }[];
@@ -37,7 +41,7 @@ interface ScoreCardProps {
  * number exists (see ScoreStatus). A missing score is never shown as 0 —
  * that would misread as "assessed and found poor" rather than "not yet
  * assessed". */
-export function ScoreCard({ score, status, confidence, factors, category, peers, loggedIn, isOwner }: ScoreCardProps) {
+export function ScoreCard({ score, status, confidence, version, factors, category, peers, loggedIn, isOwner }: ScoreCardProps) {
   if (!loggedIn) return <ScoreCardTeaser score={score} status={status} category={category} peers={peers} />;
 
   if (status !== "CALCULATED" || score == null) return <PendingScoreCard status={status} score={score} isOwner={isOwner} />;
@@ -60,6 +64,7 @@ export function ScoreCard({ score, status, confidence, factors, category, peers,
         {confidence != null && (
           <div className="small muted mt-4" title={METHODOLOGY_TOOLTIP}>Data Confidence: {Math.round(confidence * 100)}%</div>
         )}
+        {version?.endsWith("EXISTING-DATA") && <div className="fs-11 muted mt-4">{EXISTING_DATA_NOTE}</div>}
       </div>
       {SUBS.map(({ label, key, why }) => {
         const f = factors[key];

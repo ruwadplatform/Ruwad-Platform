@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { ScoreStatus } from "../common/enums";
 import { FACTOR_KEYS, FactorKey, ScoringFeatureKey } from "./scoring.types";
-import { MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE } from "./scoring.constants";
+import { MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, SCORE_VERSION_EXISTING_DATA } from "./scoring.constants";
 import { ScoringService } from "./scoring.service";
 import { MlExperimentalInferenceService, PredictiveIntelligence } from "../ml-data/ml-experimental-inference.service";
 
@@ -15,6 +15,7 @@ export const FACTOR_LABELS: Record<FactorKey, string> = {
 };
 
 export const PENDING_MESSAGE = "Add more company information to complete your RUWĀD assessment.";
+export const EXISTING_DATA_NOTE = "This score is based only on the information already on file for this company. A factor with no data counts as 0, so the score rises as more information is added.";
 
 /** The scoring inputs a founder can actually provide in the submission form, and where. Inputs that only an analyst or admin can supply
  * (leadershipCompleteness, technicalTeamStrength, burnMultiple, ...) are never asked of a founder, so they are not listed as "missing". */
@@ -56,7 +57,7 @@ export interface MissingField { key: string; label: string; where: string }
 export interface StartupAssessment {
   startupId: string;
   /** The official RUWĀD Score. Always produced by the six deterministic scoring engines; ML never feeds it. `value` is null (never 0) when there is not enough data. */
-  ruwadScore: { state: AssessmentScoreState; value: number | null; outOf: 10; dataConfidence: number | null; version: string; calculatedAt: string; message?: string };
+  ruwadScore: { state: AssessmentScoreState; value: number | null; outOf: 10; dataConfidence: number | null; version: string; calculatedAt: string; message?: string; basis: "STANDARD" | "EXISTING_DATA"; basisNote?: string };
   /** Present while the score is PENDING: exactly why, in the engine's own terms. */
   completion?: { factorsAvailable: number; factorsRequired: number; meanConfidence: number | null; confidenceRequired: number; blockers: string[]; unavailableFactors: { key: FactorKey; label: string; missingFields: MissingField[] }[] };
   factors: { key: FactorKey; label: string; status: "AVAILABLE" | "UNAVAILABLE"; score: number | null; confidence: number; explanation: string; missingFields: MissingField[] }[];
@@ -124,6 +125,8 @@ export class StartupAssessmentService {
         dataConfidence: calculated ? score.confidenceScore : null,
         version: score.version,
         calculatedAt: score.calculatedAt,
+        basis: score.version === SCORE_VERSION_EXISTING_DATA ? "EXISTING_DATA" : "STANDARD",
+        basisNote: score.version === SCORE_VERSION_EXISTING_DATA ? EXISTING_DATA_NOTE : undefined,
         message: state === "PENDING" ? PENDING_MESSAGE : state === "PROCESSING" ? "Processing your RUWĀD assessment…" : undefined,
       },
       completion,

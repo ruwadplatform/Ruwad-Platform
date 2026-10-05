@@ -5,9 +5,9 @@ import { Startup } from "../startups/startup.entity";
 import { StartupScoreHistory } from "./startup-score-history.entity";
 import { StartupScoringFeatures } from "./startup-scoring-features.entity";
 import { StartupScoringFeatureAudit } from "./startup-scoring-feature-audit.entity";
-import { ScoreDataSource, ScoreStatus, ScoreTrigger, StartupOutcomeEventType } from "../common/enums";
+import { ScoreDataSource, ScoreStatus, ScoreTrigger, ScoringBasis, StartupOutcomeEventType } from "../common/enums";
 import { FACTOR_KEYS, FactorKey, FactorResult, FeatureProvenance, FeatureProvenanceEntry, ScoreResult, ScoringFeatureKey, ScoringFeatures } from "./scoring.types";
-import { MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, ML_WEIGHT, RULE_WEIGHT, SCORE_VERSION, SOURCE_RANK } from "./scoring.constants";
+import { MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, ML_WEIGHT, RULE_WEIGHT, SCORE_VERSION, SCORE_VERSION_EXISTING_DATA, SOURCE_RANK } from "./scoring.constants";
 import { clampConfidence, clampScore } from "./scoring.utils";
 import { scoreGrowth } from "./engines/growth.engine";
 import { scoreFinancial } from "./engines/financial.engine";
@@ -347,15 +347,45 @@ function stable(value: unknown): string {
   return JSON.stringify(value ?? null);
 }
 
+/** The score and confidence columns are numeric(4,2) / numeric(3,2): what the database hands back is the engine's value rounded to 2 decimals,
+ * so a stored 1.67 and a freshly computed 1.6667 are the same result. Compare at the stored precision. */
+export const atStoredPrecision = (v: unknown): number | null => (v == null ? null : Math.round(Number(v) * 100) / 100);
+
 function sameResult(row: StartupScoreHistory, result: ScoreResult): boolean {
-  const num = (v: unknown) => (v == null ? null : Number(v));
+  const num = atStoredPrecision;
   return row.status === result.status && num(row.ruwadScore) === num(result.ruwadScore) && num(row.confidenceScore) === num(result.confidenceScore)
     && row.version === result.version && stable(row.factors) === stable(result.factors) && stable(row.missingFactors) === stable(result.missingFactors);
+}
+
+/** The EXISTING_DATA basis (directory startups already on the platform before founders submitted structured data). Same six engines, same
+ * inputs, but instead of requiring 4 factors at 50% confidence: the overall score is the mean of all six factor scores, and a factor with no
+ * data counts as 0 (with 0 confidence, so the Data Confidence figure stays honestly low). The one guard: a startup with NO real data in any
+ * factor stays Pending, because "all six factors missing" would publish 0 / 10 for a company nothing is known about. A regulatory 0 that comes
+ * only from the default "Not Submitted" status is not real data. */
+function computeExistingBasis(factors: Record<FactorKey, FactorResult>): ScoreResult | null {
+  const real = FACTOR_KEYS.filter((k) => factors[k].score != null && !(k === "regulatory" && factors[k].score === 0 && !factors[k].inputsUsed.includes("regulatoryMilestone")));
+  if (!real.length) return null;
+  const filled = {} as Record<FactorKey, FactorResult>;
+  const missingFactors: FactorKey[] = [];
+  for (const k of FACTOR_KEYS) {
+    const f = factors[k];
+    if (f.score != null) { filled[k] = f; continue; }
+    missingFactors.push(k);
+    filled[k] = { score: 0, confidence: 0, reason: `${f.reason} Counted as 0 (existing-startup basis).`, inputsUsed: [], missingInputs: f.missingInputs };
+  }
+  const ruwadScore = clampScore(FACTOR_KEYS.reduce((a, k) => a + (filled[k].score as number), 0) / FACTOR_KEYS.length);
+  const confidenceScore = clampConfidence(FACTOR_KEYS.reduce((a, k) => a + filled[k].confidence, 0) / FACTOR_KEYS.length);
+  return { status: ScoreStatus.CALCULATED, ruwadScore, confidenceScore, version: SCORE_VERSION_EXISTING_DATA, calculatedAt: new Date().toISOString(), factors: filled, missingFactors };
 }
 
 function compute(features: ScoringFeatures, startup: Startup): ScoreResult {
   const factors = {} as Record<FactorKey, FactorResult>;
   for (const key of FACTOR_KEYS) factors[key] = ENGINES[key](features, startup);
+
+  if (startup.scoringBasis === ScoringBasis.EXISTING_DATA) {
+    const existing = computeExistingBasis(factors);
+    if (existing) return existing;
+  }
 
   const computed = FACTOR_KEYS.filter((k) => factors[k].score != null);
   const missingFactors = FACTOR_KEYS.filter((k) => factors[k].score == null);

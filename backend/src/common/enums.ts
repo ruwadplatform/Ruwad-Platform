@@ -269,6 +269,14 @@ export enum OutcomeCoverageMethod {
 }
 
 /** Whether `startups.founded` is a stated year or only a bound. */
+/** How a startup's RUWAD Score is calculated. STANDARD: the full rule (at least 4 of 6 factors and 50% mean confidence; a missing factor is
+ * never counted as 0). EXISTING_DATA: directory startups that were on the platform before founders submitted structured data; scored on what is
+ * on file, with a factor that has no data counted as 0 (decided by the product owner for these startups only). */
+export enum ScoringBasis {
+  STANDARD = "STANDARD",
+  EXISTING_DATA = "EXISTING_DATA",
+}
+
 export enum FoundedYearBasis {
   KNOWN = "KNOWN",
   /** An upper-bound/placeholder (e.g. the earliest financing year). */

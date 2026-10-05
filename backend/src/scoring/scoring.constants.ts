@@ -10,6 +10,10 @@ import { ScoreDataSource } from "../common/enums";
  * score not directly comparable to a new one. */
 export const SCORE_VERSION = "RUWAD-2.0";
 
+/** Version tag on a score calculated on the EXISTING_DATA basis (see ScoringBasis), so it can never be mistaken for, or compared as, a
+ * standard score. */
+export const SCORE_VERSION_EXISTING_DATA = "RUWAD-2.0-EXISTING-DATA";
+
 /** Of the six factors, at least this many must have a non-null score before
  * an overall RUWĀD Score is shown at all — otherwise status is
  * INSUFFICIENT_DATA. Never average a missing factor as 0. */

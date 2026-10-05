@@ -1,6 +1,6 @@
 import { Column, Entity, Index } from "typeorm";
 import { BaseEntity } from "../common/base.entity";
-import { FoundedYearBasis, ScoreStatus } from "../common/enums";
+import { FoundedYearBasis, ScoreStatus, ScoringBasis } from "../common/enums";
 
 export type VerifiedTier = "verified" | "self-reported" | "unclaimed";
 
@@ -47,6 +47,10 @@ export class Startup extends BaseEntity {
    * `founded` unchanged. */
   @Column({ type: "enum", enum: FoundedYearBasis, default: FoundedYearBasis.KNOWN })
   foundedBasis!: FoundedYearBasis;
+
+  /** Which scoring rule applies (see ScoringBasis). Internal; never part of the public profile. */
+  @Column({ type: "varchar", default: ScoringBasis.STANDARD })
+  scoringBasis!: ScoringBasis;
 
   @Column()
   stage!: string;

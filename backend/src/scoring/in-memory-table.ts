@@ -43,8 +43,8 @@ export class InMemoryTable {
   count = async (o?: { where?: any }): Promise<number> => this.rows.filter((r) => this.match(r, o?.where)).length;
   findOne = async (o: { where?: any; order?: any }): Promise<Row | null> => (await this.find(o))[0] ?? null;
 
-  update = async (id: string, patch: Row): Promise<void> => {
-    const r = this.rows.find((x) => x.id === id);
-    if (r) Object.assign(r, patch);
+  /** `criteria` is an id or a where-object (including In([...])), like Repository.update. */
+  update = async (criteria: string | Row, patch: Row): Promise<void> => {
+    for (const r of this.rows) if (typeof criteria === "string" ? r.id === criteria : this.match(r, criteria)) Object.assign(r, patch);
   };
 }

@@ -1,8 +1,9 @@
 import { In } from "typeorm";
 import { ValidationPipe } from "@nestjs/common";
-import { EntityKind, EvidenceStatus, HistoricalEvidenceSourceType, ScoreDataSource, ScoreStatus, ScoreTrigger, SubmissionStatus, UserRole } from "../common/enums";
+import { EntityKind, EvidenceStatus, HistoricalEvidenceSourceType, ScoreDataSource, ScoreStatus, ScoreTrigger, ScoringBasis, SubmissionStatus, UserRole } from "../common/enums";
 import { ROLES_KEY } from "../common/decorators/roles.decorator";
-import { MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, ML_WEIGHT, RULE_WEIGHT } from "./scoring.constants";
+import { MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, ML_WEIGHT, RULE_WEIGHT, SCORE_VERSION, SCORE_VERSION_EXISTING_DATA } from "./scoring.constants";
+import { EXISTING_DATA_NOTE, StartupAssessmentService } from "./startup-assessment.service";
 import { ScoringAdminController } from "./scoring.controller";
 import { BackfillExistingStartupsDto } from "./dto/backfill-existing.dto";
 import { ExistingStartupBackfillService, selectEvidenceFeatures } from "./existing-startup-backfill.service";
@@ -229,3 +230,102 @@ describe("the backfill endpoint", () => {
     expect(await t.count({ where: { k: In(["b"]) } })).toBe(1);
   });
 });
+
+describe("existing directory startups: scored on what is on file, a factor with no data counts as 0", () => {
+  /** Directory startup (no founder submission) with a little real data: headcount, funding, market size and an SFDA approval. Nothing on growth, technology. */
+  const PARTIAL = startupRow("partial", { name: "Partial Co", employees: 20, fundingTotal: 3, marketTam: "SAR 2B", marketSam: "SAR 500M", marketSom: "SAR 50M", sfda: "Approved" });
+  const partialWorld = () => setup({ startups: [PARTIAL, startupRow("nothing", { name: "Nothing Known Co" })] });
+
+  it("gives the startup a score from the data it has, with each factor lacking data counted as 0 (growth, technology)", async () => {
+    const r = await partialWorld().svc.run({ dryRun: true });
+    const p = r.startups.find((x) => x.slug === "startup-partial")!;
+    expect(p.basis).toBe(ScoringBasis.EXISTING_DATA);
+    expect(p.scoreStatus).toBe("CALCULATED");
+    // factors with real inputs keep the engine's own score; the others are exactly 0
+    expect(p.factors.growth.score).toBe(0);
+    expect(p.factors.technology.score).toBe(0);
+    for (const k of ["financial", "market", "team", "regulatory"] as const) expect(p.factors[k].score).toBeGreaterThan(0);
+    expect(p.missingFactors.sort()).toEqual(["growth", "technology"]);
+    // overall = mean of all six (zeros included); confidence honestly low because missing factors carry 0 confidence
+    const six = Object.values(p.factors);
+    expect(p.ruwadScore).toBeCloseTo(six.reduce((a, f) => a + (f.score as number), 0) / 6, 6);
+    expect(p.confidence).toBeCloseTo(six.reduce((a, f) => a + f.confidence, 0) / 6, 6);
+    expect(p.confidence).toBeLessThan(MIN_OVERALL_CONFIDENCE);
+    expect(p.change).toBe("NEW_SCORE");
+  });
+
+  it("a startup with NO real data in any factor stays Pending: never a 0 / 10 for 'nothing known' (the default SFDA 'Not Submitted' is not data)", async () => {
+    const r = await partialWorld().svc.run({ dryRun: true });
+    const n = r.startups.find((x) => x.slug === "startup-nothing")!;
+    expect(n).toMatchObject({ basis: ScoringBasis.EXISTING_DATA, scoreStatus: "PENDING", ruwadScore: null, confidence: null });
+    expect(r.readyToScore).toEqual(["Partial Co"]);
+  });
+
+  it("the score is stored with its own version tag, so it can never be mistaken for a standard score, and the basis persists", async () => {
+    const w = partialWorld();
+    await w.svc.run({ dryRun: false });
+    expect(w.t.startups.rows.find((s) => s.id === "partial")).toMatchObject({ scoringBasis: ScoringBasis.EXISTING_DATA, scoreStatus: ScoreStatus.CALCULATED, scoreVersion: SCORE_VERSION_EXISTING_DATA });
+    expect(w.t.history.rows.find((h) => h.startupId === "partial")).toMatchObject({ version: SCORE_VERSION_EXISTING_DATA, triggeredBy: ScoreTrigger.BACKFILL });
+    // a later recalculation (e.g. the owner edits something) keeps the same basis rather than flipping the startup back to Pending
+    const again = await w.scoring.recalculateStartupScore("partial", ScoreTrigger.STARTUP_UPDATED);
+    expect(again.status).toBe(ScoreStatus.CALCULATED);
+    expect(again.version).toBe(SCORE_VERSION_EXISTING_DATA);
+  });
+
+  it("is idempotent on this basis too", async () => {
+    const w = partialWorld();
+    await w.svc.run({ dryRun: false });
+    const rows = w.t.history.rows.length;
+    const second = await w.svc.run({ dryRun: false });
+    expect(second.written).toEqual({ historyRows: 0, startupsWithNewStatus: 0 });
+    expect(w.t.history.rows).toHaveLength(rows);
+  });
+
+  it("the standard rule is untouched: a startup a founder submitted keeps STANDARD, a missing factor is never counted as 0, and it still needs 4 factors at 50%", async () => {
+    const w = setup({
+      startups: [startupRow("founder", { name: "Founder Co", employees: 12, fundingTotal: 1 })],
+      submissions: [{ publishedEntityId: "founder", kind: EntityKind.STARTUP, status: SubmissionStatus.APPROVED, payload: { name: "Founder Co", employees: 12 } }],
+    });
+    const r = await w.svc.run({ dryRun: false });
+    const f = r.startups[0];
+    expect(f.basis).not.toBe(ScoringBasis.EXISTING_DATA);
+    expect(f).toMatchObject({ scoreStatus: "PENDING", ruwadScore: null }); // thin data: Pending, not a score padded with zeros
+    expect(w.t.startups.rows[0].scoringBasis).not.toBe(ScoringBasis.EXISTING_DATA);
+    expect([MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, SCORE_VERSION]).toEqual([4, 0.5, "RUWAD-2.0"]);
+  });
+
+  it("the founder-facing assessment labels it honestly and keeps the zeroed factors visible with what would raise them", async () => {
+    const w = partialWorld();
+    await w.svc.run({ dryRun: false });
+    const view = await new StartupAssessmentService(w.scoring, { ownerView: async () => ({ models: [] }) } as any).get("partial");
+    expect(view.ruwadScore).toMatchObject({ state: "READY", basis: "EXISTING_DATA", basisNote: EXISTING_DATA_NOTE });
+    expect(view.ruwadScore.value).toBeGreaterThan(0);
+    const growth = view.factors.find((f) => f.key === "growth")!;
+    expect(growth.score).toBe(0);
+    expect(growth.explanation).toMatch(/Counted as 0 \(existing-startup basis\)/);
+    expect(growth.missingFields.length).toBeGreaterThan(0);
+  });
+});
+
+describe("idempotency at the database's stored precision", () => {
+  it("a stored score of 1.67 and a recomputed 1.6667 are the same result: re-running adds no history row", async () => {
+    const w = setup({ startups: [startupRow("p", { name: "P", employees: 20, fundingTotal: 3, marketTam: "SAR 2B", marketSam: "SAR 500M", marketSom: "SAR 50M", sfda: "Approved" })] });
+    await w.svc.run({ dryRun: false });
+    // what Postgres numeric(4,2)/(3,2) actually hands back
+    for (const h of w.t.history.rows) { h.ruwadScore = Math.round(h.ruwadScore * 100) / 100; h.confidenceScore = Math.round(h.confidenceScore * 100) / 100; }
+    for (const st of w.t.startups.rows) { st.ruwadScore = Math.round(st.ruwadScore * 100) / 100; st.scoreConfidence = Math.round(st.scoreConfidence * 100) / 100; }
+    expect(w.t.history.rows[0].ruwadScore).not.toBe(w.t.history.rows[0].ruwadScore * 1.0000001); // sanity: it is a rounded value
+    const second = await w.svc.run({ dryRun: false });
+    expect(second.written).toEqual({ historyRows: 0, startupsWithNewStatus: 0 });
+    expect(second.startups[0].change).toBe("UNCHANGED");
+    expect(w.t.history.rows).toHaveLength(1);
+  });
+  it("the same holds for any recalculation, not just the backfill (a no-op update adds no history row)", async () => {
+    const w = setup({ startups: [startupRow("q", { name: "Q", employees: 20, fundingTotal: 3, marketTam: "SAR 2B", marketSam: "SAR 500M", marketSom: "SAR 50M", sfda: "Approved" })] });
+    await w.svc.run({ dryRun: false });
+    for (const h of w.t.history.rows) { h.ruwadScore = Math.round(h.ruwadScore * 100) / 100; h.confidenceScore = Math.round(h.confidenceScore * 100) / 100; }
+    await w.scoring.recalculateStartupScore("q", ScoreTrigger.STARTUP_UPDATED);
+    expect(w.t.history.rows).toHaveLength(1);
+  });
+});
+

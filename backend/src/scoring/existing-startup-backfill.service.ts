@@ -9,13 +9,13 @@ import { StartupScoringFeatures } from "./startup-scoring-features.entity";
 import { StartupScoreHistory } from "./startup-score-history.entity";
 import { HistoricalEvidence } from "../ml-data/historical/historical-evidence.entity";
 import { Submission } from "../submissions/submission.entity";
-import { EntityKind, EvidenceStatus, HistoricalEvidenceSourceType, ScoreStatus, ScoreTrigger, SubmissionStatus } from "../common/enums";
+import { EntityKind, EvidenceStatus, HistoricalEvidenceSourceType, ScoreStatus, ScoreTrigger, ScoringBasis, SubmissionStatus } from "../common/enums";
 import { ML_FEATURES_V1 } from "../ml-data/ml-data.constants";
 import { extractStartupScoringFeatures } from "../submissions/publishers/startup-submission.publisher";
 import { FACTOR_KEYS, FactorKey, ScoreResult, ScoringFeatures } from "./scoring.types";
 import { MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, ML_WEIGHT, RULE_WEIGHT } from "./scoring.constants";
 import { FeatureDerivationService } from "./feature-derivation.service";
-import { ScoringService } from "./scoring.service";
+import { ScoringService, atStoredPrecision } from "./scoring.service";
 import { InMemoryTable } from "./in-memory-table";
 import { FACTOR_LABELS, FOUNDER_FIELDS } from "./startup-assessment.service";
 
@@ -24,6 +24,8 @@ export interface BackfillStartupRow {
   name: string;
   slug: string;
   scoreStatus: "CALCULATED" | "PENDING";
+  /** EXISTING_DATA for directory startups that were on the platform before any founder submitted structured data. */
+  basis: ScoringBasis;
   ruwadScore: number | null;
   confidence: number | null;
   factors: Record<FactorKey, { score: number | null; confidence: number; missingInputs: string[] }>;
@@ -95,7 +97,9 @@ export class ExistingStartupBackfillService {
 
   async run(opts: { dryRun?: boolean; startupIds?: string[] } = {}): Promise<BackfillReport> {
     const dryRun = opts.dryRun !== false; // anything but an explicit false is a dry run
-    const startups = opts.startupIds?.length ? await this.startups.find({ where: { id: In(opts.startupIds) } }) : await this.startups.find();
+    const loaded = opts.startupIds?.length ? await this.startups.find({ where: { id: In(opts.startupIds) } }) : await this.startups.find();
+    // work on copies: a dry run must never change the objects a repository handed out
+    const startups = loaded.map((s) => ({ ...s }) as Startup);
     startups.sort((a, b) => a.name.localeCompare(b.name));
     const ids = startups.map((s) => s.id);
     if (!ids.length) return this.report(dryRun, []);
@@ -105,6 +109,13 @@ export class ExistingStartupBackfillService {
       this.submissions.find({ where: { publishedEntityId: In(ids), kind: EntityKind.STARTUP, status: SubmissionStatus.APPROVED } }),
     ]);
     const today = new Date().toISOString().slice(0, 10);
+
+    // Directory startups (no approved founder submission) are scored on the EXISTING_DATA basis: what is on file counts and a factor with no
+    // data counts as 0. Startups a founder submitted through the wizard keep the STANDARD rule. (Dry run: only the in-memory copies change.)
+    const submitted = new Set(submissions.map((s) => s.publishedEntityId));
+    const needsBasis = startups.filter((s) => !submitted.has(s.id) && s.scoringBasis !== ScoringBasis.EXISTING_DATA);
+    for (const s of needsBasis) s.scoringBasis = ScoringBasis.EXISTING_DATA;
+    if (!dryRun && needsBasis.length) await this.startups.update({ id: In(needsBasis.map((s) => s.id)) }, { scoringBasis: ScoringBasis.EXISTING_DATA });
 
     // the scoring service the pipeline runs on: the real one (apply) or the real code over in-memory copies (dry run)
     let svc = this.scoring;
@@ -173,10 +184,10 @@ export class ExistingStartupBackfillService {
 
   private toRow(startup: Startup, r: ScoreResult, mapped: string[], before: { status: ScoreStatus; score: number | null }): BackfillStartupRow {
     const calculated = r.status === ScoreStatus.CALCULATED && r.ruwadScore != null;
-    const same = before.status === r.status && (before.score ?? null) === (r.ruwadScore ?? null);
+    const same = before.status === r.status && atStoredPrecision(before.score) === atStoredPrecision(r.ruwadScore);
     const change: BackfillStartupRow["change"] = same ? "UNCHANGED" : calculated ? "NEW_SCORE" : before.status === ScoreStatus.NOT_CALCULATED ? "NEW_PENDING_STATUS" : "UPDATED";
     return {
-      startupId: startup.id, name: startup.name, slug: startup.slug, scoreStatus: calculated ? "CALCULATED" : "PENDING", ruwadScore: calculated ? r.ruwadScore : null, confidence: calculated ? r.confidenceScore : null,
+      startupId: startup.id, name: startup.name, slug: startup.slug, scoreStatus: calculated ? "CALCULATED" : "PENDING", basis: startup.scoringBasis ?? ScoringBasis.STANDARD, ruwadScore: calculated ? r.ruwadScore : null, confidence: calculated ? r.confidenceScore : null,
       factors: Object.fromEntries(FACTOR_KEYS.map((k) => [k, { score: r.factors[k].score, confidence: r.factors[k].confidence, missingInputs: [...r.factors[k].missingInputs] }])) as BackfillStartupRow["factors"],
       missingFactors: [...r.missingFactors], mapped, change,
     };
@@ -215,7 +226,8 @@ export class ExistingStartupBackfillService {
       startups: rows,
       notes: [
         `Factor labels: ${Object.values(FACTOR_LABELS).join(", ")}.`,
-        "Score rule (unchanged): at least " + MIN_FACTOR_COVERAGE + " of 6 factors with a score and a mean factor confidence of at least " + Math.round(MIN_OVERALL_CONFIDENCE * 100) + "%.",
+        "Standard rule (new founder submissions, unchanged): at least " + MIN_FACTOR_COVERAGE + " of 6 factors with a score and a mean factor confidence of at least " + Math.round(MIN_OVERALL_CONFIDENCE * 100) + "%.",
+        "Existing directory startups (basis EXISTING_DATA): scored on what is on file; a factor with no data counts as 0. A startup with no real data in any factor stays Pending (never a 0 / 10 for 'nothing known').",
         "Nothing is invented: missing inputs stay missing. The experimental ML model is not used.",
         dryRun ? "Dry run: nothing was written." : "Applied: results were written through the normal scoring service; unchanged results add no history row.",
       ],

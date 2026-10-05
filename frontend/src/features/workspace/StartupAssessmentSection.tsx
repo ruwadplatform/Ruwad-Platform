@@ -125,6 +125,7 @@ export function StartupAssessmentSection({ startupId }: { startupId: string }) {
             <div className="stat-mini"><div className="sm-label">Data Confidence</div><div className="sm-val fs-15">{s.dataConfidence != null ? pct(s.dataConfidence) : "—"}</div></div>
           </div>
           {s.message && <p className="small muted mt-12">{s.message}</p>}
+          {s.basisNote && <p className="fs-11 muted mt-8">{s.basisNote}</p>}
           {c && (
             <div className="mt-12" data-testid="pending-guidance">
               <p className="small"><b>Why it&apos;s pending</b></p>

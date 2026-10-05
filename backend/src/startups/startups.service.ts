@@ -173,7 +173,8 @@ export class StartupsService {
       Object.entries(scoreResult.factors).map(([key, f]) => [key, { score: f.score, confidence: f.confidence }]),
     );
     // foundedBasis is internal ML-data-quality metadata (is `founded` a stated year or an estimate?); it is never part of the public profile.
-    const { foundedBasis: _internalFoundedBasis, ...publicFields } = s;
+    // scoringBasis is internal scoring metadata and equally never public.
+    const { foundedBasis: _internalFoundedBasis, scoringBasis: _internalScoringBasis, ...publicFields } = s;
     return {
       ...publicFields,
       fundingTotal: Number(s.fundingTotal), valuation: Number(s.valuation),
