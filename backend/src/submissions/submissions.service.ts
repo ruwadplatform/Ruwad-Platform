@@ -273,9 +273,11 @@ export class SubmissionsService {
     // its own non-transactional repos, so calling it earlier could compute
     // against a startup id the rest of the app can't see yet. A failure here
     // never undoes the publish, matching how a failed notification below
-    // doesn't either. recalculateStartupScore() is also what hands the
-    // startup to the EXPERIMENTAL ML step (fire-and-forget, after the
-    // official score is saved), so one call is the whole assessment.
+    // doesn't either. The admin's single approval is the only human step:
+    // ScoringService.assessStartup() then runs, in this order and with no
+    // further admin action, applyFounderAndAiFeatures -> applyDerivedFeatures
+    // -> recalculateStartupScore -> runExperimentalMlInference (the ML step is
+    // fire-and-forget, after the official score is saved).
     if (item.kind === EntityKind.STARTUP) {
       try {
         // The wizard tags which scoring-relevant keys are still an untouched
@@ -283,14 +285,7 @@ export class SubmissionsService {
         // not in that set was typed or edited by the founder.
         const aiFilledKeys = new Set(Array.isArray(item.payload.aiFilledScoringKeys) ? (item.payload.aiFilledScoringKeys as unknown[]).filter((k): k is string => typeof k === "string") : []);
         const { founderPatch, aiPatch } = extractStartupScoringFeatures(item.payload, aiFilledKeys);
-        if (Object.keys(founderPatch).length || Object.keys(aiPatch).length) {
-          await this.scoring.applyFounderAndAiFeatures(publishedEntityId, founderPatch, aiPatch);
-        }
-        // recalculateStartupScore() itself runs feature derivation (team
-        // size, founder count, funding rounds, investor count) from the
-        // rows the publish transaction just created — one place, not
-        // duplicated here.
-        await this.scoring.recalculateStartupScore(publishedEntityId, ScoreTrigger.SUBMISSION_PUBLISHED);
+        await this.scoring.assessStartup(publishedEntityId, { founderPatch, aiPatch, trigger: ScoreTrigger.SUBMISSION_PUBLISHED });
       } catch (e) {
         this.logger.error(`Scoring failed after publishing startup ${publishedEntityId}: ${e instanceof Error ? e.message : "unknown error"}`);
       }

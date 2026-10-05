@@ -124,6 +124,11 @@ export function extractStartupScoringFeatures(p: Record<string, unknown>, aiFill
   }
   if (typeof p.regulatoryMilestone === "string" && p.regulatoryMilestone) assign("regulatoryMilestone", p.regulatoryMilestone);
 
+  // "Employees" (a required wizard field) is the company's headcount, which is exactly what the `teamSize` input means. Only a positive
+  // figure counts as evidence: 0 is how an unanswered form looks, so it is not turned into "a team of zero".
+  const headcount = numOrUndefined(p.employees);
+  if (p.teamSize === undefined && headcount !== undefined && headcount > 0) assign("teamSize", headcount, "employees");
+
   // Markets Currently Operating In (Market step, chips of COUNTRIES) isn't a
   // ScoringFeatures key itself — its array length is the signal.
   if (Array.isArray(p.marketsOperatingIn) && p.marketsOperatingIn.length) {

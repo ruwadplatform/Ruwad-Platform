@@ -124,8 +124,8 @@ export const startupSchema: EntitySchema = {
       sections: [
         {
           fields: [
-            { name: "fundingTotal", label: "Total Funding Raised (SAR)", type: "number", required: true, min: 0 },
-            { name: "valuation", label: "Valuation (SAR)", type: "number", required: true, min: 0 },
+            { name: "fundingTotal", label: "Total Funding Raised (SAR millions)", type: "number", required: true, min: 0, hint: "In millions: enter 2.5 for SAR 2,500,000. RUWĀD shows and scores this figure in SAR millions." },
+            { name: "valuation", label: "Valuation (SAR millions)", type: "number", required: true, min: 0, hint: "In millions: enter 40 for SAR 40,000,000." },
             { name: "fundraising", label: "Currently Fundraising", type: "boolean" },
             { name: "targetRaise", label: "Target Raise", type: "text", maxLength: 100, condition: (p) => !!p.fundraising },
             {

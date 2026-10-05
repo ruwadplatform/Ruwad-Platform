@@ -55,4 +55,23 @@ describe("extractStartupScoringFeatures", () => {
     expect(founderPatch.regulatoryMilestone).toBe("SFDA submission");
     expect(aiPatch.clinicalValidation).toBe(false);
   });
+
+  describe("the required Employees headcount becomes the structured teamSize input", () => {
+    it("a positive headcount maps to teamSize, tagged founder-typed unless it is still an untouched AI extraction", () => {
+      expect(extractStartupScoringFeatures({ employees: 24 }).founderPatch.teamSize).toBe(24);
+      const ai = extractStartupScoringFeatures({ employees: 24 }, new Set(["employees"]));
+      expect(ai.aiPatch.teamSize).toBe(24);
+      expect(ai.founderPatch.teamSize).toBeUndefined();
+    });
+    it("0 (how an unanswered form looks), blanks and junk are NOT turned into a team of zero", () => {
+      for (const employees of [0, "", null, undefined, "many", -3]) {
+        const { founderPatch, aiPatch } = extractStartupScoringFeatures({ employees });
+        expect(founderPatch.teamSize).toBeUndefined();
+        expect(aiPatch.teamSize).toBeUndefined();
+      }
+    });
+    it("an explicitly provided teamSize is never overridden by the headcount", () => {
+      expect(extractStartupScoringFeatures({ employees: 24, teamSize: 8 }).founderPatch.teamSize).toBe(8);
+    });
+  });
 });

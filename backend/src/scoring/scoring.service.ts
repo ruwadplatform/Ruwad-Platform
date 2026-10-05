@@ -189,7 +189,10 @@ export class ScoringService {
     return rows;
   }
 
-  async recalculateStartupScore(startupId: string, triggeredBy: ScoreTrigger): Promise<ScoreResult> {
+  /** `derivedAlreadyApplied`: the caller (assessStartup) has just run applyDerivedFeatures itself, so it is not repeated.
+   * `deferMl`: the caller starts the experimental ML step itself, after this returns. Both default to false: every other caller gets
+   * the original behaviour (derive, score, hand over to ML). */
+  async recalculateStartupScore(startupId: string, triggeredBy: ScoreTrigger, opts: { derivedAlreadyApplied?: boolean; deferMl?: boolean } = {}): Promise<ScoreResult> {
     const startup = await this.startups.findOne({ where: { id: startupId } });
     if (!startup) throw new Error(`Cannot score unknown startup ${startupId}`);
 
@@ -198,8 +201,10 @@ export class ScoringService {
     // startup's own related tables before every calculation — one place,
     // run on every recalculation so it never drifts stale after a founder
     // adds a team member or round outside the submission flow.
-    const derived = await this.derivation.deriveScoringFeatures(startupId);
-    if (Object.keys(derived).length) await this.applyDerivedFeatures(startupId, derived);
+    if (!opts.derivedAlreadyApplied) {
+      const derived = await this.derivation.deriveScoringFeatures(startupId);
+      if (Object.keys(derived).length) await this.applyDerivedFeatures(startupId, derived);
+    }
 
     const featuresRow = await this.getFeatures(startupId);
 
@@ -259,16 +264,34 @@ export class ScoringService {
       }
     }
 
-    // EXPERIMENTAL live estimate: handed over after every reassessment, once the official score is saved. It is OFF unless
-    // ML_EXPERIMENTAL_INFERENCE_ENABLED=true, never awaited (a slow or dead ML service cannot delay scoring) and has no write path into
-    // `result` or `startups.ruwadScore`. Whether the model is actually asked again is decided there by the INPUT, not here: the same ML
-    // input vector (same model, schema and values) never produces a new call or a new row, so only a meaningful change to the ML inputs
-    // (including headcount, which the feature snapshot does not track) yields a new prediction. Cosmetic edits never reach this point
-    // (see startups/scoring-relevance.ts).
-    if (this.experimental) {
-      void this.experimental.onFeaturesChanged(startupId).catch((e) => this.logger.warn(`Experimental inference hook failed for ${startupId}, continuing: ${e instanceof Error ? e.message : "unknown error"}`));
-    }
+    // EXPERIMENTAL live estimate, handed over once the official score is saved (see runExperimentalMlInference).
+    if (!opts.deferMl) this.runExperimentalMlInference(startupId);
 
+    return result;
+  }
+
+  /** Step 4 of the assessment: the EXPERIMENTAL ML estimate. It is OFF unless ML_EXPERIMENTAL_INFERENCE_ENABLED=true, never awaited
+   * (a slow or dead ML service cannot delay scoring or the admin's approval), and has no write path into the score. Whether the model
+   * is asked again is decided there by the INPUT, not here: the same ML input vector (model, schema and values) never produces a new
+   * call or row, so only a meaningful change to the ML inputs yields a new prediction. Cosmetic edits never reach this point (see
+   * startups/scoring-relevance.ts). */
+  runExperimentalMlInference(startupId: string): void {
+    if (!this.experimental) return;
+    void this.experimental.onFeaturesChanged(startupId).catch((e) => this.logger.warn(`Experimental inference hook failed for ${startupId}, continuing: ${e instanceof Error ? e.message : "unknown error"}`));
+  }
+
+  /** The ONE automatic pipeline that runs after a startup is approved and published — no further admin action, no founder request:
+   *    1. applyFounderAndAiFeatures()      submitted + pitch-deck-extracted values become structured scoring features (precedence-checked)
+   *    2. applyDerivedFeatures()           system-derived values (team, founders, funding rounds, investors, ...) from the startup's own rows
+   *    3. recalculateStartupScore()        the six deterministic engines -> overall RUWAD Score /10 (or INSUFFICIENT_DATA, never a made-up number)
+   *    4. runExperimentalMlInference()     the separate experimental estimate, after the official score is saved
+   * Nothing here is invented: a value that was not provided or derivable simply stays missing. */
+  async assessStartup(startupId: string, input: { founderPatch?: Partial<ScoringFeatures>; aiPatch?: Partial<ScoringFeatures>; sourceDocumentId?: string; trigger: ScoreTrigger }): Promise<ScoreResult> {
+    await this.applyFounderAndAiFeatures(startupId, input.founderPatch ?? {}, input.aiPatch ?? {}, input.sourceDocumentId);
+    const derived = await this.derivation.deriveScoringFeatures(startupId);
+    if (Object.keys(derived).length) await this.applyDerivedFeatures(startupId, derived);
+    const result = await this.recalculateStartupScore(startupId, input.trigger, { derivedAlreadyApplied: true, deferMl: true });
+    this.runExperimentalMlInference(startupId);
     return result;
   }
 

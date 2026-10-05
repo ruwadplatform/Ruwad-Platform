@@ -369,7 +369,8 @@ describe("experimental inference — access control and score isolation", () => 
   });
   it("ScoringService calls the experimental hook without awaiting, and never reads it back into the score", () => {
     const src = readFileSync(join(__dirname, "..", "scoring", "scoring.service.ts"), "utf8");
-    expect(src).toMatch(/if \(this\.experimental\)\s*\{\s*void this\.experimental\.onFeaturesChanged\(/);
+    expect(src).toMatch(/runExperimentalMlInference\(startupId: string\): void \{\s*if \(!this\.experimental\) return;\s*void this\.experimental\.onFeaturesChanged\(/);
+    expect(src).toMatch(/if \(!opts\.deferMl\) this\.runExperimentalMlInference\(startupId\)/);
     expect(src).not.toMatch(/await this\.experimental/);
     expect(src).not.toMatch(/=\s*(await\s+)?this\.experimental/);
   });

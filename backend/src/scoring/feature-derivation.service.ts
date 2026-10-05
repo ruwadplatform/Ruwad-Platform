@@ -36,9 +36,16 @@ export class FeatureDerivationService {
     const founders = team.filter((t) => t.isFounder);
     if (founders.length) out.founderCount = founders.length;
     if (rounds.length) out.fundingRounds = rounds.length;
+    // Money actually reported across the founder's own rounds (SAR, the unit the wizard asks for). Only positive reported amounts count.
+    const raised = rounds.map((r) => Number(r.amount)).filter((n) => Number.isFinite(n) && n > 0);
+    if (raised.length) out.totalFundingRaised = raised.reduce((a, b) => a + b, 0);
 
+    // Distinct investors: those linked through investments, or named as the lead of a reported round (case-insensitive). A lead named in a
+    // round is real evidence of at least that many investors; neither source is ever summed with the other, the larger count wins.
     const investorIds = new Set(investments.map((i) => i.investorId));
-    if (investorIds.size) out.investorCount = investorIds.size;
+    const leads = new Set(rounds.map((r) => (typeof r.lead === "string" ? r.lead.trim().toLowerCase() : "")).filter((l) => l && l !== "n/a" && l !== "undisclosed" && l !== "—"));
+    const investors = Math.max(investorIds.size, leads.size);
+    if (investors) out.investorCount = investors;
 
     // Aggregated as the strongest reported value across founders, not a sum
     // or average — one deeply experienced co-founder is real signal even if

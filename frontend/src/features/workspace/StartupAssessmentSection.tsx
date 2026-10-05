@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { fetchStartupAssessment, type AssessmentFactor, type PredictiveModelCard, type StartupAssessment } from "@/lib/api/assessment";
+import { fetchStartupAssessment, type AssessmentFactor, type MissingField, type PredictiveModelCard, type StartupAssessment } from "@/lib/api/assessment";
 
 const POLL_MS = 3000;
 const POLL_LIMIT = 20; // ~1 minute, then stop quietly; the page still shows whatever is ready
@@ -9,51 +9,72 @@ const POLL_LIMIT = 20; // ~1 minute, then stop quietly; the page still shows wha
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const reliabilityText = (r?: string) => (r === "LOW" ? "Low reliability" : "Very low reliability");
 
-function FactorRow({ f }: { f: AssessmentFactor }) {
-  const pending = f.score == null;
+function MissingList({ fields }: { fields: MissingField[] }) {
+  if (!fields.length) return null;
   return (
-    <div className="panel panel-pad">
-      <div className="flex" style={{ justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
-        <h4 className="fs-13">{f.label}</h4>
-        <span className="mono" style={{ fontSize: 18 }}>{pending ? "Pending" : f.score!.toFixed(1)}</span>
-      </div>
-      <div style={{ height: 6, borderRadius: 3, background: "var(--bg-2)", marginTop: 8 }} aria-hidden>
-        <div style={{ width: pending ? 0 : `${(f.score! / 10) * 100}%`, height: 6, borderRadius: 3, background: "var(--info)" }} />
-      </div>
-      <p className="small muted mt-8">{f.explanation}</p>
-      {pending && f.missingInputs.length > 0 && <p className="fs-11 muted mt-4">Add: {f.missingInputs.join(", ")}</p>}
-    </div>
+    <ul className="fs-12 muted mt-4" style={{ paddingLeft: 18 }}>
+      {fields.map((m) => <li key={m.key}>{m.label} <span className="fs-11">— {m.where}</span></li>)}
+    </ul>
   );
 }
 
-function PredictiveCard({ m }: { m: PredictiveModelCard }) {
+/** One factor, in the requested compact form: name … score. The explanation and what to add are one click away. */
+function FactorRow({ f }: { f: AssessmentFactor }) {
+  const unavailable = f.status === "UNAVAILABLE";
   return (
-    <div className="panel panel-pad mt-16" data-testid="predictive-intelligence">
+    <details className="panel panel-pad" style={{ padding: "10px 14px" }}>
+      <summary style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, cursor: "pointer", listStyle: "none" }}>
+        <span className="fs-13">{f.label}</span>
+        <span className="mono" style={{ fontSize: 16, fontVariantNumeric: "tabular-nums" }}>{unavailable ? <span className="muted">Unavailable</span> : f.score!.toFixed(1)}</span>
+      </summary>
+      {!unavailable && (
+        <div style={{ height: 5, borderRadius: 3, background: "var(--bg-2)", marginTop: 8 }} aria-hidden>
+          <div style={{ width: `${(f.score! / 10) * 100}%`, height: 5, borderRadius: 3, background: "var(--info)" }} />
+        </div>
+      )}
+      <p className="small muted mt-8">{f.explanation}</p>
+      {!unavailable && <p className="fs-11 muted mt-4">Based on {pct(f.confidence)} of this factor&apos;s inputs.</p>}
+      {f.missingFields.length > 0 && (
+        <>
+          <p className="fs-11 muted mt-8">{unavailable ? "To calculate this factor, add:" : "To raise the confidence of this factor, add:"}</p>
+          <MissingList fields={f.missingFields} />
+        </>
+      )}
+    </details>
+  );
+}
+
+function PredictiveIntelligence({ m }: { m: PredictiveModelCard }) {
+  return (
+    <section className="mt-24" aria-label="Predictive Intelligence" data-testid="predictive-intelligence">
       <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-        <h3 className="fs-13">Predictive Intelligence</h3>
+        <h2 className="fs-15">Predictive Intelligence</h2>
         <span className="badge badge-warn">Experimental</span>
       </div>
-      <h4 className="fs-13 mt-12">{m.title}</h4>
-      {m.status === "AVAILABLE" && m.estimatePercent != null ? (
-        <>
-          <div className="flex gap-16 mt-8" style={{ alignItems: "baseline", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 30, fontWeight: 600 }}>About {m.estimatePercent}%</span>
-            <span className="small muted">{m.label} · {m.band}</span>
-          </div>
-          <p className="fs-11 muted mt-4">{reliabilityText(m.reliability)}. A rough indication, not a forecast.</p>
-        </>
-      ) : (
-        <p className="small muted mt-8">{m.message}</p>
-      )}
-      <p className="small muted mt-12">{m.disclaimer.replace("RUWAD", "RUWĀD")}</p>
-      <p className="small mt-4"><b>Not used in your RUWĀD Score.</b></p>
-    </div>
+      <div className="panel panel-pad mt-8">
+        <h3 className="fs-13">{m.title}</h3>
+        {m.status === "AVAILABLE" && m.estimatePercent != null ? (
+          <>
+            <div className="flex gap-16 mt-8" style={{ alignItems: "baseline", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 30, fontWeight: 600 }}>About {m.estimatePercent}%</span>
+              <span className="small muted">{m.label} · {m.band}</span>
+            </div>
+            <p className="fs-11 muted mt-4">{reliabilityText(m.reliability)}. A rough indication, not a forecast.</p>
+          </>
+        ) : (
+          <p className="small muted mt-8">{m.status === "INSUFFICIENT_DATA" ? "Insufficient structured data for an experimental prediction." : m.message}</p>
+        )}
+        <p className="small mt-12"><b>This experimental prediction is not included in your RUWĀD Score.</b></p>
+      </div>
+    </section>
   );
 }
 
-/** Founder assessment: the official RUWĀD Score and its six factors, then — separately — the experimental Predictive Intelligence card.
- * Read-only. It never starts scoring itself; it only shows what the backend has produced, and re-checks briefly while an assessment is
- * still being processed. */
+/** Founder assessment, in two clearly separate parts:
+ *   Official Assessment    the RUWĀD Score /10, its six factors, data confidence and explanations (deterministic engines)
+ *   Predictive Intelligence the experimental funding outlook (a separate model that never touches the score)
+ * Read-only. It never starts scoring; it only shows what the backend has produced, and re-checks briefly while an assessment is still
+ * being processed. */
 export function StartupAssessmentSection({ startupId }: { startupId: string }) {
   const [a, setA] = useState<StartupAssessment | null>(null);
   const [error, setError] = useState(false);
@@ -82,28 +103,55 @@ export function StartupAssessmentSection({ startupId }: { startupId: string }) {
 
   const s = a.ruwadScore;
   const model = a.predictiveIntelligence.models[0];
+  const c = a.completion;
   return (
-    <section className="mt-20" aria-label="RUWĀD assessment">
-      <div className="panel panel-pad">
-        <div className="flex gap-16" style={{ alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
-          <div>
-            <div className="sm-label">RUWĀD Score</div>
-            {s.state === "READY" ? (
-              <div style={{ fontSize: 40, fontWeight: 600, lineHeight: 1.1 }}>{s.value!.toFixed(1)} <span className="muted" style={{ fontSize: 18 }}>/ {s.outOf}</span></div>
-            ) : (
-              <div style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.2 }}>Pending</div>
-            )}
-          </div>
-          <div className="stat-mini"><div className="sm-label">Data Confidence</div><div className="sm-val fs-15">{s.dataConfidence != null ? pct(s.dataConfidence) : "—"}</div></div>
+    <div className="mt-20">
+      <section aria-label="Official Assessment">
+        <div className="flex" style={{ justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+          <h2 className="fs-15">Official Assessment</h2>
+          <span className="small muted">Calculated by RUWĀD&apos;s six scoring engines</span>
         </div>
-        {s.message && <p className="small muted mt-12">{s.message}</p>}
-      </div>
 
-      <div className="mt-16" style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
-        {a.factors.map((f) => <FactorRow key={f.key} f={f} />)}
-      </div>
+        <div className="panel panel-pad mt-8">
+          <div className="flex gap-16" style={{ alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
+            <div>
+              <div className="sm-label">RUWĀD Score</div>
+              {s.state === "READY" ? (
+                <div style={{ fontSize: 40, fontWeight: 600, lineHeight: 1.1 }}>{s.value!.toFixed(1)} <span className="muted" style={{ fontSize: 18 }}>/ {s.outOf}</span></div>
+              ) : (
+                <div style={{ fontSize: 28, fontWeight: 600, lineHeight: 1.2 }}>{s.state === "PROCESSING" ? "Processing…" : "Pending"}</div>
+              )}
+            </div>
+            <div className="stat-mini"><div className="sm-label">Data Confidence</div><div className="sm-val fs-15">{s.dataConfidence != null ? pct(s.dataConfidence) : "—"}</div></div>
+          </div>
+          {s.message && <p className="small muted mt-12">{s.message}</p>}
+          {c && (
+            <div className="mt-12" data-testid="pending-guidance">
+              <p className="small"><b>Why it&apos;s pending</b></p>
+              <ul className="small muted mt-4" style={{ paddingLeft: 18 }}>
+                {c.blockers.map((b) => <li key={b}>{b}</li>)}
+              </ul>
+              {c.unavailableFactors.some((f) => f.missingFields.length > 0) && (
+                <>
+                  <p className="small mt-12"><b>Add this information to complete your assessment</b></p>
+                  {c.unavailableFactors.filter((f) => f.missingFields.length > 0).map((f) => (
+                    <div key={f.key} className="mt-8">
+                      <div className="fs-12">{f.label}</div>
+                      <MissingList fields={f.missingFields} />
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
-      {model && <PredictiveCard m={model} />}
-    </section>
+        <div className="mt-8" style={{ display: "grid", gap: 8 }}>
+          {a.factors.map((f) => <FactorRow key={f.key} f={f} />)}
+        </div>
+      </section>
+
+      {model && <PredictiveIntelligence m={model} />}
+    </div>
   );
 }

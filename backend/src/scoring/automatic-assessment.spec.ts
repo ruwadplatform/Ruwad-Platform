@@ -62,8 +62,7 @@ function submissions(kind: EntityKind, opts: { payload?: Record<string, unknown>
   };
   const dataSource: any = { transaction: jest.fn(async (cb: any) => cb(manager)) };
   const scoringSvc: any = opts.scoring ?? {
-    applyFounderAndAiFeatures: jest.fn(async () => undefined),
-    recalculateStartupScore: jest.fn(async () => { if (opts.scoringFails) throw new Error("engine down"); return { status: ScoreStatus.CALCULATED }; }),
+    assessStartup: jest.fn(async () => { if (opts.scoringFails) throw new Error("engine down"); return { status: ScoreStatus.CALCULATED }; }),
   };
   const publisher = (k: EntityKind) => ({ kind: k, publish: jest.fn(async () => { if (opts.publishFails) throw new Error("db"); return "startup-1"; }) });
   const publishers = [EntityKind.STARTUP, EntityKind.INVESTOR, EntityKind.HUB, EntityKind.RESEARCH, EntityKind.MULTINATIONAL].map(publisher);
@@ -84,8 +83,7 @@ describe("startup submission: admin approval publishes, then scoring and ML run 
     for (const p of t.publishers) expect(p.publish).not.toHaveBeenCalled();
     expect(t.dataSource.transaction).not.toHaveBeenCalled();
     expect(t.memberships).toEqual([]);
-    expect(t.scoringSvc.recalculateStartupScore).not.toHaveBeenCalled();
-    expect(t.scoringSvc.applyFounderAndAiFeatures).not.toHaveBeenCalled();
+    expect(t.scoringSvc.assessStartup).not.toHaveBeenCalled();
   };
 
   it("1+2. a founder's submit leaves the startup SUBMITTED and creates nothing public: no directory row, no owner, no score", async () => {
@@ -123,12 +121,13 @@ describe("startup submission: admin approval publishes, then scoring and ML run 
     await submit(t);
     t.item.status = SubmissionStatus.UNDER_REVIEW;
     await t.svc.approve("admin-1", "sub-1");
-    const [founderPatch, aiPatch] = t.scoringSvc.applyFounderAndAiFeatures.mock.calls[0].slice(1, 3);
-    expect(founderPatch).toMatchObject({ annualRevenue: 1_000_000 });
-    expect(aiPatch).toMatchObject({ customerCount: 40 });
-    expect(t.scoringSvc.recalculateStartupScore).toHaveBeenCalledTimes(1);
-    expect(t.scoringSvc.recalculateStartupScore).toHaveBeenCalledWith("startup-1", ScoreTrigger.SUBMISSION_PUBLISHED);
-    expect(t.scoringSvc.applyFounderAndAiFeatures.mock.invocationCallOrder[0]).toBeLessThan(t.scoringSvc.recalculateStartupScore.mock.invocationCallOrder[0]);
+    // one call into the assessment pipeline (its internal order is asserted in founder-assessment.e2e.spec.ts)
+    expect(t.scoringSvc.assessStartup).toHaveBeenCalledTimes(1);
+    const [id, input] = t.scoringSvc.assessStartup.mock.calls[0];
+    expect(id).toBe("startup-1");
+    expect(input.trigger).toBe(ScoreTrigger.SUBMISSION_PUBLISHED);
+    expect(input.founderPatch).toMatchObject({ annualRevenue: 1_000_000 });
+    expect(input.aiPatch).toMatchObject({ customerCount: 40 });
   });
   it("5+6. approval -> official score saved -> experimental ML starts automatically; the owner then reads Score + Predictive Intelligence", async () => {
     const sc = scoring({ startupRow: { ...richStartup("startup-1") }, derived: RICH_FEATURES });
@@ -197,7 +196,7 @@ describe("startup submission: admin approval publishes, then scoring and ML run 
     expect(out.status).toBe(SubmissionStatus.APPROVED);
     expect(out.reviewedByUserId).toBe("admin-1");
     expect(t.publishers[0].publish).toHaveBeenCalledTimes(1);
-    expect(t.scoringSvc.recalculateStartupScore).toHaveBeenCalledTimes(1);
+    expect(t.scoringSvc.assessStartup).toHaveBeenCalledTimes(1);
   });
   it("9. the admin email Reject link works again and publishes nothing", async () => {
     const t = submissions(EntityKind.STARTUP);
@@ -215,14 +214,14 @@ describe("startup submission: admin approval publishes, then scoring and ML run 
       t.item.status = SubmissionStatus.UNDER_REVIEW;
       expect((await t.svc.approve("admin-1", "sub-1")).status).toBe(SubmissionStatus.APPROVED);
       expect(t.publishers[idx].publish).toHaveBeenCalledTimes(1);
-      expect(t.scoringSvc.recalculateStartupScore).not.toHaveBeenCalled();
+      expect(t.scoringSvc.assessStartup).not.toHaveBeenCalled();
     }
   });
   it("there is no auto-publish path left in the submission service", () => {
     const src = readFileSync(join(__dirname, "..", "submissions", "submissions.service.ts"), "utf8");
     expect(src).not.toMatch(/autoPublish|Published automatically|reviewerUserId:\s*null/);
     const submitBody = src.slice(src.indexOf("async submit("), src.indexOf("// ------------------------------------------------------------- admin-side"));
-    expect(submitBody).not.toMatch(/publishItem|publisher\.publish|recalculateStartupScore/);
+    expect(submitBody).not.toMatch(/publishItem|publisher\.publish|assessStartup|recalculateStartupScore/);
   });
 });
 

@@ -22,6 +22,39 @@ Founder submits startup → SUBMITTED → admin reviews → admin APPROVES → s
 * `recalculateStartupScore()` is the single orchestrator; nothing is duplicated.
 * `RULE_WEIGHT = 1`, `ML_WEIGHT = 0`. The ML result is stored beside the score and never read by `ScoringService`.
 
+## How the official score is produced (and when it is "Pending")
+
+After the single admin approval `ScoringService.assessStartup()` runs, in this order and with no further human action:
+
+1. `applyFounderAndAiFeatures()`: submitted form values and pitch-deck-extracted values become structured scoring features (precedence-checked; a weaker source never overwrites a stronger one)
+2. `applyDerivedFeatures()`: values the platform derives from the startup's own rows
+3. `recalculateStartupScore()`: the six engines (Growth, Financial, Market, Team, Regulatory, Technology) → overall score /10
+4. `runExperimentalMlInference()`: the separate experimental estimate, after the score is saved
+
+**What maps where.** Every wizard field that is a scoring input is mapped automatically: traction (revenue, customers, partnerships, burn,
+cash, users), market growth and markets operated in, technology/IP counts and flags, TRL, clinical validation, regulatory pathway status, each
+founder's experience, **Employees → `teamSize`** (headcount; only a positive figure counts), and, derived from the funding rounds the founder
+listed, **round count, `totalFundingRaised` (sum of positive amounts, SAR) and `investorCount` (distinct lead investors)**. Free-text fields
+(`patentStatus`, `clinicalStatus`) are deliberately NOT parsed into numbers or flags. Nothing is invented.
+
+**The existing minimum-factor rule** (`scoring.constants.ts`, unchanged):
+
+* each factor's *score* is the weighted average of the sub-dimensions that have data; its *confidence* is the share of the factor's weight
+  that had data (a factor resting on one of its five sub-dimensions has confidence 0.15 to 0.25);
+* the overall score exists only if **at least 4 of the 6 factors have a score** and the **mean confidence of those factors is at least 50%**;
+  otherwise the status is `INSUFFICIENT_DATA` and the founder sees "Pending". A missing factor is never averaged in as 0.
+
+Why a defensible overall number needs both conditions: with only the form's required fields, Market, Regulatory and sometimes Financial have
+inputs but Growth, Team and Technology have none (they all come from optional fields), and even when a fourth factor appears from headcount
+alone the factors rest on about a third of their inputs. Averaging that would publish a precise-looking /10 on thin evidence, so the rule was
+kept as it is. The Pending state now says exactly which condition failed and which form fields would unlock each factor.
+
+A realistically completed submission (team with experience, traction, two funding rounds, technology and regulatory answers) scores all six
+factors (e.g. 7.4 / 10 at 72% data confidence in the regression test).
+
+Units: "Total Funding Raised" and "Valuation" are stored and shown in **SAR millions** across the platform; the wizard labels now say so
+(they previously said "SAR", which let a founder enter raw riyals and saturate the Financial factor).
+
 ## Safety invariants (enforced in code and covered by tests)
 
 | Invariant | Where |

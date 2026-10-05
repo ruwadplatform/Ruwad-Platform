@@ -51,4 +51,26 @@ describe("FeatureDerivationService", () => {
     const out = await svc.deriveScoringFeatures("s1");
     expect(out.previousStartupExperience).toBe(false);
   });
+
+  describe("funding derived from the founder's own funding rounds", () => {
+    const make = (rounds: Record<string, any>[], investments: Record<string, any>[] = []) =>
+      new FeatureDerivationService(fakeRepo() as any, fakeRepo(rounds) as any, fakeRepo(investments) as any);
+
+    it("totalFundingRaised is the sum of the positive reported round amounts", async () => {
+      const out = await make([{ startupId: "s1", amount: 1_000_000 }, { startupId: "s1", amount: 2_500_000 }]).deriveScoringFeatures("s1");
+      expect(out.totalFundingRaised).toBe(3_500_000);
+      expect(out.fundingRounds).toBe(2);
+    });
+    it("rounds without a usable amount derive no total (never a zero or a guess)", async () => {
+      const out = await make([{ startupId: "s1", amount: 0 }, { startupId: "s1", amount: null }, { startupId: "s1", amount: "n/a" }]).deriveScoringFeatures("s1");
+      expect(out.totalFundingRaised).toBeUndefined();
+      expect(out.fundingRounds).toBe(3);
+    });
+    it("distinct round leads count as investors (case-insensitive, placeholders ignored); the larger source wins, never the sum", async () => {
+      const rounds = [{ startupId: "s1", lead: "Wa'ed Ventures" }, { startupId: "s1", lead: " wa'ed ventures " }, { startupId: "s1", lead: "STV" }, { startupId: "s1", lead: "N/A" }, { startupId: "s1", lead: "" }];
+      expect((await make(rounds).deriveScoringFeatures("s1")).investorCount).toBe(2);
+      const linked = [{ targetEntityType: EntityKind.STARTUP, targetEntityId: "s1", investorId: "a" }, { targetEntityType: EntityKind.STARTUP, targetEntityId: "s1", investorId: "b" }, { targetEntityType: EntityKind.STARTUP, targetEntityId: "s1", investorId: "c" }];
+      expect((await make(rounds, linked).deriveScoringFeatures("s1")).investorCount).toBe(3);
+    });
+  });
 });
