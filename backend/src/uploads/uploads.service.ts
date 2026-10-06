@@ -4,7 +4,7 @@ import { Repository } from "typeorm";
 import { UploadedImage } from "./uploaded-image.entity";
 
 const ALLOWED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/svg+xml"]);
-const MAX_SIZE_BYTES = 2 * 1024 * 1024; // 2MB — a logo, never a document
+export const MAX_LOGO_BYTES = 10 * 1024 * 1024; // 10MB — a logo, never a document
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 const AVATAR_PURPOSE = "AVATAR";
 
@@ -30,8 +30,8 @@ export class UploadsService {
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
       throw new BadRequestException("Logo must be a PNG, JPEG, WebP or SVG image");
     }
-    if (file.size > MAX_SIZE_BYTES) {
-      throw new BadRequestException("Logo must be 2MB or smaller");
+    if (file.size > MAX_LOGO_BYTES) {
+      throw new BadRequestException("Logo must be 10MB or smaller");
     }
     const saved = await this.repo.save(this.repo.create({
       mimeType: file.mimetype,

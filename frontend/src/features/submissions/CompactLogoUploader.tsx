@@ -6,7 +6,7 @@ import { uploadLogo, logoUrl } from "@/lib/api/uploads";
 import { ApiError } from "@/lib/api/client";
 
 const ALLOWED_LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"];
-const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+const MAX_LOGO_BYTES = 10 * 1024 * 1024;
 
 /** Compact logo/organization-logo uploader — same upload-on-select logic as
  * the wide row this replaced (still uploads immediately, still stores the
@@ -31,7 +31,7 @@ export function CompactLogoUploader({ value, onChange }: { value: string | undef
       return;
     }
     if (file.size > MAX_LOGO_BYTES) {
-      setUploadError("Must be 2MB or smaller.");
+      setUploadError("Must be 10MB or smaller.");
       return;
     }
     setPreviewUrl(URL.createObjectURL(file));
@@ -65,7 +65,7 @@ export function CompactLogoUploader({ value, onChange }: { value: string | undef
         </div>
         <div>
           <div className="small" style={{ fontWeight: 600 }}>{uploading ? "Uploading…" : "Upload Logo"}</div>
-          <div className="hint">PNG, JPEG, WebP or SVG, up to 2MB.</div>
+          <div className="hint">PNG, JPEG, WebP or SVG, up to 10MB.</div>
         </div>
       </div>
       {uploadError && <div className="err" style={{ display: "flex" }}><RuwadIcon name="help" size={12} /> {uploadError}</div>}

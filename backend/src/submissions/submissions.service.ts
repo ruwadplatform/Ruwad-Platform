@@ -7,7 +7,7 @@ import { Submission } from "./submission.entity";
 import { SubmissionReviewEvent } from "./submission-review-event.entity";
 import { CreateSubmissionDto } from "./dto/create-submission.dto";
 import { UpdateSubmissionDto, RequestChangesDto, RejectDto, FindSubmissionsQueryDto } from "./dto/update-submission.dto";
-import { EntityKind, SubmissionStatus, SubmissionEventType, MembershipRole, ActivityType, ScoreTrigger, StartupOutcomeEventType } from "../common/enums";
+import { EntityKind, SubmissionStatus, SubmissionEventType, MembershipRole, ActivityType, ScoreTrigger, StartupOutcomeEventType, UserRole } from "../common/enums";
 import { EntityMembership } from "../organizations/entity-membership.entity";
 import { ActivityService } from "../activity/activity.service";
 import { SubmissionPublisher } from "./publishers/publisher.types";
@@ -241,7 +241,11 @@ export class SubmissionsService {
   async approve(adminUserId: string, id: string): Promise<Submission> {
     const item = await this.findOneAdmin(id);
     this.assertTransition(item.status, SubmissionStatus.APPROVED);
-    if (item.userId === adminUserId) throw new ForbiddenException("You cannot approve your own submission");
+    // A RUWĀD admin may approve a listing they submitted themselves; anyone else may never approve their own submission.
+    if (item.userId === adminUserId) {
+      const actor = await this.usersService.findByIdOrThrow(adminUserId).catch(() => null);
+      if (!actor || (actor.role !== UserRole.RUWAD_ADMIN && actor.role !== UserRole.SUPER_ADMIN)) throw new ForbiddenException("Only an admin can approve their own submission");
+    }
     await this.assertPayloadValid(item.kind, item.payload);
     return this.publishItem(item, adminUserId);
   }

@@ -112,6 +112,17 @@ describe("startup submission: admin approval publishes, then scoring and ML run 
     await expect(t.svc.approve("founder-1", "sub-1")).rejects.toThrow(ForbiddenException);
     nothingPublished(t);
   });
+  it("an admin who submitted a listing can approve it themselves: it publishes and they become its owner", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    t.item.userId = "admin-1";
+    (t.svc as any).usersService.findByIdOrThrow = jest.fn(async () => ({ id: "admin-1", role: UserRole.RUWAD_ADMIN }));
+    t.item.status = SubmissionStatus.UNDER_REVIEW;
+    const out = await t.svc.approve("admin-1", "sub-1");
+    expect(out.status).toBe(SubmissionStatus.APPROVED);
+    expect(out.reviewedByUserId).toBe("admin-1");
+    expect(t.publishers[0].publish).toHaveBeenCalledTimes(1);
+    expect(t.memberships).toEqual([expect.objectContaining({ userId: "admin-1", kind: EntityKind.STARTUP, role: MembershipRole.OWNER })]);
+  });
   it("3. an admin approving publishes the startup and makes the founder its owner", async () => {
     const t = submissions(EntityKind.STARTUP);
     await submit(t);

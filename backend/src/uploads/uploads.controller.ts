@@ -4,7 +4,7 @@ import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { CurrentUser, AuthUser } from "../common/decorators/current-user.decorator";
-import { UploadsService } from "./uploads.service";
+import { MAX_LOGO_BYTES, UploadsService } from "./uploads.service";
 
 @ApiTags("uploads")
 @Controller("uploads")
@@ -14,7 +14,7 @@ export class UploadsController {
   @Post("logo")
   @ApiCookieAuth()
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 2 * 1024 * 1024 } }))
+  @UseInterceptors(FileInterceptor("file", { limits: { fileSize: MAX_LOGO_BYTES } }))
   upload(@UploadedFile() file: Express.Multer.File, @CurrentUser() user: AuthUser) {
     return this.uploadsService.saveLogo(file, user.userId);
   }
