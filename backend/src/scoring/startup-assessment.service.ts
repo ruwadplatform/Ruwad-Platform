@@ -15,7 +15,7 @@ export const FACTOR_LABELS: Record<FactorKey, string> = {
 };
 
 export const PENDING_MESSAGE = "Add more company information to complete your RUWĀD assessment.";
-export const EXISTING_DATA_NOTE = "This score is based only on the information already on file for this company. A factor with no data counts as 0, so the score rises as more information is added.";
+export const EXISTING_DATA_NOTE = "This score is based only on the information provided for this company. A factor with no data counts as 0, so the score rises as more information is added.";
 
 /** The scoring inputs a founder can actually provide in the submission form, and where. Inputs that only an analyst or admin can supply
  * (leadershipCompleteness, technicalTeamStrength, burnMultiple, ...) are never asked of a founder, so they are not listed as "missing". */

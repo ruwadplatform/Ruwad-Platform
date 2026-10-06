@@ -1,3 +1,4 @@
+import { ScoringBasis } from "../common/enums";
 import { EntityKind, MlModelStatus, ScoreStatus, SubmissionEventType, SubmissionStatus } from "../common/enums";
 import { ML_FEATURE_SCHEMA_VERSION } from "../ml-data/ml-data.constants";
 import { MlExperimentalInferenceService } from "../ml-data/ml-experimental-inference.service";
@@ -5,7 +6,7 @@ import { StartupSubmissionPublisher } from "../submissions/publishers/startup-su
 import { SubmissionsService } from "../submissions/submissions.service";
 import { FeatureDerivationService } from "./feature-derivation.service";
 import { ScoringService } from "./scoring.service";
-import { PENDING_MESSAGE, StartupAssessmentService } from "./startup-assessment.service";
+import { StartupAssessmentService } from "./startup-assessment.service";
 import { MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, ML_WEIGHT, RULE_WEIGHT } from "./scoring.constants";
 
 /** End-to-end regression of the founder assessment, using the REAL submission validation, the REAL startup publisher, the REAL
@@ -191,29 +192,29 @@ describe("founder assessment, end to end", () => {
     expect(JSON.stringify(sent)).not.toMatch(/Complete Health|@|ruwadScore/);
   });
 
-  it("sparse founder submission: ONE approval -> published -> score PENDING with actionable reasons, no fake numbers, ML does not block it", async () => {
+  it("sparse founder submission: ONE approval -> published -> a score for the data provided (missing factors count as 0), low confidence, and exactly what to add", async () => {
     const w = world();
     const { approved, startupId } = await submitAndApprove(w, REQUIRED_ONLY);
     expect(approved.status).toBe(SubmissionStatus.APPROVED);
     expect(w.spies.adminCalls).toHaveBeenCalledTimes(1);
 
+    // a new startup is scored on the information it provided: it is never left "Pending" just because some factors have no data
     const view = await w.assessment.get(startupId);
-    expect(view.ruwadScore).toMatchObject({ state: "PENDING", value: null, dataConfidence: null, message: PENDING_MESSAGE });
-    expect(w.startups.rows.find((s) => s.id === startupId)).toMatchObject({ scoreStatus: ScoreStatus.INSUFFICIENT_DATA, ruwadScore: undefined });
+    expect(view.ruwadScore).toMatchObject({ state: "READY", basis: "EXISTING_DATA" });
+    expect(view.ruwadScore.value).toBeGreaterThan(0);
+    expect(view.completion).toBeUndefined(); // nothing is "pending" any more
+    expect(w.startups.rows.find((s) => s.id === startupId)).toMatchObject({ scoreStatus: ScoreStatus.CALCULATED, scoringBasis: ScoringBasis.EXISTING_DATA });
 
-    // why, in the engine's own terms: the required answers (a team member, zero-valued traction, patents, regulatory status) make
-    // four factors calculable, but they rest on under half of their inputs, so the confidence rule keeps the score pending
-    expect(view.completion).toBeDefined();
-    expect(view.completion!.factorsRequired).toBe(MIN_FACTOR_COVERAGE);
-    expect(view.completion!.factorsAvailable).toBe(4);
-    expect(view.completion!.meanConfidence).toBeLessThan(MIN_OVERALL_CONFIDENCE);
-    expect(view.completion!.blockers[0]).toMatch(/rest on \d+% of their inputs on average; at least 50% is needed/);
+    // the score is exactly the mean of the six factors with a missing factor counted as 0, and the Data Confidence says how complete that is
+    const mean = view.factors.reduce((a2, f) => a2 + (f.score ?? 0), 0) / view.factors.length;
+    expect(view.ruwadScore.value).toBeCloseTo(mean, 1);
+    expect(view.ruwadScore.dataConfidence).toBeLessThan(MIN_OVERALL_CONFIDENCE); // honest: well under half of the inputs were provided
 
-    // unavailable factors are shown as unavailable (null), never as a number, each with the founder-fillable fields that would unlock it
-    const unavailable = view.factors.filter((f) => f.status === "UNAVAILABLE");
-    expect(unavailable.map((f) => f.key).sort()).toEqual(["financial", "growth"]); // no revenue/customer baseline and no funding rounds yet
-    for (const f of unavailable) {
-      expect(f.score).toBeNull();
+    // factors with no data count as 0.0 with zero confidence (never a made-up number), each with the founder-fillable fields that would improve it
+    const noData = view.factors.filter((f) => f.confidence === 0);
+    expect(noData.map((f) => f.key).sort()).toEqual(["financial", "growth"]); // no revenue/customer baseline and no funding rounds yet
+    for (const f of noData) {
+      expect(f.score ?? 0).toBe(0);
       expect(f.missingFields.length).toBeGreaterThan(0);
       expect(f.missingFields.every((m) => m.label && m.where)).toBe(true);
     }
@@ -224,25 +225,21 @@ describe("founder assessment, end to end", () => {
     const everything = JSON.stringify(view.factors.map((f) => f.missingFields));
     expect(everything).not.toMatch(/leadershipCompleteness|technicalTeamStrength|burnMultiple|quarterlyRevenueGrowth|missingInputs/);
 
-    // the required answers are enough input for the experimental model, so it predicts - but that prediction is separate: the
-    // official score stays pending and no number from the model leaks into it
+    // the experimental prediction is separate: it predicts, and no number from the model leaks into the official score
     expect(w.predictions.rows).toHaveLength(1);
     expect(w.predictions.rows[0]).toMatchObject({ outcome: "PREDICTED", modelStatus: MlModelStatus.EXPERIMENTAL });
     expect(view.predictiveIntelligence.models[0]).toMatchObject({ status: "AVAILABLE" });
-    expect(view.ruwadScore.value).toBeNull();
+    expect(view.ruwadScore.value).toBeCloseTo(mean, 1);
   });
 
-  it("thin headcount-only data is NOT scored: the confidence rule blocks it and says so (no threshold was lowered)", async () => {
+  it("thin headcount-only data still gets a score for what was provided, with low confidence and the missing inputs listed", async () => {
     const w = world();
     const { startupId } = await submitAndApprove(w, { ...REQUIRED_ONLY, name: "Headcount Only", employees: 12, fundingTotal: 1 });
     const view = await w.assessment.get(startupId);
-    // Team Strength now calculates from the founder's headcount (a real structured input), so 4 factors exist...
-    expect(view.factors.find((f) => f.key === "team")!.status).toBe("AVAILABLE");
-    expect(view.completion!.factorsAvailable).toBe(5);
-    // ...but they rest on under half of their inputs, so the engine's >=50% average-confidence rule keeps the overall score pending
-    expect(view.ruwadScore).toMatchObject({ state: "PENDING", value: null });
-    expect(view.completion!.meanConfidence).toBeLessThan(MIN_OVERALL_CONFIDENCE);
-    expect(view.completion!.blockers.join(" ")).toMatch(/rest on \d+% of their inputs on average; at least 50% is needed/);
+    expect(view.factors.find((f) => f.key === "team")!.status).toBe("AVAILABLE"); // Team Strength calculates from the founder's headcount
+    expect(view.ruwadScore.state).toBe("READY");
+    expect(view.ruwadScore.dataConfidence).toBeLessThan(MIN_OVERALL_CONFIDENCE);
+    expect(view.factors.some((f) => f.missingFields.length > 0)).toBe(true); // there is still something to add to improve it
   });
 
   it("no separate approval is needed for scoring or ML, and nothing is created before the approval", async () => {

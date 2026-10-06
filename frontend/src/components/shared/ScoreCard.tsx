@@ -2,6 +2,7 @@
 
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { LockedTeaser } from "./LockedTeaser";
+import { ImproveScorePrompt } from "./ImproveScorePrompt";
 import type { ScoreFactorKey, ScoreFactors, ScoreStatus } from "@/types/entities";
 
 const SUBS: { label: string; key: ScoreFactorKey; why: string }[] = [
@@ -22,7 +23,7 @@ const GAUGE_RADIUS = 52;
 const GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
 const clampPct = (n: number) => Math.min(100, Math.max(0, n));
 
-const EXISTING_DATA_NOTE = "Based only on the information already on file for this company. A factor with no data counts as 0, so the score rises as more information is added.";
+const EXISTING_DATA_NOTE = "Based only on the information provided for this company. A factor with no data counts as 0, so the score rises as more information is added.";
 
 interface ScoreCardProps {
   score: number | null;
@@ -39,6 +40,8 @@ interface ScoreCardProps {
    * is only ever shown to the person who can act on it, never to a visitor
    * or another founder's investor. */
   isOwner?: boolean;
+  /** The startup's backend id; lets the owner's "improve your score" prompt load what is still missing. */
+  entityId?: string;
 }
 
 /** Ring/subscore-bar markup ported from the original js/profiles.js design,
@@ -47,10 +50,10 @@ interface ScoreCardProps {
  * number exists (see ScoreStatus). A missing score is never shown as 0 —
  * that would misread as "assessed and found poor" rather than "not yet
  * assessed". */
-export function ScoreCard({ score, status, confidence, version, factors, category, peers, loggedIn, isOwner }: ScoreCardProps) {
+export function ScoreCard({ score, status, confidence, version, factors, category, peers, loggedIn, isOwner, entityId }: ScoreCardProps) {
   if (!loggedIn) return <ScoreCardTeaser score={score} status={status} category={category} peers={peers} />;
 
-  if (status !== "CALCULATED" || score == null) return <PendingScoreCard status={status} score={score} isOwner={isOwner} />;
+  if (status !== "CALCULATED" || score == null) return <PendingScoreCard status={status} score={score} isOwner={isOwner} entityId={entityId} />;
 
   const scorePct = clampPct(score * 10);
   const confidencePct = confidence != null ? clampPct(Math.round(confidence * 100)) : null;
@@ -102,13 +105,14 @@ export function ScoreCard({ score, status, confidence, version, factors, categor
           );
         })}
       </ul>
+      {isOwner && <ImproveScorePrompt entityId={entityId} />}
     </div>
   );
 }
 
 /** Non-CALCULATED states — plain language, never a raw error, never a bare
  * "0" that would misread as a bad assessment. */
-function PendingScoreCard({ status, score, isOwner }: { status: ScoreStatus; score: number | null; isOwner?: boolean }) {
+function PendingScoreCard({ status, score, isOwner, entityId }: { status: ScoreStatus; score: number | null; isOwner?: boolean; entityId?: string }) {
   const copy: Record<Exclude<ScoreStatus, "CALCULATED">, { title: string; body: string }> = {
     INSUFFICIENT_DATA: { title: "RUWĀD Score pending", body: "Not enough verified information is currently available to calculate a reliable score." },
     NOT_CALCULATED: { title: "RUWĀD Score not calculated yet", body: "This listing hasn't been scored yet." },
@@ -127,6 +131,7 @@ function PendingScoreCard({ status, score, isOwner }: { status: ScoreStatus; sco
           See exactly what is needed to complete your assessment
         </a>
       )}
+      {isOwner && <ImproveScorePrompt entityId={entityId} />}
     </div>
   );
 }

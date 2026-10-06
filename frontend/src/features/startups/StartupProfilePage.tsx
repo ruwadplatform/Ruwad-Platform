@@ -137,7 +137,7 @@ function Overview({ s, loggedIn, isOwner }: { s: Startup; loggedIn: boolean; isO
           </div>
         </div>
       </div>
-      <aside className="profile-side"><ScoreCard score={s.ruwadScore} status={s.scoreStatus} confidence={s.scoreConfidence} version={s.scoreVersion} factors={s.factors} category={s.category} peers={allStartups} loggedIn={loggedIn} isOwner={isOwner} /></aside>
+      <aside className="profile-side"><ScoreCard score={s.ruwadScore} status={s.scoreStatus} confidence={s.scoreConfidence} version={s.scoreVersion} factors={s.factors} category={s.category} peers={allStartups} loggedIn={loggedIn} isOwner={isOwner} entityId={s.entityId} /></aside>
     </div>
   );
 }

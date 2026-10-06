@@ -9,7 +9,7 @@ import { QueryStartupsDto } from "./dto/query-startups.dto";
 import { DirectorySharedService } from "../directory-shared/directory-shared.service";
 import { InvestmentsService } from "../investments/investments.service";
 import { Investor } from "../investors/investor.entity";
-import { EntityKind, ScoreTrigger } from "../common/enums";
+import { EntityKind, ScoreTrigger, ScoringBasis } from "../common/enums";
 import { initials, slugify } from "../common/slug.util";
 import { paginate, PaginatedResult } from "../common/pagination.dto";
 import { OrganizationsService } from "../organizations/organizations.service";
@@ -55,6 +55,7 @@ export class StartupsService {
       legalName: dto.legalName, formerName: dto.formerName ?? "—", website: dto.website, email: dto.email, phone: dto.phone, linkedin: dto.linkedin,
       registrationNumber: `CR-${Math.floor(100000 + Math.random() * 899999)}`,
       verified: "unclaimed",
+      scoringBasis: ScoringBasis.EXISTING_DATA, // scored on the information provided; see ScoringBasis
       provenanceConfidence: "Medium", provenanceLastUpdated: new Date().toISOString().slice(0, 10), provenanceSources: ["Self-reported"],
     });
     const saved = await this.repo.save(startup);

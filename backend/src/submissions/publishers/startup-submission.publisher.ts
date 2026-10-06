@@ -8,7 +8,7 @@ import { ProductRef } from "../../directory-shared/product.entity";
 import { Contact } from "../../directory-shared/contact.entity";
 import { Sector } from "../../directory-shared/sector.entity";
 import { EntitySector } from "../../directory-shared/entity-sector.entity";
-import { EntityKind } from "../../common/enums";
+import { EntityKind, ScoringBasis } from "../../common/enums";
 import { uniqueSlugFor } from "../../common/slug.util";
 import type { ScoringFeatures } from "../../scoring/scoring.types";
 import { trlLevelForLabel } from "../../scoring/trl-labels";
@@ -38,6 +38,7 @@ export class StartupSubmissionPublisher implements SubmissionPublisher {
       email: str(p.email), phone: str(p.phone), linkedin: str(p.linkedin),
       registrationNumber: `CR-${Math.floor(100000 + Math.random() * 899999)}`,
       verified: "self-reported",
+      scoringBasis: ScoringBasis.EXISTING_DATA, // scored on the information provided; see ScoringBasis
       provenanceConfidence: "Medium", provenanceLastUpdated: new Date().toISOString().slice(0, 10), provenanceSources: ["Self-reported via RUWĀD submission"],
       traction: p.traction && typeof p.traction === "object" ? (p.traction as Startup["traction"]) : undefined,
       newsItems: [],
