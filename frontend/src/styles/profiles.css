@@ -74,6 +74,9 @@
   .sp-head-left{flex-direction:column;gap:14px}
   .sp-head .plogo{width:64px;height:64px}
   .sp-head-body h1{font-size:var(--fs-22)}
+  /* too narrow for one line: list the confidence facts as a column, without separators that would dangle at line starts */
+  .provenance-strip--compact{flex-direction:column;align-items:flex-start;row-gap:6px}
+  .provenance-strip--compact .provenance-part>.provenance-sep{display:none}
 }
 @media(max-width:360px){
   .sp-actions-grid{grid-template-columns:minmax(0,1fr)}
