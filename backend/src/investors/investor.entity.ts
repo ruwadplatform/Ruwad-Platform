@@ -29,6 +29,10 @@ export class Investor extends BaseEntity {
   @Column({ type: "varchar", default: "unclaimed" })
   verified!: VerifiedTier;
 
+  /** The firm's own website (bare domain, e.g. "stv.vc"); null when not known. */
+  @Column({ type: "varchar", nullable: true })
+  website?: string | null;
+
   @Column({ type: "varchar", default: "Medium" })
   provenanceConfidence!: "High" | "Medium" | "Low";
   @Column({ type: "date" })

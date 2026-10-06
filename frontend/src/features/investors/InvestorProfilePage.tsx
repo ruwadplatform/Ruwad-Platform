@@ -39,6 +39,7 @@ export function InvestorProfilePage({ investor: v }: { investor: Investor }) {
           <div className="profile-meta">
             <span><RuwadIcon name="map" size={13} /> {v.city}</span>
             <span><RuwadIcon name="investors" size={13} /> {v.ticket}</span>
+            {v.website && <span><RuwadIcon name="globe" size={13} /> <a href={`https://${v.website.replace(/^https?:\/\//, "")}`} target="_blank" rel="noopener noreferrer">{v.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}</a></span>}
           </div>
           <ProvenanceStrip provenance={v.provenance} />
         </div>

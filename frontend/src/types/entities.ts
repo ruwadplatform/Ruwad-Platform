@@ -161,6 +161,8 @@ export interface Investor {
   recentDeals: RecentDeal[];
   news: NewsItem[];
   provenance: Provenance;
+  /** The firm's own website as a bare domain, when known. */
+  website?: string | null;
   /** Unclaimed until an owner's claim request is approved; same tiers as a startup. */
   verified: VerificationTier;
   /** A claim on this listing is under review (any claimant). Only set when `verified === "unclaimed"`. */

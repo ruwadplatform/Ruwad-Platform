@@ -15,7 +15,7 @@ interface RawInvestor {
   portfolio?: RawPortfolioStartup[]; portfolioSize?: number;
   openOpps?: string[]; recentDeals?: Investor["recentDeals"]; news?: Investor["news"];
   provenanceConfidence?: Investor["provenance"]["confidence"]; provenanceLastUpdated: string; provenanceSources?: string[];
-  verified?: Investor["verified"]; hasPendingClaim?: boolean;
+  verified?: Investor["verified"]; hasPendingClaim?: boolean; website?: string | null;
 }
 
 function mapInvestor(r: RawInvestor): Investor {
@@ -47,6 +47,7 @@ function mapInvestor(r: RawInvestor): Investor {
     recentDeals: r.recentDeals ?? [],
     news: r.news ?? [],
     provenance: { lastUpdated: r.provenanceLastUpdated, sources: r.provenanceSources ?? [], confidence: r.provenanceConfidence ?? "Medium" },
+    website: r.website ?? null,
     verified: r.verified ?? "unclaimed",
     hasPendingClaim: r.hasPendingClaim ?? false,
   };
