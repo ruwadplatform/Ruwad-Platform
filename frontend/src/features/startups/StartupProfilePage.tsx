@@ -160,7 +160,7 @@ function Overview({ s, loggedIn, isOwner }: { s: Startup; loggedIn: boolean; isO
   return (
     <div className="profile-body profile-body--score">
       <div className="profile-main">
-        <div className="stat-mini-row">
+        <div className="stat-mini-row stat-mini-row--kpi">
           {!hydrated ? (
             <div className="stat-mini"><div className="sm-label">Total Funding</div><div className="sm-val"><span className="skel" style={{ width: 60 }} /></div></div>
           ) : loggedIn ? (
@@ -175,7 +175,7 @@ function Overview({ s, loggedIn, isOwner }: { s: Startup; loggedIn: boolean; isO
         </div>
         <div className="panel panel-pad">
           <h3 className="fs-13 mb-12">Key Information</h3>
-          <div className="stat-mini-row">
+          <div className="stat-mini-row stat-mini-row--facts">
             <div className="stat-mini"><div className="sm-label">Legal Name</div><div className="sm-val fs-15">{s.legalName}</div></div>
             <div className="stat-mini"><div className="sm-label">Headquarters</div><div className="sm-val fs-15">{s.hq}</div></div>
             <div className="stat-mini"><div className="sm-label">Founded</div><div className="sm-val fs-15">{s.founded}</div></div>

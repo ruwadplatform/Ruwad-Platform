@@ -47,7 +47,7 @@
 
 /* ---- Startup profile header: identity column + a 3x2 actions panel. Scoped with .sp-* so the shared
    .profile-head (Investor/Hub/Research/Multinational/My Startup) keeps its own layout. */
-.sp-head{--sp-chip-border:rgba(69,174,200,.45);max-width:1280px;margin:0 auto 18px;padding:24px;background:#fff;border:1px solid rgba(37,99,166,.4);border-radius:var(--radius-card);display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:32px;align-items:start}
+.sp-head{--sp-chip-border:rgba(69,174,200,.45);max-width:1280px;margin:0 auto 18px;padding:24px;background:#fff;border:1px solid rgba(37,99,166,.4);border-radius:var(--radius-card);display:grid;grid-template-columns:minmax(0,1fr) clamp(260px,28vw,300px);gap:32px;align-items:start}
 .sp-head-left{display:flex;gap:18px;align-items:flex-start;min-width:0}
 .sp-head .plogo{width:72px;height:72px;border-radius:var(--radius-lg);flex:none;background:var(--navy-900);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-22)}
 .sp-head-body{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:12px}
@@ -58,7 +58,7 @@
 .sp-chips li{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:0 12px;background:#fff;border:1px solid var(--sp-chip-border);border-radius:var(--radius-card);font-size:var(--fs-13);color:var(--text)}
 .sp-chips svg{flex:none;color:#45AEC8}
 .sp-head .provenance-strip{margin-top:0}
-.provenance-strip--compact{gap:0;row-gap:6px}
+.provenance-strip.provenance-strip--compact{gap:0;row-gap:6px}
 .provenance-part{display:inline-flex;align-items:center}
 .provenance-part .provenance-sep{margin:0 8px}
 .sp-actions{padding:14px 16px 16px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-card);min-width:0}
@@ -66,20 +66,20 @@
 .sp-actions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .sp-actions-grid .btn{width:100%;min-width:0;min-height:40px;height:auto;padding:6px 10px;white-space:normal;line-height:1.25;text-align:center}
 .sp-actions-grid--no-claim>.btn:first-child{grid-column:1 / -1}
-@media(max-width:860px){
+@media(max-width:1024px){
+  .sp-head{gap:24px}
+}
+@media(max-width:760px){
   .sp-head{grid-template-columns:minmax(0,1fr);gap:20px}
 }
-@media(max-width:560px){
+@media(max-width:480px){
   .sp-head{padding:18px}
   .sp-head-left{flex-direction:column;gap:14px}
   .sp-head .plogo{width:64px;height:64px}
   .sp-head-body h1{font-size:var(--fs-22)}
   /* too narrow for one line: list the confidence facts as a column, without separators that would dangle at line starts */
-  .provenance-strip--compact{flex-direction:column;align-items:flex-start;row-gap:6px}
+  .provenance-strip.provenance-strip--compact{flex-direction:column;align-items:flex-start;row-gap:6px}
   .provenance-strip--compact .provenance-part>.provenance-sep{display:none}
-}
-@media(max-width:360px){
-  .sp-actions-grid{grid-template-columns:minmax(0,1fr)}
 }
 
 /* ---- data provenance strip (Section 19 — Last updated / sources / confidence) */
@@ -96,11 +96,23 @@
    body container — the wrap itself never contains the tab body, so a
    card/panel in the content can never end up touching the tab rectangle). */
 .profile-tabs-wrap{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:8px 12px}
-.profile-tabs-wrap .tabs{margin-bottom:0}
+.profile-tabs-wrap .tabs{margin-bottom:0;scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent}
 .profile-body{margin-top:0;display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start}
 @media(max-width:1024px){.profile-body{grid-template-columns:1fr}}
 
 .stat-mini-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+/* Startup Overview rows. KPI: however many cards exist share the row equally (no empty column when Total Funding is hidden from
+   visitors); one per row on small phones. Facts (Key Information): 3 columns, 2 on tablet/large phones, 1 on small phones. */
+.stat-mini-row.stat-mini-row--kpi{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+.stat-mini-row.stat-mini-row--facts{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:760px){
+  .stat-mini-row.stat-mini-row--kpi{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+  .stat-mini-row.stat-mini-row--facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){
+  .stat-mini-row.stat-mini-row--kpi{grid-auto-flow:row;grid-auto-columns:auto;grid-template-columns:minmax(0,1fr)}
+  .stat-mini-row.stat-mini-row--facts{grid-template-columns:minmax(0,1fr)}
+}
 .stat-mini{background:#fff;border:1px solid var(--border);border-radius:var(--radius-card);padding:12px 14px}
 .stat-mini .sm-label{font-size:var(--fs-11);color:var(--muted);font-weight:600}
 .stat-mini .sm-val{font-family:var(--font-mono);font-size:var(--fs-16);font-weight:700;margin-top:2px}
@@ -170,8 +182,7 @@
    .profile-body (other entity profiles) keeps its own 1fr 300px layout. */
 .profile-body--score{grid-template-columns:minmax(0,1fr) minmax(300px,320px);gap:24px}
 .profile-body--score>.profile-main,.profile-body--score>.profile-side{min-width:0}
-@media(max-width:1100px){.profile-body--score{gap:16px}}
-@media(max-width:900px){.profile-body--score{grid-template-columns:1fr}}
+@media(max-width:1024px){.profile-body--score{grid-template-columns:minmax(0,1fr);gap:16px}}
 
 /* RUWĀD Score card: one vertical stack, nothing positioned side by side except label + value. */
 .rscore{--rscore-accent:#45AEC8;--rscore-track:#EDF0F3;display:flex;flex-direction:column;gap:20px;padding:22px;width:100%;min-width:0;box-shadow:none;word-break:normal;overflow-wrap:normal}

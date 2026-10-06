@@ -71,7 +71,7 @@ export function DataRoomTab({ kind, entityId }: { kind: TabKind; entityId?: stri
   if (!loggedIn) {
     return (
       <LockedPanel>
-        <div className="flex gap-8 mt-16" style={{ justifyContent: "center" }}>
+        <div className="flex gap-8 mt-16" style={{ justifyContent: "center", flexWrap: "wrap" }}>
           <button className="btn btn-primary" onClick={() => router.push("/login")}>Sign In to Request Access</button>
           <button className="btn btn-outline" onClick={() => router.push("/signup")}>Create Account</button>
         </div>
@@ -131,7 +131,7 @@ export function DataRoomTab({ kind, entityId }: { kind: TabKind; entityId?: stri
 
   return (
     <LockedPanel>
-      <div className="flex gap-8 mt-16" style={{ justifyContent: "center" }}>
+      <div className="flex gap-8 mt-16" style={{ justifyContent: "center", flexWrap: "wrap" }}>
         <button className="btn btn-primary" disabled={requesting} onClick={handleRequest}>{requesting ? "Requesting…" : "Request Data Room Access"}</button>
       </div>
     </LockedPanel>
