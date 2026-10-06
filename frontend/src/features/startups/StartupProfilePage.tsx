@@ -81,7 +81,6 @@ export function StartupProfilePage({ startup }: { startup: Startup }) {
           <div className={`sp-actions-grid${showsClaim ? "" : " sp-actions-grid--no-claim"}`}>
             <ClaimCta entityId={startup.entityId} startupName={startup.name} verified={startup.verified} hasPendingClaim={!!startup.hasPendingClaim} loggedIn={loggedIn} />
             <button className="btn btn-outline" onClick={() => toggleSaved("startups", startup.id)}><RuwadIcon name="star" size={14} /> {saved ? "Saved" : "Save"}</button>
-            <button className="btn btn-outline" onClick={() => toast(`Now following ${startup.name}`)}>Follow</button>
             <DataRoomButton companyId={startup.id} kind="STARTUP" entityId={startup.entityId} label="Data Room" />
             <button className="btn btn-outline" onClick={() => { if (requireAuth("compare", { id: startup.id })) openModal(<CompareModal initialId={startup.id} />, "xwide"); }}>Compare</button>
             <button className="btn btn-outline" onClick={shareLink}>Share</button>
