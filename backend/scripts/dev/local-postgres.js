@@ -8,7 +8,7 @@
  * `pg` driver / TypeORM Postgres connector. Data persists across restarts,
  * it is not an in-memory or mocked database.
  *
- * Usage: node scripts/local-postgres.js (or `npm run dev:local-db` from the
+ * Usage: node scripts/dev/local-postgres.js (or `npm run dev:local-db` from the
  * repo root, which also points the backend at it).
  * Leave it running in the background while developing; Ctrl+C (or process
  * kill) stops the server cleanly.
@@ -17,7 +17,7 @@ const path = require("path");
 const EmbeddedPostgres = require("embedded-postgres").default;
 
 const pg = new EmbeddedPostgres({
-  databaseDir: path.join(__dirname, "..", ".pgdata"),
+  databaseDir: path.join(__dirname, "..", "..", ".pgdata"),
   user: "postgres",
   password: "postgres",
   port: 55432,

@@ -5,7 +5,7 @@
  *   ML_URL=https://<ruwad-ml>.onrender.com   ML_SERVICE_TOKEN=<from the Render dashboard>   \
  *   API_URL=https://ruwad-backend-e92x.onrender.com/api   STARTUP_ID=<uuid of a test/controlled startup>   STARTUP_SLUG=<its slug>   \
  *   OWNER_EMAIL=... OWNER_PASSWORD=...   OTHER_EMAIL=... OTHER_PASSWORD=...   ADMIN_EMAIL=... ADMIN_PASSWORD=...   \
- *   node backend/scripts/ml-production-smoke.js
+ *   node backend/scripts/ops/ml-production-smoke.js
  *
  * Steps whose inputs are missing are reported as SKIPPED (never as passed). Exit code 1 if anything that ran failed.
  * Use accounts you already control (or a clearly named temporary test startup); do not use a real founder's account. */

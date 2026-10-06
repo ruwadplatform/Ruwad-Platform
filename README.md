@@ -1,14 +1,19 @@
 # RUWĀD
 
-Saudi & MENA healthcare innovation ecosystem platform — a Next.js frontend backed by a real NestJS + TypeORM + PostgreSQL API.
+Saudi & MENA healthcare innovation ecosystem platform: a Next.js frontend, a NestJS + TypeORM API on PostgreSQL, and a small FastAPI service for the experimental ML prediction.
 
 ```
 ruwad/
-├── frontend/   — Next.js (App Router), TypeScript, plain-CSS design system
-└── backend/    — NestJS, TypeORM, PostgreSQL
+├── frontend/   Next.js (App Router), TypeScript, plain-CSS design system    → frontend/src/README.md
+├── backend/    NestJS, TypeORM, PostgreSQL; scripts/ holds dev and ops tools → backend/src/README.md
+├── ml/         FastAPI service and model training (Python)                  → ml/README.md
+├── docs/       architecture, deployment, ML methodology                     → docs/README.md
+├── supabase/   notes on the hosted database
+├── data/       local datasets and run outputs (gitignored, never committed)
+└── render.yaml Render Blueprint for the three deployed services
 ```
 
-Both apps are the original, already-working codebases — this repo just holds them together as one project instead of two sibling folders, wired up with npm workspaces for a single `npm install` / `npm run dev`.
+`frontend` and `backend` are npm workspaces, so one `npm install` / `npm run dev` at the root covers both. `ml` has its own Python environment (see `ml/README.md`). For how the pieces fit together, start with [`docs/architecture.md`](./docs/architecture.md).
 
 ## Requirements
 
@@ -97,4 +102,4 @@ ruwad/
 
 ## Deployment
 
-See [`DEPLOYMENT.md`](./DEPLOYMENT.md) and [`render.yaml`](./render.yaml) — one Render Blueprint provisions a managed Postgres instance plus the two services (`rootDir: backend`, `rootDir: frontend`).
+See [`docs/deployment.md`](./docs/deployment.md) and [`render.yaml`](./render.yaml) — one Render Blueprint creates the three services (`rootDir: backend`, `rootDir: frontend`, `rootDir: ml`). The database is Supabase, not Render.

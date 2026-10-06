@@ -2,6 +2,9 @@
 /node_modules
 npm-debug.log*
 
+# Local working data (datasets, exports, run outputs) — never committed
+/data/
+
 # Editor/OS
 .DS_Store
 *.pem

@@ -53,9 +53,9 @@ uvicorn app.main:app --port 8001
 `Authorization: Bearer <ML_SERVICE_TOKEN>` header matching the backend's own
 `ML_SERVICE_TOKEN`, and reject a `featureSchemaVersion` mismatch with a
 controlled 409 rather than ever predicting on a possibly-incompatible
-feature vector. This service is called by the backend's
-`MlShadowPredictionService` after every startup score recalculation — it has
-no other caller and is never reachable from the public API.
+feature vector. The backend is its only caller: `MlShadowPredictionService`
+(shadow predictions) and the experimental inference service (the prediction
+shown next to a startup's score). It is never reachable from the public API.
 
 ## Tests
 
@@ -73,9 +73,14 @@ app/
   training/     dataset loading, splitting, preprocessing, baselines,
                 CatBoost/XGBoost/LightGBM, evaluation, calibration,
                 explainability, comparison, and train.py (the CLI)
-  inference/    model loader + predictor (schema-checked, allowlist-only)
+  inference/    model loader + predictor (schema-checked, allowlist-only),
+                experimental.py (the live prediction), integrity.py (artifact
+                hash check before loading), package_artifact.py
   registry/     local artifact storage + NestJS registry reporting
   validation/   readiness gate, leakage assertions, data-quality checks
+model_artifacts/  the packaged, hash-verified model the deployed service loads
+model_manifest.json  which artifact is live and its SHA-256 hashes
+artifacts/, datasets/  local training output and frozen datasets
 tests/          one test file per module above, plus fixtures/synthetic_dataset.py
                 (TEST_ONLY — app/training/dataset.py never imports it)
 ```

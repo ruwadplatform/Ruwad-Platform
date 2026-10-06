@@ -1,6 +1,6 @@
 # Deploying RUWĀD
 
-Production architecture: **Render** hosts both services — `ruwad-frontend` (Next.js) and `ruwad-backend` (NestJS), each its own web service with its own `onrender.com` URL — in front of **Supabase** (Postgres). Render does not provision or own the database — Supabase is the permanent, standalone database in every environment, local dev included.
+Production architecture: **Render** hosts three services — `ruwad-frontend` (Next.js), `ruwad-backend` (NestJS) and `ruwad-ml` (FastAPI, internal; setup in [ml-experimental-inference.md](./ml-experimental-inference.md)), each its own web service with its own `onrender.com` URL — in front of **Supabase** (Postgres). Render does not provision or own the database — Supabase is the permanent, standalone database in every environment, local dev included.
 
 ## Both services — Render Blueprint
 

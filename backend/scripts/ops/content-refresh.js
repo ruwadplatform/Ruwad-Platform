@@ -13,8 +13,8 @@ process.env.CONTENT_REFRESH_INTERNAL = "false";
 require("dotenv").config();
 
 const { NestFactory } = require("@nestjs/core");
-const { AppModule } = require("../dist/app.module");
-const { ContentRefreshService } = require("../dist/content/content-refresh.service");
+const { AppModule } = require("../../dist/app.module");
+const { ContentRefreshService } = require("../../dist/content/content-refresh.service");
 
 (async () => {
   const kind = process.argv[2] || "all";

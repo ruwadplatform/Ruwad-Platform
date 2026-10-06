@@ -155,7 +155,7 @@ unavailable (predictions answer 404) and `/health` answers **503** `degraded`. `
 2. Render creates `ruwad-ml` from the Blueprint (approve the Blueprint sync if asked). Wait for the deploy to be healthy.
 3. `GET https://<ruwad-ml>.onrender.com/health` → 200 with `modelLoaded` and `artifactVerified` true. (503 means the artifact did not verify: do not proceed.)
 4. In `ruwad-backend` set `ML_SCORING_SERVICE_URL=https://<ruwad-ml>.onrender.com` (no trailing slash). Leave the enable flag unset.
-5. Run `backend/scripts/ml-production-smoke.js` (see its header) for FastAPI auth and one authenticated prediction, plus the
+5. Run `backend/scripts/ops/ml-production-smoke.js` (see its header) for FastAPI auth and one authenticated prediction, plus the
    permission checks on a controlled test startup.
 6. Set `ML_EXPERIMENTAL_INFERENCE_ENABLED=true` on `ruwad-backend`. Re-run the smoke script and confirm the owner card, the unchanged score,
    and that the public profile has no prediction.

@@ -43,7 +43,7 @@ services:
       # the app keeps serving whatever was collected before. The token is the
       # shared secret for POST /api/content-refresh/{news|events|all} if you
       # drive refreshes from an external scheduler instead of the built-in
-      # 6h/12h timer (see backend/scripts/content-refresh.js).
+      # 6h/12h timer (see backend/scripts/ops/content-refresh.js).
       - key: SERPER_API_KEY
         sync: false
       - key: CONTENT_REFRESH_TOKEN

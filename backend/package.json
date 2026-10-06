@@ -15,12 +15,12 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "db:local": "node scripts/local-postgres.js",
+    "db:local": "node scripts/dev/local-postgres.js",
     "migration:generate": "npm run build && typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
     "deploy:start": "npm run migration:run && npm run start:prod",
-    "content:refresh": "node scripts/content-refresh.js"
+    "content:refresh": "node scripts/ops/content-refresh.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
