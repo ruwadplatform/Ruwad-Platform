@@ -10,11 +10,13 @@ import { requestDataRoomAccess, type DataRoomKind } from "@/lib/api/data-room";
  * POST /data-room/request, which the backend dedupes per (user, entity), so
  * clicking here and using the tab can never create two pending requests. The
  * tab shows the resulting state (pending / approved / declined). */
-export function DataRoomButton({ companyId, kind, entityId }: { companyId: string; kind: DataRoomKind; entityId?: string }) {
+export function DataRoomButton({ companyId, kind, entityId, label = "Request Data Room Access" }: { companyId: string; kind: DataRoomKind; entityId?: string; /** Visible text only; the button is always announced as "Request Data Room Access". */ label?: string }) {
   const toast = useToast();
   return (
     <button
       className="btn btn-outline"
+      title="Request Data Room Access"
+      aria-label="Request Data Room Access"
       onClick={async () => {
         if (!requireAuth("data-room-request", { companyId })) return;
         if (!entityId) return;
@@ -26,7 +28,7 @@ export function DataRoomButton({ companyId, kind, entityId }: { companyId: strin
         }
       }}
     >
-      <RuwadIcon name="lock" size={14} /> Request Data Room Access
+      <RuwadIcon name="lock" size={14} /> {label}
     </button>
   );
 }

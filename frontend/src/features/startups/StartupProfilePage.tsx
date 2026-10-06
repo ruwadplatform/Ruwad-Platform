@@ -12,7 +12,6 @@ import { DataRoomButton } from "@/components/shared/DataRoomButton";
 import { DataRoomTab } from "@/components/shared/DataRoomTab";
 import { CompareModal } from "@/components/shared/CompareModal";
 import { ClaimModal } from "@/components/shared/ClaimModal";
-import { RequestIntroModal } from "@/components/shared/RequestIntroModal";
 import { useModal } from "@/components/shell/ModalProvider";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
@@ -56,31 +55,39 @@ export function StartupProfilePage({ startup }: { startup: Startup }) {
     }
   }
 
+  const place = [startup.city, startup.country].filter(Boolean).join(", ");
+  // Same condition ClaimCta uses to render itself; when it won't, Save takes the whole first row so the grid stays 3 rows.
+  const showsClaim = startup.verified === "unclaimed" && !!startup.entityId;
+
   return (
     <div className="entity-profile-page">
-      <div className="profile-head">
-        <OrganizationLogo logo={startup.logo} logoUrl={startup.logoUrl} className="plogo" />
-        <div className="profile-head-main">
-          <h1>{startup.name} <span style={{ verticalAlign: "middle" }}><VerifiedBadge status={startup.verified} /></span></h1>
-          <div className="ptagline">{startup.tagline}</div>
-          <div className="profile-meta">
-            <span><RuwadIcon name="map" size={13} /> {startup.city}, {startup.country}</span>
-            <span><RuwadIcon name="startups" size={13} /> {startup.category}</span>
-            <span><RuwadIcon name="bi" size={13} /> {startup.stage}</span>
-            <span><RuwadIcon name="dashboard" size={13} /> Founded {startup.founded}</span>
+      <header className="sp-head">
+        <div className="sp-head-left">
+          <OrganizationLogo logo={startup.logo} logoUrl={startup.logoUrl} className="plogo" />
+          <div className="sp-head-body">
+            <h1>{startup.name}</h1>
+            <div className="sp-status"><VerifiedBadge status={startup.verified} /></div>
+            {startup.tagline && <p className="sp-desc">{startup.tagline}</p>}
+            <ul className="sp-chips" aria-label="Company facts">
+              {place && <li><RuwadIcon name="map" size={14} /> {place}</li>}
+              {startup.category && <li><RuwadIcon name="startups" size={14} /> {startup.category}</li>}
+              {!!startup.founded && <li><RuwadIcon name="dashboard" size={14} /> Founded {startup.founded}</li>}
+            </ul>
+            <ProvenanceStrip provenance={startup.provenance} compact />
           </div>
-          <ProvenanceStrip provenance={startup.provenance} />
         </div>
-        <div className="profile-actions">
-          <button className="btn btn-outline" onClick={() => toggleSaved("startups", startup.id)}><RuwadIcon name="star" size={14} /> {saved ? "Saved" : "Save"}</button>
-          <button className="btn btn-outline" onClick={() => toast(`Now following ${startup.name}`)}>Follow</button>
-          <button className="btn btn-primary" onClick={() => { if (requireAuth("intro", { startupName: startup.name })) openModal(<RequestIntroModal startupName={startup.name} />); }}>Request Introduction</button>
-          <DataRoomButton companyId={startup.id} kind="STARTUP" entityId={startup.entityId} />
-          <button className="btn btn-outline" onClick={() => { if (requireAuth("compare", { id: startup.id })) openModal(<CompareModal initialId={startup.id} />, "xwide"); }}>Compare</button>
-          <button className="btn btn-outline" onClick={shareLink}>Share</button>
-          <ClaimCta entityId={startup.entityId} startupName={startup.name} verified={startup.verified} hasPendingClaim={!!startup.hasPendingClaim} loggedIn={loggedIn} />
-        </div>
-      </div>
+        <section className="sp-actions" aria-labelledby="sp-actions-title">
+          <h2 id="sp-actions-title" className="sp-actions-title">Actions</h2>
+          <div className={`sp-actions-grid${showsClaim ? "" : " sp-actions-grid--no-claim"}`}>
+            <ClaimCta entityId={startup.entityId} startupName={startup.name} verified={startup.verified} hasPendingClaim={!!startup.hasPendingClaim} loggedIn={loggedIn} />
+            <button className="btn btn-outline" onClick={() => toggleSaved("startups", startup.id)}><RuwadIcon name="star" size={14} /> {saved ? "Saved" : "Save"}</button>
+            <button className="btn btn-outline" onClick={() => toast(`Now following ${startup.name}`)}>Follow</button>
+            <DataRoomButton companyId={startup.id} kind="STARTUP" entityId={startup.entityId} label="Data Room" />
+            <button className="btn btn-outline" onClick={() => { if (requireAuth("compare", { id: startup.id })) openModal(<CompareModal initialId={startup.id} />, "xwide"); }}>Compare</button>
+            <button className="btn btn-outline" onClick={shareLink}>Share</button>
+          </div>
+        </section>
+      </header>
       <div className="profile-tabs-wrap">
         <div className="tabs sticky">
           {TABS.map((t) => (
@@ -128,13 +135,15 @@ function ClaimCta({ entityId, startupName, verified, hasPendingClaim, loggedIn }
     return (
       <button
         className="btn btn-outline"
+        title="Claim This Listing"
+        aria-label="Claim This Listing"
         onClick={() => {
           if (!requireAuth("claim-company", { entityId })) return;
           if (myClaim) { toast(myClaim.entityId === entityId ? "This listing already has a claim under review" : "You already have a claim under review — one company claim per account"); return; }
           openModal(<ClaimModal entityId={entityId} entityName={startupName} onSubmitted={() => setJustSubmitted(true)} />);
         }}
       >
-        <RuwadIcon name="check" size={14} /> Claim This Listing
+        <RuwadIcon name="check" size={14} /> Claim
       </button>
     );
   }
