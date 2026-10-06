@@ -99,3 +99,7 @@ export async function fetchStartupBySlug(slug: string): Promise<Startup | null> 
     throw e;
   }
 }
+
+/** The owner's edit page: the live profile in the same shape as the submission form, and the save that applies an edit in place. */
+export const fetchStartupEditPayload = (startupId: string) => api.get<Record<string, unknown>>(`/startups/${startupId}/edit`);
+export const saveStartupEdit = (startupId: string, payload: Record<string, unknown>) => api.put<{ lockedFields: string[] }>(`/startups/${startupId}/edit`, payload);

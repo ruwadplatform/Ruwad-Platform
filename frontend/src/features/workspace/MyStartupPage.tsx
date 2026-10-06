@@ -8,7 +8,6 @@ import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
-import { useToast } from "@/components/shell/ToastProvider";
 import { ListingStatusBadge } from "@/components/workspace/ListingStatusBadge";
 import { useSession, useMyStartupId, useOwnedListings } from "@/hooks/use-store";
 import { startupCompleteness } from "@/lib/completeness";
@@ -27,7 +26,6 @@ export function MyStartupPage() {
   const startupId = useMyStartupId();
   const listings = useOwnedListings();
   const router = useRouter();
-  const toast = useToast();
 
   const { data: s, loading, error } = useKeyedResource(startupId, fetchStartupBySlug);
 
@@ -88,7 +86,7 @@ export function MyStartupPage() {
           <div className="flex gap-8">
             <button className="btn btn-outline" onClick={() => router.push("/workspace/startup/historical")}><RuwadIcon name="doc" size={13} /> Historical Performance</button>
             <button className="btn btn-outline" onClick={() => router.push(`/startups/${s.id}`)}><RuwadIcon name="globe" size={13} /> View Public Profile</button>
-            <button className="btn btn-primary" onClick={() => toast("Edit Profile — coming in a later release")}><RuwadIcon name="edit" size={13} /> Edit Profile</button>
+            <button className="btn btn-primary" onClick={() => router.push("/workspace/startup/edit")}><RuwadIcon name="edit" size={13} /> Edit Profile</button>
           </div>
         }
       />

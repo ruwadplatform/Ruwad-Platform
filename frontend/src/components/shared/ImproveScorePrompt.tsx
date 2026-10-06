@@ -34,7 +34,7 @@ export function ImproveScorePrompt({ entityId }: { entityId?: string }) {
           </ul>
         </div>
       ))}
-      <a className="btn btn-primary rscore-improve-cta" href="/workspace/startup">Update my information</a>
+      <a className="btn btn-primary rscore-improve-cta" href="/workspace/startup/edit">Update my information</a>
     </details>
   );
 }

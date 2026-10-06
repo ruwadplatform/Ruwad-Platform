@@ -62,7 +62,10 @@ function PredictiveIntelligence({ m }: { m: PredictiveModelCard }) {
             <p className="fs-11 muted mt-4">{reliabilityText(m.reliability)}. A rough indication, not a forecast.</p>
           </>
         ) : (
-          <p className="small muted mt-8">{m.status === "INSUFFICIENT_DATA" ? "Insufficient structured data for an experimental prediction." : m.message}</p>
+          <p className="small muted mt-8">
+            {m.status === "INSUFFICIENT_DATA" ? "Not enough structured data on file for an experimental prediction yet. It is made from whatever you have provided, so adding figures such as revenue, customers or funding rounds lets it run. " : `${m.message} `}
+            {m.status === "INSUFFICIENT_DATA" && <a href="/workspace/startup/edit" style={{ textDecoration: "underline" }}>Edit your startup</a>}
+          </p>
         )}
         <p className="small mt-12"><b>This experimental prediction is not included in your RUWĀD Score.</b></p>
       </div>

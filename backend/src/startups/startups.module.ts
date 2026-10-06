@@ -9,10 +9,14 @@ import { DirectorySharedModule } from "../directory-shared/directory-shared.modu
 import { InvestmentsModule } from "../investments/investments.module";
 import { OrganizationsModule } from "../organizations/organizations.module";
 import { ScoringModule } from "../scoring/scoring.module";
+import { MlDataModule } from "../ml-data/ml-data.module";
+import { ActivityModule } from "../activity/activity.module";
+import { Submission } from "../submissions/submission.entity";
+import { StartupProfileEditService } from "./startup-profile-edit.service";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Startup, FundingRound, Investor]), DirectorySharedModule, InvestmentsModule, OrganizationsModule, ScoringModule],
-  providers: [StartupsService],
+  imports: [TypeOrmModule.forFeature([Startup, FundingRound, Investor, Submission]), DirectorySharedModule, InvestmentsModule, OrganizationsModule, ScoringModule, MlDataModule, ActivityModule],
+  providers: [StartupsService, StartupProfileEditService],
   controllers: [StartupsController],
   exports: [StartupsService, TypeOrmModule],
 })
