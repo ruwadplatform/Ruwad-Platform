@@ -74,14 +74,15 @@ function submissions(kind: EntityKind, opts: { payload?: Record<string, unknown>
   };
   const publisher = (k: EntityKind) => ({ kind: k, publish: jest.fn(async () => { if (opts.publishFails) throw new Error("db"); return "startup-1"; }) });
   const publishers = [EntityKind.STARTUP, EntityKind.INVESTOR, EntityKind.HUB, EntityKind.RESEARCH, EntityKind.MULTINATIONAL].map(publisher);
+  const email = { sendStartupSubmissionReceived: jest.fn(async () => undefined), sendStartupChangesCompleted: jest.fn(async (_p: any) => undefined) };
   const svc = new SubmissionsService(
     repo, events, dataSource, { log: jest.fn(async () => undefined) } as any, {} as any,
-    { findByIdOrThrow: jest.fn(async () => ({ firstName: "F", lastName: "O", email: "f@x.y" })) } as any, { sendStartupSubmissionReceived: jest.fn(async () => undefined) } as any,
+    { findByIdOrThrow: jest.fn(async () => ({ firstName: "F", lastName: "O", email: "f@x.y" })) } as any, email as any,
     scoringSvc, { createSystemEventIfNew: jest.fn(async () => null) } as any,
     publishers[0] as any, publishers[1] as any, publishers[2] as any, publishers[3] as any, publishers[4] as any,
   );
   jest.spyOn(svc as any, "assertPayloadValid").mockResolvedValue(undefined);
-  return { svc, item, memberships, reviewEvents, scoringSvc, dataSource, publishers, repo };
+  return { svc, item, memberships, reviewEvents, scoringSvc, dataSource, publishers, repo, email };
 }
 
 describe("startup submission: admin approval publishes, then scoring and ML run automatically", () => {
@@ -422,5 +423,87 @@ describe("the public startup profile and the admin review queues stay out of the
     const scoringSrc = readFileSync(join(__dirname, "scoring.service.ts"), "utf8");
     expect(scoringSrc).not.toMatch(/ADMIN_VERIFIED|HistoricalReviewStatus|reviewStatus|\.verified\s*===\s*true/);
     expect(Object.values(ScoreDataSource)).not.toContain("ADMIN_VERIFIED");
+  });
+});
+
+describe("requested changes completed: the admin is told and decides (approve publishes the startup)", () => {
+  type T = ReturnType<typeof submissions>;
+  const ASKED = "Please add your registration number and a clearer description.";
+  /** Founder submits, admin asks for changes. */
+  async function changesRequested(t: T) {
+    await t.svc.submit("founder-1", "sub-1");
+    await t.svc.startReview("admin-1", "sub-1");
+    await t.svc.requestChanges("admin-1", "sub-1", { message: ASKED });
+    expect(t.item.status).toBe(SubmissionStatus.CHANGES_REQUESTED);
+  }
+
+  it("the founder's first submission sends the usual 'new submission' email and no 'changes completed' email", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await t.svc.submit("founder-1", "sub-1");
+    expect(t.email.sendStartupSubmissionReceived).toHaveBeenCalledTimes(1);
+    expect(t.email.sendStartupChangesCompleted).not.toHaveBeenCalled();
+  });
+
+  it("when the founder completes the requested changes and resubmits, the admin is emailed that the changes are done, quoting what was asked", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await changesRequested(t);
+    t.email.sendStartupSubmissionReceived.mockClear();
+    const out = await t.svc.submit("founder-1", "sub-1");
+    expect(out.status).toBe(SubmissionStatus.SUBMITTED);
+    expect(t.email.sendStartupChangesCompleted).toHaveBeenCalledTimes(1);
+    expect(t.email.sendStartupChangesCompleted.mock.calls[0][0]).toMatchObject({ startupName: "Acme", submissionId: "sub-1", submitterName: "F O", submitterEmail: "f@x.y", requestedChanges: ASKED });
+    expect(t.email.sendStartupSubmissionReceived).not.toHaveBeenCalled(); // not announced as a brand-new submission
+    expect(t.publishers[0].publish).not.toHaveBeenCalled(); // nothing is live until the admin approves
+    expect(t.reviewEvents.map((e) => e.eventType)).toContain(SubmissionEventType.RESUBMITTED);
+  });
+
+  it("approving after the changes were completed publishes the startup and makes the founder its owner", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await changesRequested(t);
+    await t.svc.submit("founder-1", "sub-1");
+    const out = await t.svc.decideFromEmail("admin-1", "sub-1", "approve");
+    expect(out.status).toBe(SubmissionStatus.APPROVED);
+    expect(t.publishers[0].publish).toHaveBeenCalledTimes(1);
+    expect(t.memberships).toEqual([expect.objectContaining({ userId: "founder-1", kind: EntityKind.STARTUP, role: MembershipRole.OWNER })]);
+  });
+
+  it("the admin can ask for more changes from the email: a message is required, then the submitter is asked again and the loop repeats", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await changesRequested(t);
+    await t.svc.submit("founder-1", "sub-1");
+    await expect(t.svc.decideFromEmail("admin-1", "sub-1", "changes", "   ")).rejects.toThrow("Describe what the submitter should change");
+    expect(t.item.status).toBe(SubmissionStatus.SUBMITTED); // refused before touching the submission
+    const out = await t.svc.decideFromEmail("admin-1", "sub-1", "changes", "Add the clinical status too.");
+    expect(out.status).toBe(SubmissionStatus.CHANGES_REQUESTED);
+    expect(out.reviewerNote).toBe("Add the clinical status too.");
+    await t.svc.submit("founder-1", "sub-1");
+    expect(t.email.sendStartupChangesCompleted).toHaveBeenCalledTimes(2);
+    expect(t.email.sendStartupChangesCompleted.mock.calls[1][0]).toMatchObject({ requestedChanges: "Add the clinical status too." });
+    expect(t.publishers[0].publish).not.toHaveBeenCalled();
+  });
+
+  it("the admin can reject from the same email", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await changesRequested(t);
+    await t.svc.submit("founder-1", "sub-1");
+    const out = await t.svc.decideFromEmail("admin-1", "sub-1", "reject", "Not a fit.");
+    expect(out.status).toBe(SubmissionStatus.REJECTED);
+    expect(t.publishers[0].publish).not.toHaveBeenCalled();
+  });
+
+  it("a failed send never fails the resubmission", async () => {
+    const t = submissions(EntityKind.STARTUP);
+    await changesRequested(t);
+    t.email.sendStartupChangesCompleted.mockRejectedValueOnce(new Error("provider down"));
+    await expect(t.svc.submit("founder-1", "sub-1")).resolves.toMatchObject({ status: SubmissionStatus.SUBMITTED });
+  });
+
+  it("only startups send this email (other listing types are unchanged)", async () => {
+    const t = submissions(EntityKind.INVESTOR);
+    await t.svc.submit("founder-1", "sub-1");
+    await t.svc.startReview("admin-1", "sub-1");
+    await t.svc.requestChanges("admin-1", "sub-1", { message: ASKED });
+    await t.svc.submit("founder-1", "sub-1");
+    expect(t.email.sendStartupChangesCompleted).not.toHaveBeenCalled();
   });
 });

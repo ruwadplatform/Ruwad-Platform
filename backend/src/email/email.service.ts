@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { EntityKind } from "../common/enums";
 import {
   startupSubmissionReceivedTemplate,
+  startupChangesCompletedTemplate,
   dataRoomRequestedTemplate,
   dataRoomReviewedTemplate,
   introductionStatusChangedTemplate,
@@ -110,6 +111,34 @@ export class EmailService {
       rejectUrl: actionUrl("reject"),
     });
     await this.send(this.adminEmail, `New Startup Submission: ${p.startupName}`, html);
+  }
+
+  /** The submitter has completed the changes the admin asked for and resubmitted: tells the admin (ADMIN_NOTIFICATION_EMAIL) the requested
+   * changes are done, with Approve / Request changes / Reject buttons. Same degrade-gracefully rule as every other send here. */
+  async sendStartupChangesCompleted(p: {
+    startupName: string; submitterName: string; submitterEmail: string; submissionId: string; resubmittedAt: Date;
+    requestedChanges?: string | null; payload: Record<string, unknown>;
+  }): Promise<void> {
+    if (!this.adminEmail) {
+      this.logger.warn("ADMIN_NOTIFICATION_EMAIL not set — skipping the changes-completed notification email.");
+      return;
+    }
+    const actionUrl = (act: "approve" | "reject" | "changes") =>
+      `${this.apiUrl}/api/email-actions/submission?token=${signEmailAction(p.submissionId, act, this.actionSecret)}`;
+    const html = startupChangesCompletedTemplate({
+      startupName: p.startupName,
+      submitterName: p.submitterName,
+      submitterEmail: p.submitterEmail,
+      submissionId: p.submissionId,
+      resubmittedAt: formatDate(p.resubmittedAt),
+      requestedChanges: p.requestedChanges,
+      payload: p.payload,
+      approveUrl: actionUrl("approve"),
+      changesUrl: actionUrl("changes"),
+      rejectUrl: actionUrl("reject"),
+      reviewUrl: `${this.appUrl}/admin/submissions/${p.submissionId}`,
+    });
+    await this.send(this.adminEmail, `Requested changes completed: ${p.startupName}`, html);
   }
 
   async sendDataRoomRequested(p: {

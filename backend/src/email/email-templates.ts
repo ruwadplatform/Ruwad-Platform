@@ -87,6 +87,38 @@ export function startupSubmissionReceivedTemplate(p: {
   return layout(`New Startup Submission: ${p.startupName}`, body);
 }
 
+/** Sent to the admin when a submitter has completed the changes the admin asked for and resubmitted. Three decisions, each opening a
+ * confirmation page first: Approve (publishes the startup), Request changes again (with a message), or Reject. */
+export function startupChangesCompletedTemplate(p: {
+  startupName: string; submitterName: string; submitterEmail: string; submissionId: string; resubmittedAt: string;
+  requestedChanges?: string | null; payload: Record<string, unknown>;
+  approveUrl: string; changesUrl: string; rejectUrl: string; reviewUrl: string;
+}): string {
+  const rows: [string, string][] = Object.entries(p.payload)
+    .filter(([k]) => !HIDDEN_FIELDS.has(k))
+    .map(([k, v]): [string, string] => [labelFor(k), formatValue(v)])
+    .filter(([, v]) => v !== "");
+  const button = (url: string, text: string, bg: string) =>
+    `<a href="${url}" style="display:inline-block;background:${bg};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;font-size:14px;margin:0 10px 10px 0;">${escapeHtml(text)}</a>`;
+  const asked = p.requestedChanges && p.requestedChanges.trim()
+    ? `<h2 style="margin:20px 0 6px;font-size:15px;">Changes you asked for</h2><div style="border-left:3px solid #E3E6E2;padding:4px 12px;color:#3a4440;white-space:pre-wrap;">${escapeHtml(p.requestedChanges)}</div>`
+    : "";
+  const body =
+    `<p>${escapeHtml(p.submitterName)} has made the changes you requested and sent <b>${escapeHtml(p.startupName)}</b> back for your decision.</p>` +
+    detailsTable([
+      ["Submitted by", `${p.submitterName} (${p.submitterEmail})`],
+      ["Changes completed", p.resubmittedAt],
+      ["Submission ID", p.submissionId],
+    ]) +
+    asked +
+    `<div style="margin-top:26px;">${button(p.approveUrl, "Approve", "#128A45")}${button(p.changesUrl, "Request changes", "#B7791F")}${button(p.rejectUrl, "Reject", "#C0392B")}</div>` +
+    `<p style="margin-top:6px;font-size:12px;color:#8B978E;">Approving publishes the startup to the RUWĀD directory. Each button opens a confirmation page before anything is changed. Links expire in 7 days.</p>` +
+    `<p style="margin-top:14px;font-size:13px;"><a href="${p.reviewUrl}" style="color:#128A45;">Open the full submission in the admin panel</a></p>` +
+    `<h2 style="margin:24px 0 0;font-size:15px;">Submission details</h2>` +
+    detailsTable(rows);
+  return layout(`Requested changes completed: ${p.startupName}`, body);
+}
+
 export function dataRoomRequestedTemplate(p: {
   requesterName: string; requesterEmail: string; profileName: string;
   requestType: string; requestedAt: string; reviewUrl: string;

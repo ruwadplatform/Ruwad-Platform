@@ -39,13 +39,23 @@ export class SubmissionEmailActionController {
     let name = "this submission";
     try { name = String((await this.submissions.findOneAdmin(p.sid)).title ?? name); } catch { /* shown generically */ }
     const approve = p.act === "approve";
-    return page(approve ? "Accept submission" : "Reject submission", `
-<h2 style="margin:0 0 8px;">${approve ? "Accept" : "Reject"} "${esc(name)}"?</h2>
-<p style="color:#3a4440;font-size:14px;">${approve ? "This publishes the startup to the RUWĀD directory and makes the submitter its owner." : "The submitter will see that the listing was not approved."}</p>
+    const changes = p.act === "changes";
+    const verb = approve ? "Accept" : changes ? "Request changes to" : "Reject";
+    const blurb = approve
+      ? "This publishes the startup to the RUWĀD directory and makes the submitter its owner."
+      : changes
+        ? "The submitter will be asked to make these changes and resubmit."
+        : "The submitter will see that the listing was not approved.";
+    const label = changes ? "What should be changed? (required, shown to the submitter)" : "Reason (shown to the submitter)";
+    const colour = approve ? "#128A45" : changes ? "#B7791F" : "#C0392B";
+    const confirmText = approve ? "acceptance" : changes ? "change request" : "rejection";
+    return page(`${approve ? "Accept" : changes ? "Request changes" : "Reject"} submission`, `
+<h2 style="margin:0 0 8px;">${verb} "${esc(name)}"?</h2>
+<p style="color:#3a4440;font-size:14px;">${blurb}</p>
 <form method="POST" action="">
 <input type="hidden" name="token" value="${esc(token!)}">
-${approve ? "" : '<label style="font-size:13px;">Reason (shown to the submitter)<br><textarea name="reason" rows="3" maxlength="2000" style="width:100%;margin-top:6px;box-sizing:border-box;"></textarea></label><br><br>'}
-<button type="submit" style="background:${approve ? "#128A45" : "#C0392B"};color:#fff;border:0;border-radius:6px;padding:12px 26px;font-weight:600;font-size:14px;cursor:pointer;">Confirm ${approve ? "acceptance" : "rejection"}</button>
+${approve ? "" : `<label style="font-size:13px;">${label}<br><textarea name="reason" rows="3" maxlength="2000" ${changes ? "required" : ""} style="width:100%;margin-top:6px;box-sizing:border-box;"></textarea></label><br><br>`}
+<button type="submit" style="background:${colour};color:#fff;border:0;border-radius:6px;padding:12px 26px;font-weight:600;font-size:14px;cursor:pointer;">Confirm ${confirmText}</button>
 </form>`);
   }
 
@@ -60,7 +70,9 @@ ${approve ? "" : '<label style="font-size:13px;">Reason (shown to the submitter)
       const admin = await this.users.findFirstAdmin();
       if (!admin) return page("No admin", "<h2>No active admin account exists</h2><p>Sign in to RUWĀD to review this submission.</p>");
       const done = await this.submissions.decideFromEmail(admin.id, p.sid, p.act, reason);
-      return page("Done", `<h2 style="margin:0 0 8px;">${p.act === "approve" ? "Submission accepted" : "Submission rejected"}</h2><p style="color:#3a4440;font-size:14px;">"${esc(String(done.title ?? "Submission"))}" is now ${done.status}.</p>`);
+      const headline = p.act === "approve" ? "Submission accepted" : p.act === "changes" ? "Changes requested" : "Submission rejected";
+      const detail = p.act === "approve" ? "The startup is now live in the RUWĀD directory." : p.act === "changes" ? "The submitter has been asked to make the changes and resubmit." : `It is now ${done.status}.`;
+      return page("Done", `<h2 style="margin:0 0 8px;">${headline}</h2><p style="color:#3a4440;font-size:14px;">"${esc(String(done.title ?? "Submission"))}": ${detail}</p>`);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Something went wrong";
       return page("Not changed", `<h2 style="margin:0 0 8px;">Nothing was changed</h2><p style="color:#3a4440;font-size:14px;">${esc(msg)}</p><p style="font-size:13px;color:#5C6B62;">If it was already reviewed, this link has no further effect.</p>`);

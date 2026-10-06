@@ -193,6 +193,25 @@ export class SubmissionsService {
       }
     }
 
+    // The submitter has completed the changes the admin asked for: tell the admin so they can approve, reject or ask for more changes.
+    // Same rule as above: a failed send never fails the (already saved) resubmission.
+    if (wasResubmit && item.kind === EntityKind.STARTUP) {
+      try {
+        const submitter = await this.usersService.findByIdOrThrow(userId);
+        await this.emailService.sendStartupChangesCompleted({
+          startupName: (typeof saved.payload.name === "string" && saved.payload.name) || saved.title || "Untitled Startup",
+          submitterName: `${submitter.firstName} ${submitter.lastName}`,
+          submitterEmail: submitter.email,
+          submissionId: saved.id,
+          resubmittedAt: saved.submittedAt ?? new Date(),
+          requestedChanges: saved.reviewerNote,
+          payload: saved.payload,
+        });
+      } catch (e) {
+        this.logger.error(`Changes-completed notification failed for submission ${saved.id}: ${e instanceof Error ? e.message : "unknown error"}`);
+      }
+    }
+
     return saved;
   }
 
@@ -329,12 +348,14 @@ export class SubmissionsService {
   /** Decision made from the Accept/Reject buttons in the admin email. Goes
    * through the same startReview/approve/reject methods as the admin UI, so
    * every validation, transition rule and side effect is identical. */
-  async decideFromEmail(adminUserId: string, id: string, action: "approve" | "reject", reason?: string): Promise<Submission> {
+  async decideFromEmail(adminUserId: string, id: string, action: "approve" | "reject" | "changes", reason?: string): Promise<Submission> {
     const item = await this.findOneAdmin(id);
+    // Asking for changes needs a message for the submitter; check it before touching the submission's status.
+    if (action === "changes" && !reason?.trim()) throw new BadRequestException("Describe what the submitter should change.");
     if (item.status === SubmissionStatus.SUBMITTED) await this.startReview(adminUserId, id);
-    return action === "approve"
-      ? this.approve(adminUserId, id)
-      : this.reject(adminUserId, id, { reason: reason?.trim() || "Not approved after review." });
+    if (action === "approve") return this.approve(adminUserId, id);
+    if (action === "changes") return this.requestChanges(adminUserId, id, { message: reason!.trim() });
+    return this.reject(adminUserId, id, { reason: reason?.trim() || "Not approved after review." });
   }
 
   // ------------------------------------------------------------- internals

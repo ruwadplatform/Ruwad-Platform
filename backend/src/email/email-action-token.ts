@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
-export type EmailAction = "approve" | "reject";
+export type EmailAction = "approve" | "reject" | "changes";
 export interface EmailActionPayload { sid: string; act: EmailAction; exp: number }
 
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -26,7 +26,7 @@ export function verifyEmailAction(token: string | undefined, secret: string): Em
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   try {
     const p = JSON.parse(Buffer.from(body, "base64url").toString()) as EmailActionPayload;
-    if ((p.act !== "approve" && p.act !== "reject") || typeof p.sid !== "string" || typeof p.exp !== "number" || p.exp < Date.now()) return null;
+    if ((p.act !== "approve" && p.act !== "reject" && p.act !== "changes") || typeof p.sid !== "string" || typeof p.exp !== "number" || p.exp < Date.now()) return null;
     return p;
   } catch { return null; }
 }
