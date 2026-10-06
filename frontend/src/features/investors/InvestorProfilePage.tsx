@@ -7,6 +7,7 @@ import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { ProvenanceStrip } from "@/components/shared/ProvenanceStrip";
 import { LockedTeaser } from "@/components/shared/LockedTeaser";
 import { DataRoomButton } from "@/components/shared/DataRoomButton";
+import { ClaimCta, VerifiedBadge } from "@/components/shared/ListingClaim";
 import { DataRoomTab } from "@/components/shared/DataRoomTab";
 import { RequestIntroModal } from "@/components/shared/RequestIntroModal";
 import { useModal } from "@/components/shell/ModalProvider";
@@ -33,6 +34,7 @@ export function InvestorProfilePage({ investor: v }: { investor: Investor }) {
         <OrganizationLogo logo={v.logo} logoUrl={v.logoUrl} className="plogo" style={{ background: "var(--navy-900)" }} />
         <div className="profile-head-main">
           <h1>{v.name}</h1>
+          <div className="mt-4"><VerifiedBadge status={v.verified} kind="INVESTOR" /></div>
           <div className="ptagline">{v.type}{v.founded ? ` · Est. ${v.founded}` : ""}</div>
           <div className="profile-meta">
             <span><RuwadIcon name="map" size={13} /> {v.city}</span>
@@ -41,6 +43,7 @@ export function InvestorProfilePage({ investor: v }: { investor: Investor }) {
           <ProvenanceStrip provenance={v.provenance} />
         </div>
         <div className="profile-actions">
+          <ClaimCta kind="INVESTOR" entityId={v.entityId} entityName={v.name} verified={v.verified} hasPendingClaim={!!v.hasPendingClaim} loggedIn={loggedIn} />
           <button className="btn btn-outline" onClick={() => toggleSaved("investors", v.id)}><RuwadIcon name="star" size={14} /> {saved ? "Saved" : "Save"}</button>
           <button className="btn btn-primary btn-lg" onClick={() => { if (requireAuth("intro", { investorName: v.name })) openModal(<RequestIntroModal investorName={v.name} />); }}>Request Warm Introduction</button>
           <DataRoomButton companyId={v.id} kind="INVESTOR" entityId={v.entityId} />

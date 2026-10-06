@@ -1,5 +1,6 @@
 import { Column, Entity, Index } from "typeorm";
 import { BaseEntity } from "../common/base.entity";
+import type { VerifiedTier } from "../startups/startup.entity";
 
 @Entity("investors")
 export class Investor extends BaseEntity {
@@ -22,6 +23,11 @@ export class Investor extends BaseEntity {
   @Column({ type: "int" }) investments!: number;
   @Column({ type: "int" }) exits!: number;
   @Column({ type: "int" }) hcDeals!: number;
+
+  /** "unclaimed" for a directory listing nobody owns yet (an owner can send a claim request, reviewed by an admin), "self-reported" once an
+   * owner exists. Same tiers as a startup. */
+  @Column({ type: "varchar", default: "unclaimed" })
+  verified!: VerifiedTier;
 
   @Column({ type: "varchar", default: "Medium" })
   provenanceConfidence!: "High" | "Medium" | "Low";

@@ -11,12 +11,11 @@ import { LockedTeaser } from "@/components/shared/LockedTeaser";
 import { DataRoomButton } from "@/components/shared/DataRoomButton";
 import { DataRoomTab } from "@/components/shared/DataRoomTab";
 import { CompareModal } from "@/components/shared/CompareModal";
-import { ClaimModal } from "@/components/shared/ClaimModal";
+import { ClaimCta, VerifiedBadge, canShowClaim } from "@/components/shared/ListingClaim";
 import { useModal } from "@/components/shell/ModalProvider";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
 import { requireAuth } from "@/lib/store";
-import { fetchMyClaim, type Claim } from "@/lib/api/claims";
 import { fetchDataRoomStatus } from "@/lib/api/data-room";
 import { regBadgeClass } from "@/lib/widgets";
 import { initials } from "@/lib/scoring";
@@ -57,7 +56,7 @@ export function StartupProfilePage({ startup }: { startup: Startup }) {
 
   const place = [startup.city, startup.country].filter(Boolean).join(", ");
   // Same condition ClaimCta uses to render itself; when it won't, Save takes the whole first row so the grid stays 3 rows.
-  const showsClaim = startup.verified === "unclaimed" && !!startup.entityId;
+  const showsClaim = canShowClaim(startup.verified, startup.entityId);
 
   return (
     <div className="entity-profile-page">
@@ -79,7 +78,7 @@ export function StartupProfilePage({ startup }: { startup: Startup }) {
         <section className="sp-actions" aria-labelledby="sp-actions-title">
           <h2 id="sp-actions-title" className="sp-actions-title">Actions</h2>
           <div className={`sp-actions-grid${showsClaim ? "" : " sp-actions-grid--no-claim"}`}>
-            <ClaimCta entityId={startup.entityId} startupName={startup.name} verified={startup.verified} hasPendingClaim={!!startup.hasPendingClaim} loggedIn={loggedIn} />
+            <ClaimCta entityId={startup.entityId} entityName={startup.name} verified={startup.verified} hasPendingClaim={!!startup.hasPendingClaim} loggedIn={loggedIn} />
             <button className="btn btn-outline" onClick={() => toggleSaved("startups", startup.id)}><RuwadIcon name="star" size={14} /> {saved ? "Saved" : "Save"}</button>
             <DataRoomButton companyId={startup.id} kind="STARTUP" entityId={startup.entityId} label="Data Room" />
             <button className="btn btn-outline" onClick={() => { if (requireAuth("compare", { id: startup.id })) openModal(<CompareModal initialId={startup.id} />, "xwide"); }}>Compare</button>
@@ -104,52 +103,6 @@ export function StartupProfilePage({ startup }: { startup: Startup }) {
         )}
       </div>
     </div>
-  );
-}
-
-function VerifiedBadge({ status }: { status: Startup["verified"] }) {
-  if (status === "verified") return <span className="badge badge-good" title="Regulatory and clinical documentation reviewed by RUWĀD"><RuwadIcon name="check" size={10} /> Verified</span>;
-  if (status === "self-reported") return <span className="badge badge-warn" title="Submitted by the company; not independently reviewed"><RuwadIcon name="help" size={10} /> Self-Reported</span>;
-  return <span className="badge badge-neutral" title="This profile has not been claimed or reviewed"><RuwadIcon name="help" size={10} /> Unclaimed Profile</span>;
-}
-
-function ClaimCta({ entityId, startupName, verified, hasPendingClaim, loggedIn }: { entityId?: string; startupName: string; verified: Startup["verified"]; hasPendingClaim: boolean; loggedIn: boolean }) {
-  const { openModal } = useModal();
-  const toast = useToast();
-  const { hydrated } = useSession();
-  const [myClaim, setMyClaim] = useState<Claim | null>(null);
-  const [justSubmitted, setJustSubmitted] = useState(false);
-  useEffect(() => {
-    if (!hydrated || !loggedIn || verified !== "unclaimed") return;
-    let live = true;
-    fetchMyClaim().then((c) => { if (live) setMyClaim(c); }).catch(() => undefined);
-    return () => { live = false; };
-  }, [hydrated, loggedIn, verified]);
-
-  if (verified !== "unclaimed" || !entityId) return null;
-  const mine = myClaim?.entityId === entityId;
-  const pending = hasPendingClaim || justSubmitted || mine;
-
-  if (!pending) {
-    return (
-      <button
-        className="btn btn-outline"
-        title="Claim This Listing"
-        aria-label="Claim This Listing"
-        onClick={() => {
-          if (!requireAuth("claim-company", { entityId })) return;
-          if (myClaim) { toast(myClaim.entityId === entityId ? "This listing already has a claim under review" : "You already have a claim under review — one company claim per account"); return; }
-          openModal(<ClaimModal entityId={entityId} entityName={startupName} onSubmitted={() => setJustSubmitted(true)} />);
-        }}
-      >
-        <RuwadIcon name="check" size={14} /> Claim
-      </button>
-    );
-  }
-  return (
-    <button className="btn btn-outline" disabled title={mine || justSubmitted ? "Your claim is under review" : "A claim for this listing is already under review"}>
-      <RuwadIcon name="clock" size={14} /> {mine || justSubmitted ? "Your Claim: Pending Review" : "Claim Pending Review"}
-    </button>
   );
 }
 

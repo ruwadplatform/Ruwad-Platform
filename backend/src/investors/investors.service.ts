@@ -8,6 +8,7 @@ import { QueryInvestorsDto } from "./dto/query-investors.dto";
 import { DirectorySharedService } from "../directory-shared/directory-shared.service";
 import { InvestmentsService } from "../investments/investments.service";
 import { StartupsService } from "../startups/startups.service";
+import { OrganizationsService } from "../organizations/organizations.service";
 import { EntityKind } from "../common/enums";
 import { initials, slugify } from "../common/slug.util";
 import { paginate, PaginatedResult } from "../common/pagination.dto";
@@ -19,6 +20,7 @@ export class InvestorsService {
     private readonly shared: DirectorySharedService,
     private readonly investments: InvestmentsService,
     private readonly startups: StartupsService,
+    private readonly organizations: OrganizationsService,
   ) {}
 
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
@@ -89,7 +91,7 @@ export class InvestorsService {
         this.investments.findForInvestor(v.id),
       ]);
       return {
-        id: v.id, slug: v.slug, name: v.name, logo: initials(v.name), logoImageId: v.logoImageId ?? null, type: v.type, city: v.city, founded: v.founded,
+        id: v.id, slug: v.slug, name: v.name, logo: initials(v.name), logoImageId: v.logoImageId ?? null, type: v.type, city: v.city, founded: v.founded, verified: v.verified,
         desc: v.desc, ticket: v.ticket, hcDeals: v.hcDeals, thesis: v.thesis, stageFocus: v.stageFocus, hcFocus,
         portfolioSize: portfolio.length,
       };
@@ -100,10 +102,11 @@ export class InvestorsService {
   async findBySlugOrThrow(slug: string): Promise<Record<string, unknown>> {
     const investor = await this.repo.findOne({ where: { slug } });
     if (!investor) throw new NotFoundException("Investor not found");
-    const [sectors, team, portfolio] = await Promise.all([
+    const [sectors, team, portfolio, hasPendingClaim] = await Promise.all([
       this.shared.getSectorNames(EntityKind.INVESTOR, investor.id),
       this.shared.getTeamMembers(EntityKind.INVESTOR, investor.id),
       this.investments.findForInvestor(investor.id),
+      investor.verified === "unclaimed" ? this.organizations.pendingClaimForEntity(EntityKind.INVESTOR, investor.id) : Promise.resolve(false),
     ]);
     const startupPortfolio = await Promise.all(
       portfolio.filter((p) => p.targetEntityType === EntityKind.STARTUP).map(async (p) => {
@@ -111,6 +114,6 @@ export class InvestorsService {
         return s ? { ...this.startups.toSummary(s), round: p.round, year: p.year } : null;
       }),
     );
-    return { ...investor, logo: initials(investor.name), sectors, team, portfolio: startupPortfolio.filter(Boolean) };
+    return { ...investor, logo: initials(investor.name), sectors, team, portfolio: startupPortfolio.filter(Boolean), hasPendingClaim };
   }
 }

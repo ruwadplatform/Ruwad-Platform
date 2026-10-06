@@ -170,13 +170,14 @@ export class OrganizationsService {
   }
 
   /** Approving a claim is the ONLY way an EntityMembership gets created from a claim — it grants OWNER access and,
-   * for a startup, moves the profile from "unclaimed" to "self-reported" (claimed, not yet independently reviewed). */
+   * for a startup or an investor, moves the profile from "unclaimed" to "self-reported" (claimed, not yet independently reviewed). */
   async approveClaim(id: string, adminUserId: string): Promise<ListingClaim> {
     const claim = await this.findClaimOrThrow(id);
     if (claim.status !== "PENDING") throw new BadRequestException("This claim has already been reviewed");
     if (await this.isAlreadyOwned(claim.kind, claim.entityId)) throw new ConflictException("This listing has already been claimed by another approved request");
     await this.repo.save(this.repo.create({ userId: claim.userId, kind: claim.kind, entityId: claim.entityId, role: MembershipRole.OWNER }));
     if (claim.kind === EntityKind.STARTUP) await this.startups.update(claim.entityId, { verified: "self-reported" });
+    if (claim.kind === EntityKind.INVESTOR) await this.investors.update(claim.entityId, { verified: "self-reported" });
     claim.status = "APPROVED";
     claim.reviewedAt = new Date();
     claim.reviewedByUserId = adminUserId;

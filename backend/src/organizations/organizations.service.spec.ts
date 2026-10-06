@@ -27,6 +27,7 @@ describe("OrganizationsService — listing claims", () => {
   let membershipRepo: ReturnType<typeof fakeRepo>;
   let claimRepo: ReturnType<typeof fakeRepo>;
   let startupRepo: ReturnType<typeof fakeRepo>;
+  let investorRepo: ReturnType<typeof fakeRepo>;
   let users: { findByIdOrThrow: jest.Mock };
   let svc: OrganizationsService;
 
@@ -34,10 +35,11 @@ describe("OrganizationsService — listing claims", () => {
     membershipRepo = fakeRepo();
     claimRepo = fakeRepo();
     startupRepo = fakeRepo([{ id: STARTUP_ID, name: "Clinicy", slug: "clinicy", verified: "unclaimed" }]);
+    investorRepo = fakeRepo([{ id: "investor-1", name: "Wa'ed Ventures", slug: "wa-ed-ventures", verified: "unclaimed" }]);
     users = { findByIdOrThrow: jest.fn(async (id: string) => ({ id, email: `${id}@example.com` })) };
     svc = new OrganizationsService(
       membershipRepo as any, claimRepo as any, startupRepo as any,
-      fakeRepo() as any, fakeRepo() as any, fakeRepo() as any, fakeRepo() as any,
+      investorRepo as any, fakeRepo() as any, fakeRepo() as any, fakeRepo() as any,
       users as any,
     );
   });
@@ -74,6 +76,21 @@ describe("OrganizationsService — listing claims", () => {
     expect(approved.reviewedByUserId).toBe("admin-1");
     expect(membershipRepo.rows).toContainEqual(expect.objectContaining({ userId: "user-1", kind: EntityKind.STARTUP, entityId: STARTUP_ID, role: MembershipRole.OWNER }));
     expect(startupRepo.rows[0].verified).toBe("self-reported");
+  });
+
+  it("an investor listing can be claimed the same way, and approving it moves it from unclaimed to self-reported", async () => {
+    const claim = await svc.submitClaim("user-1", { kind: EntityKind.INVESTOR, entityId: "investor-1", role: "Managing Partner", note: "partner@waed.example" });
+    expect(claim).toMatchObject({ kind: EntityKind.INVESTOR, entityId: "investor-1", status: "PENDING" });
+    expect(await svc.pendingClaimForEntity(EntityKind.INVESTOR, "investor-1")).toBe(true);
+    await svc.approveClaim(claim.id, "admin-1");
+    expect(investorRepo.rows[0].verified).toBe("self-reported");
+    expect(membershipRepo.rows).toContainEqual(expect.objectContaining({ userId: "user-1", kind: EntityKind.INVESTOR, entityId: "investor-1", role: MembershipRole.OWNER }));
+    expect(startupRepo.rows[0].verified).toBe("unclaimed"); // a startup is never touched by an investor claim
+  });
+
+  it("a claim on an investor that already has an owner is refused", async () => {
+    membershipRepo.rows.push({ id: "m-9", userId: "other", kind: EntityKind.INVESTOR, entityId: "investor-1", role: MembershipRole.OWNER });
+    await expect(svc.submitClaim("user-1", { kind: EntityKind.INVESTOR, entityId: "investor-1", role: "Partner" })).rejects.toBeInstanceOf(ConflictException);
   });
 
   it("rejecting a claim records who rejected it and why, and creates no membership", async () => {

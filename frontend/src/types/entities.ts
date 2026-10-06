@@ -161,6 +161,10 @@ export interface Investor {
   recentDeals: RecentDeal[];
   news: NewsItem[];
   provenance: Provenance;
+  /** Unclaimed until an owner's claim request is approved; same tiers as a startup. */
+  verified: VerificationTier;
+  /** A claim on this listing is under review (any claimant). Only set when `verified === "unclaimed"`. */
+  hasPendingClaim?: boolean;
 }
 
 /* ================================================================== HUBS & ENABLERS

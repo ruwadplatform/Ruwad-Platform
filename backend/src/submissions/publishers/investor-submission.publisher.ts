@@ -23,7 +23,7 @@ export class InvestorSubmissionPublisher implements SubmissionPublisher {
       founded: Number(p.founded) || new Date().getFullYear(), desc: str(p.desc), thesis: str(p.thesis),
       stageFocus: strArr(p.preferredStages), ticket: str(p.ticket, formatTicket(p.minTicket, p.maxTicket)),
       aum: str(p.aum, "Undisclosed"), available: str(p.available, "Undisclosed"),
-      investments: 0, exits: 0, hcDeals: 0,
+      investments: 0, exits: 0, hcDeals: 0, verified: "self-reported",
       provenanceConfidence: "Medium", provenanceLastUpdated: new Date().toISOString().slice(0, 10), provenanceSources: ["Self-reported via RUWĀD submission"],
       openOpps: strArr(p.openOpportunities), recentDeals: [], news: [],
     }));
