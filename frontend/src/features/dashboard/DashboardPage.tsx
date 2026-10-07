@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { RuwadIcon, type RuwadIconName } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { LockedTeaser } from "@/components/shared/LockedTeaser";
 import { useSession, useWatchlist, useIntros, useOwnedListings } from "@/hooks/use-store";
 import { requireAuth } from "@/lib/store";
@@ -181,9 +182,9 @@ function FeaturedProfiles() {
   const { data: INVESTORS } = useInvestors();
   const { data: HUBS_ENABLERS } = useHubs();
   const items = [
-    ...STARTUPS.slice(0, 4).map((s) => ({ n: s.name, route: "/startups/" + s.id })),
-    ...INVESTORS.slice(0, 4).map((v) => ({ n: v.name, route: "/investors/" + v.id })),
-    ...HUBS_ENABLERS.slice(0, 2).map((h) => ({ n: h.name, route: "/hubs/" + h.id })),
+    ...STARTUPS.slice(0, 4).map((s) => ({ n: s.name, route: "/startups/" + s.id, logoUrl: s.logoUrl })),
+    ...INVESTORS.slice(0, 4).map((v) => ({ n: v.name, route: "/investors/" + v.id, logoUrl: v.logoUrl })),
+    ...HUBS_ENABLERS.slice(0, 2).map((h) => ({ n: h.name, route: "/hubs/" + h.id, logoUrl: h.logoUrl })),
   ];
   if (!items.length) return null;
   return (
@@ -192,7 +193,7 @@ function FeaturedProfiles() {
       <div className="featured-row">
         {items.map((x, i) => (
           <Link key={i} href={x.route} className="featured-card">
-            <div className="flogo">{initials(x.n)}</div><b>{x.n}</b>
+            <OrganizationLogo logo={initials(x.n)} logoUrl={x.logoUrl} className="flogo" /><b>{x.n}</b>
           </Link>
         ))}
       </div>
