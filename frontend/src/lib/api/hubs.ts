@@ -10,7 +10,7 @@ interface RawHub {
   provenanceConfidence?: Hub["provenance"]["confidence"]; provenanceLastUpdated: string; provenanceSources?: string[];
   logo?: string; logoImageId?: string | null; sectors?: string[]; healthcareFocus?: string[];
   programs?: Hub["programs"]; programCount?: number;
-  portfolio?: HubPortfolioItem[]; portfolioCount?: number;
+  portfolio?: (HubPortfolioItem & { startupLogoImageId?: string | null })[]; portfolioCount?: number;
   partnerships?: { type: string; partnerName: string; description: string }[];
   contact?: { mainContact?: string; email?: string; phone?: string; website?: string; linkedin?: string; extra?: { hq?: string; applicationLink?: string } } | null;
 }
@@ -46,7 +46,7 @@ function mapHub(r: RawHub): Hub {
     support: r.support ?? [],
     fundingAvailable: r.fundingAvailable ?? "—",
     fundingType: r.fundingType ?? "—",
-    portfolio: r.portfolio ?? new Array(r.portfolioCount ?? 0).fill(null).map(placeholderPortfolioItem),
+    portfolio: r.portfolio ? r.portfolio.map(({ startupLogoImageId, ...p }) => ({ ...p, startupLogoUrl: logoUrl(startupLogoImageId) })) : new Array(r.portfolioCount ?? 0).fill(null).map(placeholderPortfolioItem),
     partnerships: (r.partnerships ?? []).map((p) => ({ type: p.type, partner: p.partnerName, desc: p.description })),
     application: r.application ?? emptyApplication(),
     contacts: {

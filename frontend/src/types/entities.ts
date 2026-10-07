@@ -211,6 +211,8 @@ export interface HubPortfolioItem {
   startupId?: string;
   startupSlug?: string;
   startupLogo?: string;
+  /** The matched startup's uploaded logo, when it has one. */
+  startupLogoUrl?: string | null;
   startupScore?: number | null;
   startupCategory?: string;
   startupTagline?: string;

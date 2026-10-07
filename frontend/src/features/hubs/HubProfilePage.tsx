@@ -150,7 +150,7 @@ function TabBody({ tab, h, loggedIn }: { tab: Tab; h: Hub; loggedIn: boolean }) 
             }
             return (
               <EntityCard
-                key={item.startupId} href={`/startups/${item.startupSlug}`} logo={item.startupLogo ?? ""} name={item.name} subtitle={`${item.location} · ${item.startupCategory ?? item.sector}`} desc={item.startupTagline ?? ""}
+                key={item.startupId} href={`/startups/${item.startupSlug}`} logo={item.startupLogo ?? ""} logoUrl={item.startupLogoUrl} name={item.name} subtitle={`${item.location} · ${item.startupCategory ?? item.sector}`} desc={item.startupTagline ?? ""}
                 kind="startups" id={item.startupSlug}
                 meta={<><span className="tag">{item.program}</span><span className="tag">{item.stage}</span></>}
                 foot={<><span className="escore">{item.startupScore != null ? item.startupScore.toFixed(1) : "—"}</span><span className="small muted">RUWĀD Score</span></>}

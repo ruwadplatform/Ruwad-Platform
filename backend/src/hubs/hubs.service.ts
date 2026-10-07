@@ -117,7 +117,7 @@ export class HubsService {
       const startup = p.startupId ? await this.startups.findOne({ where: { id: p.startupId } }) : null;
       return {
         name: p.companyName, sector: p.sector, stage: p.stage, location: p.location, program: p.programName, year: p.year,
-        ...(startup ? { startupId: startup.id, startupSlug: startup.slug, startupLogo: initials(startup.name), startupScore: startup.ruwadScore != null ? Number(startup.ruwadScore) : null, startupCategory: startup.category, startupTagline: startup.tagline } : {}),
+        ...(startup ? { startupId: startup.id, startupSlug: startup.slug, startupLogo: initials(startup.name), startupLogoImageId: startup.logoImageId ?? null, startupScore: startup.ruwadScore != null ? Number(startup.ruwadScore) : null, startupCategory: startup.category, startupTagline: startup.tagline } : {}),
       };
     }));
     return { ...hub, logo: initials(hub.name), sectors, programs, portfolio: portfolioResolved, partnerships, contact };
