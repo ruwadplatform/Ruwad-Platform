@@ -5,50 +5,41 @@ export interface CompletenessCheck {
   ok: boolean;
 }
 
-/** Reuses the `.bar-chart-track`/`.bar-chart-fill` primitive already built
- * for the Intelligence dashboards as a single-value completeness meter,
- * rather than introducing a new progress-bar visual. */
+/** Profile completeness meter with what is done and what is still missing. Styled by the My Startup page's `.ms-*` card rules. */
 export function ProfileCompleteness({ checks }: { checks: CompletenessCheck[] }) {
   const done = checks.filter((c) => c.ok);
   const missing = checks.filter((c) => !c.ok);
   const pct = Math.round((done.length / checks.length) * 100);
+  const tone = pct >= 80 ? "good" : pct >= 50 ? "warn" : "crit";
 
   return (
-    <div className="panel panel-pad">
-      <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <h3 className="fs-13" style={{ margin: 0 }}>Profile Completeness</h3>
-        <b className="mono fs-15">{pct}%</b>
-      </div>
-      <div className="bar-chart-track mt-12" style={{ height: 8 }}>
-        <div className="bar-chart-fill" style={{ width: `${pct}%`, background: pct >= 80 ? "var(--good)" : pct >= 50 ? "var(--warn)" : "var(--crit)" }} />
+    <section className="ms-card ms-wide">
+      <header className="ms-card-head">
+        <div><h3>Profile Completeness</h3><p>{done.length} of {checks.length} items complete</p></div>
+        <b className="ms-big">{pct}%</b>
+      </header>
+      <div className={`ms-bar ms-bar-${tone}`} role="progressbar" aria-label="Profile completeness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+        <span style={{ width: `${pct}%` }} />
       </div>
 
-      <div className="mt-16" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+      <div className="ms-checks">
         <div>
-          <h4 className="eyebrow mb-8">Completed ({done.length}/{checks.length})</h4>
-          {done.map((c) => (
-            <div key={c.label} className="small mb-4" style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--good)" }}>
-              <RuwadIcon name="check" size={12} /> <span style={{ color: "var(--text)" }}>{c.label}</span>
-            </div>
-          ))}
+          <div className="ms-eyebrow">Completed</div>
+          <ul>
+            {done.map((c) => <li key={c.label} className="ms-check-done"><RuwadIcon name="check" size={13} /> {c.label}</li>)}
+          </ul>
         </div>
         {missing.length > 0 && (
           <div>
-            <h4 className="eyebrow mb-8">Missing</h4>
-            {missing.map((c) => (
-              <div key={c.label} className="small mb-4" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span className="badge badge-warn" style={{ padding: "1px 6px" }}>!</span> <span className="muted">{c.label}</span>
-              </div>
-            ))}
+            <div className="ms-eyebrow">Still missing</div>
+            <ul>
+              {missing.map((c) => <li key={c.label} className="ms-check-missing"><span aria-hidden>!</span> {c.label}</li>)}
+            </ul>
           </div>
         )}
       </div>
 
-      {missing.length > 0 && (
-        <div className="mt-16 small muted">
-          Recommended next step: add {missing[0].label.toLowerCase()} to improve how your profile appears to investors and partners.
-        </div>
-      )}
-    </div>
+      {missing.length > 0 && <p className="ms-notice">Next step: add {missing[0].label.toLowerCase()} to improve how your profile appears to investors and partners.</p>}
+    </section>
   );
 }

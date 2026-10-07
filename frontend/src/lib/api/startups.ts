@@ -26,7 +26,7 @@ interface RawStartup {
   logo?: string;
   logoImageId?: string | null;
   sectors?: string[];
-  team?: { name: string; title: string; isFounder: boolean }[];
+  team?: { name: string; title: string; isFounder: boolean; linkedin?: string | null }[];
   rounds?: Startup["rounds"];
   investorIds?: string[];
 }
@@ -63,7 +63,7 @@ function mapStartup(r: RawStartup): Startup {
     advantage: r.advantage ?? "",
     regulatory: { sfda: r.sfda, fda: r.fda ?? "—", ce: r.ce ?? "—", clinical: r.clinicalStatus ?? "—", patent: r.patentStatus ?? "—" },
     market: { tam: r.marketTam ?? "—", sam: r.marketSam ?? "—", som: r.marketSom ?? "—", competitors: r.marketCompetitors ?? [] },
-    team: (r.team ?? []).map((t) => ({ name: t.name, title: t.title, founder: !!t.isFounder })),
+    team: (r.team ?? []).map((t) => ({ name: t.name, title: t.title, founder: !!t.isFounder, linkedin: t.linkedin || undefined })),
     rounds: r.rounds ?? [],
     investorsList: [],
     investorIds: r.investorIds ?? [],

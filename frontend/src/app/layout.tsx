@@ -13,6 +13,7 @@ import "@/styles/profiles.css";
 import "@/styles/multinational-profile.css";
 import "@/styles/forms.css";
 import "@/styles/my-profile.css";
+import "@/styles/my-startup.css";
 import "@/styles/settings-page.css";
 import "@/styles/dataroom.css";
 import "@/styles/landscape.css";

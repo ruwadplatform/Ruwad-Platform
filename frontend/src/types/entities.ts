@@ -17,6 +17,8 @@ export interface TeamMember {
   name: string;
   title: string;
   founder: boolean;
+  /** Only present when the member's own LinkedIn profile was provided. */
+  linkedin?: string;
 }
 
 export interface FundingRound {

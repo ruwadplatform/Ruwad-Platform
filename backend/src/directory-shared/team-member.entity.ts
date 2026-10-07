@@ -33,4 +33,8 @@ export class TeamMember extends BaseEntity {
 
   @Column({ nullable: true })
   previousStartupExperience?: boolean;
+
+  /** The member's own LinkedIn profile (a normalized https linkedin.com URL). Shown on the profile only when present. */
+  @Column({ type: "varchar", nullable: true })
+  linkedin?: string | null;
 }

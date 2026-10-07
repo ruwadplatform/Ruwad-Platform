@@ -45,6 +45,15 @@ describe("StartupProfileEditService.applyEdit", () => {
     await expect(t.svc.applyEdit("s1", "u1", { ...core })).resolves.toEqual({ lockedFields: [] });
   });
 
+  it("saves a team member's LinkedIn only when it is a linkedin.com profile, and stores nothing when it is blank", async () => {
+    const t = build();
+    await t.svc.applyEdit("s1", "u1", { ...core, founders: [{ name: "Sara", title: "CEO", linkedin: "linkedin.com/in/sara" }, { name: "Omar", title: "CTO", linkedin: "" }] });
+    const members = t.saved.find((s) => Array.isArray(s.rows) && (s.rows as { name?: string }[])[0]?.name === "Sara")!.rows as { name: string; linkedin: unknown }[];
+    expect(members.find((m) => m.name === "Sara")!.linkedin).toBe("https://linkedin.com/in/sara");
+    expect(members.find((m) => m.name === "Omar")!.linkedin).toBeNull(); // not provided -> no link, so the profile shows no LinkedIn icon
+    await expect(t.svc.applyEdit("s1", "u1", { ...core, founders: [{ name: "Eve", title: "CFO", linkedin: "https://evil.com/in/eve" }] })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it("rejects an incomplete team member and an out-of-range year", async () => {
     const t = build();
     await expect(t.svc.applyEdit("s1", "u1", { ...core, founders: [{ name: "Sara", title: "" }] })).rejects.toBeInstanceOf(BadRequestException);

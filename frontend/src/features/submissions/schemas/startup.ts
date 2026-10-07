@@ -93,6 +93,7 @@ export const startupSchema: EntitySchema = {
             itemFields: [
               { name: "name", label: "Full Name", type: "text", required: true, maxLength: 150 },
               { name: "title", label: "Title", type: "text", required: true, maxLength: 100 },
+              { name: "linkedin", label: "LinkedIn Profile (optional)", type: "text", maxLength: 200, placeholder: "https://www.linkedin.com/in/..." },
               { name: "isFounder", label: "Founder", type: "boolean" },
               { name: "experienceYears", label: "Years of Relevant Experience", type: "number", min: 0, max: 80, condition: (item) => !!item.isFounder },
               { name: "healthcareExperienceYears", label: "Years of Healthcare Experience", type: "number", min: 0, max: 80, condition: (item) => !!item.isFounder },

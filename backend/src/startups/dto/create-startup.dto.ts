@@ -1,5 +1,6 @@
 import { Type } from "class-transformer";
-import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, IsUUID, Max, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, IsUUID, Matches, Max, Min, ValidateNested } from "class-validator";
+import { LINKEDIN_PATTERN } from "../../common/linkedin.util";
 
 class TeamMemberDto {
   @IsString() name!: string;
@@ -8,6 +9,7 @@ class TeamMemberDto {
   @IsOptional() @IsInt() @Min(0) @Max(80) experienceYears?: number;
   @IsOptional() @IsInt() @Min(0) @Max(80) healthcareExperienceYears?: number;
   @IsOptional() @IsBoolean() previousStartupExperience?: boolean;
+  @IsOptional() @IsString() @Matches(LINKEDIN_PATTERN, { message: "Team member LinkedIn must be a linkedin.com profile link." }) linkedin?: string;
 }
 class FundingRoundDto {
   @IsString() round!: string;

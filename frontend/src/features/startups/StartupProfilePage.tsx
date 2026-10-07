@@ -19,6 +19,7 @@ import { requireAuth } from "@/lib/store";
 import { fetchDataRoomStatus } from "@/lib/api/data-room";
 import { regBadgeClass } from "@/lib/widgets";
 import { initials } from "@/lib/scoring";
+import { safeLinkedInUrl } from "@/lib/linkedin";
 import { useStartups, useInvestors } from "@/hooks/use-directory-data";
 import type { Startup } from "@/types/entities";
 
@@ -280,7 +281,7 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
             <div className="team-card" key={t.name}>
               <div className="tavatar">{initials(t.name)}</div><b>{t.name}</b>
               <div className="trole">{t.title}{t.founder ? " · Founder" : ""}</div>
-              <TeamLinkedInButton />
+              <TeamLinkedInLink url={t.linkedin} name={t.name} />
             </div>
           ))}
         </div>
@@ -337,9 +338,15 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
   }
 }
 
-function TeamLinkedInButton() {
-  const toast = useToast();
-  return <button className="icon-btn" style={{ margin: "0 auto" }} onClick={() => toast("LinkedIn — demo only")}><RuwadIcon name="linkedin" size={14} /></button>;
+/** The LinkedIn icon appears only when the member's own profile link was provided. */
+function TeamLinkedInLink({ url, name }: { url?: string; name: string }) {
+  const href = safeLinkedInUrl(url);
+  if (!href) return null;
+  return (
+    <a className="icon-btn" style={{ margin: "0 auto" }} href={href} target="_blank" rel="noopener noreferrer" aria-label={`${name} on LinkedIn`} title="LinkedIn">
+      <RuwadIcon name="linkedin" size={14} />
+    </a>
+  );
 }
 
 function InvestorsTabBody({ investorIds }: { investorIds: string[] }) {

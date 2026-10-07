@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { ReactNode } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { ProfileCompleteness } from "@/components/workspace/ProfileCompleteness";
@@ -11,11 +12,37 @@ import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { ListingStatusBadge } from "@/components/workspace/ListingStatusBadge";
 import { useSession, useMyStartupId, useOwnedListings } from "@/hooks/use-store";
 import { startupCompleteness } from "@/lib/completeness";
+import { initials } from "@/lib/scoring";
 import { fetchStartupBySlug } from "@/lib/api/startups";
 import { fetchDataRoomStatus, type DataRoomStatusResponse } from "@/lib/api/data-room";
 import { useKeyedResource } from "@/hooks/use-async-resource";
 import { useEffect, useState } from "react";
 import { StartupAssessmentSection } from "./StartupAssessmentSection";
+
+const TITLE = "My Startup";
+const SUBTITLE = "Founder/admin management view — not the public profile guests and investors see.";
+
+/** A value that was not provided is shown as an em dash, never as an empty box or a placeholder phrase. */
+const show = (v: unknown): ReactNode => (v === undefined || v === null || v === "" || v === "Not publicly disclosed" ? <span className="ms-empty">—</span> : String(v));
+
+function Card({ title, subtitle, children, className }: { title: string; subtitle?: string; children: ReactNode; className?: string }) {
+  return (
+    <section className={`ms-card${className ? ` ${className}` : ""}`}>
+      <header className="ms-card-head"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div></header>
+      {children}
+    </section>
+  );
+}
+
+function Rows({ rows }: { rows: [string, ReactNode][] }) {
+  return (
+    <dl className="ms-dl">
+      {rows.map(([label, value]) => (
+        <div key={label}><dt>{label}</dt><dd>{value}</dd></div>
+      ))}
+    </dl>
+  );
+}
 
 /** Unlike the directory-wide useStartups() hook (list summaries, cheap for
  * a grid), the founder/admin view needs full detail — team, rounds,
@@ -43,159 +70,133 @@ export function MyStartupPage() {
   if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;
 
-  if (loading) {
-    return (
-      <div>
-        <IntelligencePageHeader title="My Startup" description="Your company's founder/admin management view." />
-        <div className="mt-20"><EmptyState icon="mystartup" title="Loading your company profile…" body="" /></div>
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div>
-        <IntelligencePageHeader title="My Startup" description="Your company's founder/admin management view." />
-        <div className="mt-20"><EmptyState icon="help" title="Couldn't load your company profile" body={error} /></div>
-      </div>
-    );
-  }
+  const header = (action?: ReactNode) => <IntelligencePageHeader title={TITLE} description={SUBTITLE} action={action} />;
+  if (loading) return <div className="mystartup-page">{header()}<div className="mt-20"><EmptyState icon="mystartup" title="Loading your company profile…" body="" /></div></div>;
+  if (error) return <div className="mystartup-page">{header()}<div className="mt-20"><EmptyState icon="help" title="Couldn't load your company profile" body={error} /></div></div>;
   if (!s) {
     return (
-      <div>
-        <IntelligencePageHeader title="My Startup" description="Your company's founder/admin management view." />
-        <div className="mt-20">
-          <EmptyState icon="mystartup" title="No company linked to your account yet" body="Once your company profile is submitted and approved, its management view and your RUWĀD assessment will appear here." />
-        </div>
+      <div className="mystartup-page">
+        {header()}
+        <div className="mt-20"><EmptyState icon="mystartup" title="No company linked to your account yet" body="Once your company profile is submitted and approved, its management view and your RUWĀD assessment will appear here." /></div>
       </div>
     );
   }
 
   const listing = listings.find((l) => l.id === s.id);
   const checks = startupCompleteness(s, documents);
+  const completePct = Math.round((checks.filter((c) => c.ok).length / checks.length) * 100);
   const warnings: string[] = [];
   if (!s.regulatory.clinical || s.regulatory.clinical === "N/A") warnings.push("No clinical validation status on file — this affects investor visibility.");
   if (room && !documents.find((d) => d.name === "Certifications")?.onFile) warnings.push("Certifications document is missing.");
   if (s.team.length < 2) warnings.push("Team profile lists fewer than 2 members.");
 
-  return (
-    <div>
-      <IntelligencePageHeader
-        title="My Startup"
-        description="Founder/admin management view — not the public profile guests and investors see."
-        action={
-          <div className="flex gap-8">
-            <button className="btn btn-outline" onClick={() => router.push("/workspace/startup/historical")}><RuwadIcon name="doc" size={13} /> Historical Performance</button>
-            <button className="btn btn-outline" onClick={() => router.push(`/startups/${s.id}`)}><RuwadIcon name="globe" size={13} /> View Public Profile</button>
-            <button className="btn btn-primary" onClick={() => router.push("/workspace/startup/edit")}><RuwadIcon name="edit" size={13} /> Edit Profile</button>
-          </div>
-        }
-      />
+  const actions = (
+    <div className="ms-actions">
+      <button className="btn btn-outline" onClick={() => router.push("/workspace/startup/historical")}><RuwadIcon name="doc" size={13} /> Historical Performance</button>
+      <button className="btn btn-outline" onClick={() => router.push(`/startups/${s.id}`)}><RuwadIcon name="globe" size={13} /> View Public Profile</button>
+      <button className="btn btn-primary" onClick={() => router.push("/workspace/startup/edit")}><RuwadIcon name="edit" size={13} /> Edit Profile</button>
+    </div>
+  );
 
-      <div className="profile-head mt-20">
-        <OrganizationLogo logo={s.logo} logoUrl={s.logoUrl} className="plogo" />
-        <div className="profile-head-main">
+  return (
+    <div className="mystartup-page">
+      {header(actions)}
+
+      <section className="ms-hero">
+        <OrganizationLogo logo={s.logo} logoUrl={s.logoUrl} className="plogo ms-logo" />
+        <div className="ms-hero-main">
           <h1>{s.name}</h1>
-          <div className="ptagline">{s.tagline}</div>
-          <div className="profile-meta">
+          <p className="ms-tagline">{s.tagline}</p>
+          <div className="ms-meta">
             <span><RuwadIcon name="map" size={13} /> {s.city}, {s.country}</span>
             <span><RuwadIcon name="startups" size={13} /> {s.category}</span>
             <span><RuwadIcon name="bi" size={13} /> {s.stage}</span>
-            <span className={`badge ${s.status === "Active" ? "badge-good" : "badge-neutral"}`}>{s.status} · {s.verified === "verified" ? "Verified" : s.verified === "self-reported" ? "Self-Reported" : "Unclaimed"}</span>
-            {listing && <ListingStatusBadge status={listing.status} />}
           </div>
         </div>
-      </div>
-
-      {listing && (
-        <div className="stat-mini-row mt-16">
-          <div className="stat-mini"><div className="sm-label">Visibility</div><div className="sm-val fs-15">{listing.visibility}</div></div>
-          <div className="stat-mini"><div className="sm-label">Last Updated</div><div className="sm-val fs-15">{listing.lastUpdated}</div></div>
-          <div className="stat-mini"><div className="sm-label">Profile Views</div><div className="sm-val fs-15">{listing.views.toLocaleString()}</div></div>
+        <div className="ms-hero-badges">
+          <span className={`badge ${s.status === "Active" ? "badge-good" : "badge-neutral"}`}>{s.status} · {s.verified === "verified" ? "Verified" : s.verified === "self-reported" ? "Self-Reported" : "Unclaimed"}</span>
+          {listing && <ListingStatusBadge status={listing.status} />}
         </div>
-      )}
+      </section>
+
+      <div className="ms-kpis">
+        <div className="ms-kpi"><span className="ms-eyebrow">Visibility</span><b>{listing?.visibility ?? "—"}</b></div>
+        <div className="ms-kpi"><span className="ms-eyebrow">Profile Views</span><b>{listing ? listing.views.toLocaleString() : "—"}</b></div>
+        <div className="ms-kpi"><span className="ms-eyebrow">Last Updated</span><b>{listing?.lastUpdated ?? "—"}</b></div>
+        <div className="ms-kpi">
+          <span className="ms-eyebrow">Profile Completeness</span>
+          <b>{completePct}%</b>
+          <span className="ms-bar" aria-hidden><span style={{ width: `${completePct}%` }} /></span>
+        </div>
+      </div>
 
       {s.entityId && <StartupAssessmentSection startupId={s.entityId} />}
 
-      <div className="mt-20"><ProfileCompleteness checks={checks} /></div>
+      <div className="ms-section-head"><h2>Company Profile</h2><span>The information RUWĀD holds for your company</span></div>
 
-      {warnings.length > 0 && (
-        <div className="panel panel-pad mt-20" style={{ borderColor: "var(--warn)", background: "var(--warn-tint)" }}>
-          <b className="small">Data quality warnings</b>
-          <ul className="fs-12" style={{ paddingLeft: 18, marginTop: 6 }}>{warnings.map((w) => <li key={w}>{w}</li>)}</ul>
-        </div>
-      )}
+      <div className="ms-grid">
+        <ProfileCompleteness checks={checks} />
 
-      <div className="insight-row mt-20" style={{ gridTemplateColumns: "1fr 1fr" }}>
-        <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Basic Information</h3>
-          <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Legal Name</div><div className="sm-val fs-15">{s.legalName}</div></div>
-            <div className="stat-mini"><div className="sm-label">Headquarters</div><div className="sm-val fs-15">{s.hq}</div></div>
-            <div className="stat-mini"><div className="sm-label">Founded</div><div className="sm-val fs-15">{s.founded}</div></div>
-            <div className="stat-mini"><div className="sm-label">Business Model</div><div className="sm-val fs-15">{s.businessModel}</div></div>
-            <div className="stat-mini"><div className="sm-label">Employees</div><div className="sm-val fs-15">{s.employees}</div></div>
-            <div className="stat-mini"><div className="sm-label">Website</div><div className="sm-val fs-15">{s.website}</div></div>
-          </div>
-        </div>
-        <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Funding Summary</h3>
-          <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Total Raised</div><div className="sm-val">SAR {s.fundingTotal}M</div></div>
-            <div className="stat-mini"><div className="sm-label">Valuation</div><div className="sm-val">SAR {s.valuation}M</div></div>
-            <div className="stat-mini"><div className="sm-label">Rounds</div><div className="sm-val">{s.rounds.length}</div></div>
-            <div className="stat-mini"><div className="sm-label">Fundraising</div><div className="sm-val fs-15">{s.fundraising ? `Yes — ${s.targetRaise ?? ""}` : "Not currently"}</div></div>
-          </div>
-        </div>
-      </div>
+        {warnings.length > 0 && (
+          <section className="ms-card ms-alert ms-wide">
+            <header className="ms-card-head"><div><h3>Data quality warnings</h3><p>Fixing these improves how your profile appears to investors.</p></div></header>
+            <ul className="ms-list">{warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+          </section>
+        )}
 
-      <div className="insight-row mt-20" style={{ gridTemplateColumns: "1fr 1fr" }}>
-        <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Team</h3>
-          {s.team.map((t) => (
-            <div key={t.name} className="flex mb-8" style={{ justifyContent: "space-between" }}>
-              <span className="small">{t.name}</span>
-              <span className="small muted">{t.title}{t.founder ? " · Founder" : ""}</span>
-            </div>
-          ))}
-        </div>
-        <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Product</h3>
-          <p className="small mb-8"><b>Problem — </b>{s.problem}</p>
-          <p className="small mb-8"><b>Solution — </b>{s.solution}</p>
-          <p className="small"><b>Advantage — </b>{s.advantage}</p>
-        </div>
-      </div>
+        <Card title="Basic Information">
+          <Rows rows={[["Legal name", show(s.legalName)], ["Headquarters", show(s.hq)], ["Founded", show(s.founded)], ["Business model", show(s.businessModel)], ["Employees", show(s.employees)], ["Website", show(s.website)]]} />
+        </Card>
 
-      <div className="insight-row mt-20" style={{ gridTemplateColumns: "1fr 1fr" }}>
-        <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Market</h3>
-          <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">TAM</div><div className="sm-val">{s.market.tam}</div></div>
-            <div className="stat-mini"><div className="sm-label">SAM</div><div className="sm-val">{s.market.sam}</div></div>
-            <div className="stat-mini"><div className="sm-label">SOM</div><div className="sm-val">{s.market.som}</div></div>
-          </div>
-        </div>
-        <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Traction</h3>
-          <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Revenue</div><div className="sm-val fs-15">{s.traction.revenue}</div></div>
-            <div className="stat-mini"><div className="sm-label">Growth</div><div className="sm-val fs-15">{s.traction.growth}</div></div>
-            <div className="stat-mini"><div className="sm-label">Customers</div><div className="sm-val fs-15">{s.traction.customers}</div></div>
-          </div>
-        </div>
-      </div>
+        <Card title="Funding Summary">
+          <Rows rows={[
+            ["Total raised", `SAR ${s.fundingTotal}M`],
+            ["Valuation", `SAR ${s.valuation}M`],
+            ["Funding rounds", s.rounds.length],
+            ["Fundraising", s.fundraising ? `Yes — ${s.targetRaise ?? ""}` : "Not currently"],
+          ]} />
+        </Card>
 
-      <div className="panel panel-pad mt-20">
-        <h3 className="fs-13 mb-12">Documents Status</h3>
-        <div className="flex gap-8" style={{ flexWrap: "wrap" }}>
-          {documents.map((d) => (
-            <div className="doc-card" key={d.id}>
-              <div className="doc-icon"><RuwadIcon name="doc" size={16} /></div>
-              <b>{d.name}</b>
-              <span className="doc-status">{d.onFile ? "On file" : "Not provided"}</span>
-            </div>
-          ))}
-        </div>
+        <Card title="Team" subtitle={`${s.team.length} ${s.team.length === 1 ? "member" : "members"}`}>
+          <ul className="ms-people">
+            {s.team.map((t) => (
+              <li key={t.name}>
+                <span className="ms-avatar">{initials(t.name)}</span>
+                <span className="ms-person"><b>{t.name}</b><span>{t.title}{t.founder ? " · Founder" : ""}</span></span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+
+        <Card title="Product">
+          <dl className="ms-prose">
+            <div><dt>Problem</dt><dd>{show(s.problem)}</dd></div>
+            <div><dt>Solution</dt><dd>{show(s.solution)}</dd></div>
+            <div><dt>Competitive advantage</dt><dd>{show(s.advantage)}</dd></div>
+          </dl>
+        </Card>
+
+        <Card title="Market">
+          <Rows rows={[["Total addressable market (TAM)", show(s.market.tam)], ["Serviceable addressable market (SAM)", show(s.market.sam)], ["Serviceable obtainable market (SOM)", show(s.market.som)]]} />
+        </Card>
+
+        <Card title="Traction">
+          <Rows rows={[["Revenue", show(s.traction.revenue)], ["Growth", show(s.traction.growth)], ["Customers", show(s.traction.customers)]]} />
+        </Card>
+
+        <Card title="Documents" subtitle="What is on file in your Data Room" className="ms-wide">
+          <ul className="ms-docs">
+            {documents.map((d) => (
+              <li key={d.id}>
+                <span className="ms-doc-icon"><RuwadIcon name="doc" size={15} /></span>
+                <span className="ms-doc-text">
+                  <b>{d.name}</b>
+                  <span className={`badge ${d.onFile ? "badge-good" : "badge-neutral"}`}>{d.onFile ? "On file" : "Not provided"}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
       </div>
     </div>
   );

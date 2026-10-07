@@ -10,6 +10,7 @@ import { Sector } from "../../directory-shared/sector.entity";
 import { EntitySector } from "../../directory-shared/entity-sector.entity";
 import { EntityKind, ScoringBasis } from "../../common/enums";
 import { uniqueSlugFor } from "../../common/slug.util";
+import { normalizeLinkedInUrl } from "../../common/linkedin.util";
 import type { ScoringFeatures } from "../../scoring/scoring.types";
 import { trlLevelForLabel } from "../../scoring/trl-labels";
 import { SubmissionPublisher, arr, bool, num, numOrUndefined, str, strArr } from "./publisher.types";
@@ -50,6 +51,7 @@ export class StartupSubmissionPublisher implements SubmissionPublisher {
         entityType: EntityKind.STARTUP, entityId: startup.id, name: str(t.name), title: str(t.title), isFounder: bool(t.isFounder, true),
         experienceYears: numOrUndefined(t.experienceYears), healthcareExperienceYears: numOrUndefined(t.healthcareExperienceYears),
         previousStartupExperience: typeof t.previousStartupExperience === "boolean" ? t.previousStartupExperience : undefined,
+        linkedin: normalizeLinkedInUrl(t.linkedin),
       })));
     }
 

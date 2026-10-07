@@ -13,6 +13,7 @@ import { Contact } from "../directory-shared/contact.entity";
 import { EntitySector } from "../directory-shared/entity-sector.entity";
 import { Sector } from "../directory-shared/sector.entity";
 import { Submission } from "../submissions/submission.entity";
+import { normalizeLinkedInUrl } from "../common/linkedin.util";
 import { extractStartupScoringFeatures, linkSectors } from "../submissions/publishers/startup-submission.publisher";
 import { arr, bool, num, numOrUndefined, str, strArr } from "../submissions/publishers/publisher.types";
 import { ActivityType, EntityKind, ScoreTrigger, ScoringBasis, StartupOutcomeEventType, SubmissionStatus } from "../common/enums";
@@ -97,7 +98,7 @@ export class StartupProfileEditService {
     out.marketCompetitors = startup.marketCompetitors ?? [];
     out.founders = team.map((t) => ({
       name: t.name, title: t.title, isFounder: !!t.isFounder,
-      experienceYears: t.experienceYears ?? undefined, healthcareExperienceYears: t.healthcareExperienceYears ?? undefined, previousStartupExperience: t.previousStartupExperience ?? undefined,
+      experienceYears: t.experienceYears ?? undefined, healthcareExperienceYears: t.healthcareExperienceYears ?? undefined, previousStartupExperience: t.previousStartupExperience ?? undefined, linkedin: t.linkedin ?? undefined,
     }));
     out.rounds = rounds.map((r) => ({ round: r.round, date: r.date, amount: Number(r.amount), lead: r.lead }));
     out.products = products.map((p) => ({ name: p.name, category: p.category, description: p.description }));
@@ -148,6 +149,7 @@ export class StartupProfileEditService {
             entityType: EntityKind.STARTUP, entityId: startupId, name: str(t.name).trim(), title: str(t.title).trim(), isFounder: bool(t.isFounder),
             experienceYears: numOrUndefined(t.experienceYears), healthcareExperienceYears: numOrUndefined(t.healthcareExperienceYears),
             previousStartupExperience: typeof t.previousStartupExperience === "boolean" ? t.previousStartupExperience : undefined,
+            linkedin: normalizeLinkedInUrl(t.linkedin) ?? null,
           })));
         }
       }
@@ -221,7 +223,10 @@ export class StartupProfileEditService {
       const v = p[key] !== undefined ? str(p[key]).trim() : str((startup as unknown as Payload)[key]).trim();
       if (!v) problems.push(`${label} is required.`);
     }
-    for (const t of arr<Payload>(p.founders)) if (!str(t.name).trim() || !str(t.title).trim()) problems.push("Every team member needs a name and a title.");
+    for (const t of arr<Payload>(p.founders)) {
+      if (!str(t.name).trim() || !str(t.title).trim()) problems.push("Every team member needs a name and a title.");
+      if (str(t.linkedin).trim() && !normalizeLinkedInUrl(t.linkedin)) problems.push(`The LinkedIn link for ${str(t.name).trim() || "a team member"} must be a linkedin.com profile link.`);
+    }
     for (const r of arr<Payload>(p.rounds)) if (!str(r.round).trim() || !str(r.date).trim() || !Number.isFinite(Number(r.amount))) problems.push("Every funding round needs a round, a date and an amount.");
     for (const x of arr<Payload>(p.products)) if (!str(x.name).trim()) problems.push("Every product needs a name.");
 
