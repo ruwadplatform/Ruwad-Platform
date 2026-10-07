@@ -7,7 +7,7 @@ import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useToast } from "@/components/shell/ToastProvider";
-import { useSession, useMyStartupId } from "@/hooks/use-store";
+import { useSession } from "@/hooks/use-store";
 import { useKeyedResource } from "@/hooks/use-async-resource";
 import { fetchStartupBySlug } from "@/lib/api/startups";
 import { fetchDataRoomStatus } from "@/lib/api/data-room";
@@ -31,11 +31,10 @@ const STATUS_BADGE: Record<HistoricalReviewStatus, { cls: string; label: string 
  * company and RUWĀD's team; nothing here is shown on the public profile, and
  * it is never presented as a way to change a score. Entries are reviewed by
  * RUWĀD before they are used for analytics. */
-export function MyHistoricalDataPage() {
+export function MyHistoricalDataPage({ slug }: { slug: string }) {
   const { loggedIn, hydrated } = useSession();
-  const startupId = useMyStartupId();
   const toast = useToast();
-  const { data: s, loading, error } = useKeyedResource(startupId, fetchStartupBySlug);
+  const { data: s, loading, error } = useKeyedResource(slug, fetchStartupBySlug);
   const entityId = s?.entityId ?? null;
 
   const [options, setOptions] = useState<HistoricalOptions | null>(null);
@@ -85,7 +84,7 @@ export function MyHistoricalDataPage() {
     try { await withdrawHistoricalEntry(entityId, e.id); toast("Entry withdrawn"); if (editing?.id === e.id) reset(); load(); } catch (err) { toast(errText(err)); }
   }
 
-  const header = <IntelligencePageHeader title="Historical Performance" description="Optional. Help RUWĀD understand how your company has grown over time." action={<Link className="btn btn-outline btn-sm" href="/workspace/startup">Back to My Startup</Link>} />;
+  const header = <IntelligencePageHeader title="Historical Performance" description="Optional. Help RUWĀD understand how your company has grown over time." action={<Link className="btn btn-outline btn-sm" href={`/workspace/startup/${slug}`}>Back to My Startup</Link>} />;
 
   if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;

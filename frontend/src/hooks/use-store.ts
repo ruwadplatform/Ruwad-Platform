@@ -93,6 +93,10 @@ export function useRecentActivity() {
   return useStoreValue(() => store.getRecentActivity(), []);
 }
 
+export function useOwnedListingsLoaded() {
+  return useStoreValue(() => store.areOwnedListingsLoaded(), false);
+}
+
 export function useMyStartupId() {
   return useStoreValue(() => store.getMyStartup(), null);
 }

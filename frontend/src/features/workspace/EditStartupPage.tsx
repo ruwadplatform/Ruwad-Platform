@@ -7,7 +7,7 @@ import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { useToast } from "@/components/shell/ToastProvider";
-import { useSession, useMyStartupId } from "@/hooks/use-store";
+import { useSession } from "@/hooks/use-store";
 import { fetchStartupBySlug, fetchStartupEditPayload, saveStartupEdit } from "@/lib/api/startups";
 import { ApiError } from "@/lib/api/client";
 import { startupSchema } from "@/features/submissions/schemas/startup";
@@ -21,9 +21,8 @@ const NO_AI_FIELDS = new Set<string>();
 
 /** Edit an already-live startup in place. Same form as the submission, relaxed so only the core identity fields are required; saving applies the
  * change immediately (no re-review), rescores the startup and refreshes the experimental ML estimate from whatever information is on file. */
-export function EditStartupPage() {
+export function EditStartupPage({ slug: startupSlug }: { slug: string }) {
   const { loggedIn, hydrated } = useSession();
-  const startupSlug = useMyStartupId();
   const router = useRouter();
   const toast = useToast();
   const schema = useMemo(() => relaxForEdit(startupSchema), []);
@@ -96,7 +95,7 @@ export function EditStartupPage() {
       toast(result.lockedFields.length
         ? `Saved. ${result.lockedFields.length} value${result.lockedFields.length === 1 ? " is" : "s are"} verified by RUWĀD and was not changed.`
         : "Saved. Your RUWĀD Score and ML estimate are being updated.");
-      router.push("/workspace/startup");
+      router.push(`/workspace/startup/${startupSlug}`);
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Couldn't save your changes — please try again.");
     } finally {
@@ -145,7 +144,7 @@ export function EditStartupPage() {
       </div>
       <div className="form-sticky-actions">
         <div className="flex gap-8">
-          <button type="button" className="btn btn-outline" onClick={() => router.push("/workspace/startup")}>Cancel</button>
+          <button type="button" className="btn btn-outline" onClick={() => router.push(`/workspace/startup/${startupSlug}`)}>Cancel</button>
         </div>
         <div className="flex gap-8">
           <button type="button" className="btn btn-outline" disabled={stepIndex === 0} onClick={() => setStepIndex((i) => i - 1)}>Previous</button>

@@ -42,6 +42,8 @@ interface ScoreCardProps {
   isOwner?: boolean;
   /** The startup's backend id; lets the owner's "improve your score" prompt load what is still missing. */
   entityId?: string;
+  /** The startup's slug, so the owner's links lead to this startup's own management pages. */
+  slug?: string;
 }
 
 /** Ring/subscore-bar markup ported from the original js/profiles.js design,
@@ -50,10 +52,10 @@ interface ScoreCardProps {
  * number exists (see ScoreStatus). A missing score is never shown as 0 —
  * that would misread as "assessed and found poor" rather than "not yet
  * assessed". */
-export function ScoreCard({ score, status, confidence, version, factors, category, peers, loggedIn, isOwner, entityId }: ScoreCardProps) {
+export function ScoreCard({ score, status, confidence, version, factors, category, peers, loggedIn, isOwner, entityId, slug }: ScoreCardProps) {
   if (!loggedIn) return <ScoreCardTeaser score={score} status={status} category={category} peers={peers} />;
 
-  if (status !== "CALCULATED" || score == null) return <PendingScoreCard status={status} score={score} isOwner={isOwner} entityId={entityId} />;
+  if (status !== "CALCULATED" || score == null) return <PendingScoreCard status={status} score={score} isOwner={isOwner} entityId={entityId} slug={slug} />;
 
   const scorePct = clampPct(score * 10);
   const confidencePct = confidence != null ? clampPct(Math.round(confidence * 100)) : null;
@@ -105,14 +107,14 @@ export function ScoreCard({ score, status, confidence, version, factors, categor
           );
         })}
       </ul>
-      {isOwner && <ImproveScorePrompt entityId={entityId} />}
+      {isOwner && <ImproveScorePrompt entityId={entityId} slug={slug} />}
     </div>
   );
 }
 
 /** Non-CALCULATED states — plain language, never a raw error, never a bare
  * "0" that would misread as a bad assessment. */
-function PendingScoreCard({ status, score, isOwner, entityId }: { status: ScoreStatus; score: number | null; isOwner?: boolean; entityId?: string }) {
+function PendingScoreCard({ status, score, isOwner, entityId, slug }: { status: ScoreStatus; score: number | null; isOwner?: boolean; entityId?: string; slug?: string }) {
   const copy: Record<Exclude<ScoreStatus, "CALCULATED">, { title: string; body: string }> = {
     INSUFFICIENT_DATA: { title: "RUWĀD Score pending", body: "Not enough verified information is currently available to calculate a reliable score." },
     NOT_CALCULATED: { title: "RUWĀD Score not calculated yet", body: "This listing hasn't been scored yet." },
@@ -127,11 +129,11 @@ function PendingScoreCard({ status, score, isOwner, entityId }: { status: ScoreS
       <p className="muted small mt-4">{body}</p>
       {status === "STALE" && score != null && <div className="small muted mt-8">Last calculated score: {score.toFixed(1)} / 10</div>}
       {isOwner && (
-        <a href="/workspace/startup" className="small mt-8" style={{ display: "block", textDecoration: "underline" }}>
+        <a href={slug ? `/workspace/startup/${slug}` : "/workspace/startup"} className="small mt-8" style={{ display: "block", textDecoration: "underline" }}>
           See exactly what is needed to complete your assessment
         </a>
       )}
-      {isOwner && <ImproveScorePrompt entityId={entityId} />}
+      {isOwner && <ImproveScorePrompt entityId={entityId} slug={slug} />}
     </div>
   );
 }

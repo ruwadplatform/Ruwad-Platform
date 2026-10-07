@@ -37,7 +37,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
 
       <div className="flex gap-8 mt-16" style={{ flexWrap: "wrap" }}>
         <button className="btn btn-outline btn-sm" onClick={() => router.push(entity.href)}><RuwadIcon name="globe" size={13} /> View</button>
-        {listing.type === "startups" && <button className="btn btn-outline btn-sm" onClick={() => router.push("/workspace/startup")}><RuwadIcon name="edit" size={13} /> Manage</button>}
+        {listing.type === "startups" && <button className="btn btn-outline btn-sm" onClick={() => router.push(`/workspace/startup/${listing.id}`)}><RuwadIcon name="edit" size={13} /> Manage</button>}
         <button className="btn btn-outline btn-sm" onClick={() => router.push(entity.href)}><RuwadIcon name="user" size={13} /> Preview</button>
       </div>
     </div>

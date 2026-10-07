@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
@@ -10,7 +11,7 @@ import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { ListingStatusBadge } from "@/components/workspace/ListingStatusBadge";
-import { useSession, useMyStartupId, useOwnedListings } from "@/hooks/use-store";
+import { useSession, useOwnedListings } from "@/hooks/use-store";
 import { startupCompleteness } from "@/lib/completeness";
 import { initials } from "@/lib/scoring";
 import { fetchStartupBySlug } from "@/lib/api/startups";
@@ -25,10 +26,10 @@ const SUBTITLE = "Founder/admin management view — not the public profile guest
 /** A value that was not provided is shown as an em dash, never as an empty box or a placeholder phrase. */
 const show = (v: unknown): ReactNode => (v === undefined || v === null || v === "" || v === "Not publicly disclosed" ? <span className="ms-empty">—</span> : String(v));
 
-function Card({ title, subtitle, children, className }: { title: string; subtitle?: string; children: ReactNode; className?: string }) {
+function Card({ title, subtitle, children, className, action }: { title: string; subtitle?: string; children: ReactNode; className?: string; action?: ReactNode }) {
   return (
     <section className={`ms-card${className ? ` ${className}` : ""}`}>
-      <header className="ms-card-head"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div></header>
+      <header className="ms-card-head"><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div>{action}</header>
       {children}
     </section>
   );
@@ -48,13 +49,12 @@ function Rows({ rows }: { rows: [string, ReactNode][] }) {
  * a grid), the founder/admin view needs full detail — team, rounds,
  * market, traction, documents — for one specific company, so this fetches
  * it directly by slug instead of reading it out of the lighter list cache. */
-export function MyStartupPage() {
+export function MyStartupPage({ slug }: { slug: string }) {
   const { loggedIn, hydrated } = useSession();
-  const startupId = useMyStartupId();
   const listings = useOwnedListings();
   const router = useRouter();
 
-  const { data: s, loading, error } = useKeyedResource(startupId, fetchStartupBySlug);
+  const { data: s, loading, error } = useKeyedResource(slug, fetchStartupBySlug);
 
   // Document metadata is no longer part of the public profile payload — the
   // owner's checklist comes from the protected Data Room endpoint, which the
@@ -70,7 +70,12 @@ export function MyStartupPage() {
   if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;
 
-  const header = (action?: ReactNode) => <IntelligencePageHeader title={TITLE} description={SUBTITLE} action={action} />;
+  const header = (action?: ReactNode) => (
+    <>
+      <Link href="/workspace/startup" className="ms-back">&larr; All my startups</Link>
+      <IntelligencePageHeader title={TITLE} description={SUBTITLE} action={action} />
+    </>
+  );
   if (loading) return <div className="mystartup-page">{header()}<div className="mt-20"><EmptyState icon="mystartup" title="Loading your company profile…" body="" /></div></div>;
   if (error) return <div className="mystartup-page">{header()}<div className="mt-20"><EmptyState icon="help" title="Couldn't load your company profile" body={error} /></div></div>;
   if (!s) {
@@ -92,9 +97,10 @@ export function MyStartupPage() {
 
   const actions = (
     <div className="ms-actions">
-      <button className="btn btn-outline" onClick={() => router.push("/workspace/startup/historical")}><RuwadIcon name="doc" size={13} /> Historical Performance</button>
+      <button className="btn btn-outline" onClick={() => router.push(`/workspace/startup/${slug}/data-room`)}><RuwadIcon name="upload" size={13} /> Manage Data Room</button>
+      <button className="btn btn-outline" onClick={() => router.push(`/workspace/startup/${slug}/historical`)}><RuwadIcon name="doc" size={13} /> Historical Performance</button>
       <button className="btn btn-outline" onClick={() => router.push(`/startups/${s.id}`)}><RuwadIcon name="globe" size={13} /> View Public Profile</button>
-      <button className="btn btn-primary" onClick={() => router.push("/workspace/startup/edit")}><RuwadIcon name="edit" size={13} /> Edit Profile</button>
+      <button className="btn btn-primary" onClick={() => router.push(`/workspace/startup/${slug}/edit`)}><RuwadIcon name="edit" size={13} /> Edit Profile</button>
     </div>
   );
 
@@ -130,7 +136,7 @@ export function MyStartupPage() {
         </div>
       </div>
 
-      {s.entityId && <StartupAssessmentSection startupId={s.entityId} />}
+      {s.entityId && <StartupAssessmentSection startupId={s.entityId} slug={slug} />}
 
       <div className="ms-section-head"><h2>Company Profile</h2><span>The information RUWĀD holds for your company</span></div>
 
@@ -184,7 +190,7 @@ export function MyStartupPage() {
           <Rows rows={[["Revenue", show(s.traction.revenue)], ["Growth", show(s.traction.growth)], ["Customers", show(s.traction.customers)]]} />
         </Card>
 
-        <Card title="Documents" subtitle="What is on file in your Data Room" className="ms-wide">
+        <Card title="Documents" subtitle="What is on file in your Data Room" className="ms-wide" action={<Link className="btn btn-outline btn-sm" href={`/workspace/startup/${slug}/data-room`}>Manage Data Room</Link>}>
           <ul className="ms-docs">
             {documents.map((d) => (
               <li key={d.id}>

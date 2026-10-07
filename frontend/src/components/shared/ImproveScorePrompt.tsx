@@ -6,7 +6,7 @@ import { fetchStartupAssessment, type AssessmentFactor } from "@/lib/api/assessm
 /** Owner-only, inside the RUWĀD Score card: "Want to improve your RUWĀD score?" with exactly what to add, grouped by factor and ordered
  * from the weakest factor up. Everything comes from the backend assessment (which fields are missing and where they live in the form);
  * nothing is calculated here. Renders nothing while loading, on any error, or when there is nothing left to add. */
-export function ImproveScorePrompt({ entityId }: { entityId?: string }) {
+export function ImproveScorePrompt({ entityId, slug }: { entityId?: string; slug?: string }) {
   const [factors, setFactors] = useState<AssessmentFactor[] | null>(null);
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export function ImproveScorePrompt({ entityId }: { entityId?: string }) {
           </ul>
         </div>
       ))}
-      <a className="btn btn-primary rscore-improve-cta" href="/workspace/startup/edit">Update my information</a>
+      <a className="btn btn-primary rscore-improve-cta" href={slug ? `/workspace/startup/${slug}/edit` : "/workspace/startup"}>Update my information</a>
     </details>
   );
 }

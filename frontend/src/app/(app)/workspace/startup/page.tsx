@@ -1,5 +1,5 @@
-import { MyStartupPage } from "@/features/workspace/MyStartupPage";
+import { MyStartupsPage } from "@/features/workspace/MyStartupsPage";
 
 export default function Page() {
-  return <MyStartupPage />;
+  return <MyStartupsPage />;
 }

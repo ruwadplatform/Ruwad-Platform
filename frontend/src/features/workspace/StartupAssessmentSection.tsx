@@ -49,7 +49,7 @@ function FactorRow({ f }: { f: AssessmentFactor }) {
   );
 }
 
-function PredictiveIntelligence({ m }: { m: PredictiveModelCard }) {
+function PredictiveIntelligence({ m, slug }: { m: PredictiveModelCard; slug: string }) {
   return (
     <section className="ms-card ms-predictive" aria-label="Predictive Intelligence" data-testid="predictive-intelligence">
       <header className="ms-card-head">
@@ -68,7 +68,7 @@ function PredictiveIntelligence({ m }: { m: PredictiveModelCard }) {
       ) : (
         <p className="ms-muted">
           {m.status === "INSUFFICIENT_DATA" ? "Not enough structured data on file for an experimental prediction yet. It is made from whatever you have provided, so adding figures such as revenue, customers or funding rounds lets it run. " : `${m.message} `}
-          {m.status === "INSUFFICIENT_DATA" && <a href="/workspace/startup/edit" className="ms-link">Edit your startup</a>}
+          {m.status === "INSUFFICIENT_DATA" && <a href={`/workspace/startup/${slug}/edit`} className="ms-link">Edit your startup</a>}
         </p>
       )}
       <p className="ms-notice">This experimental prediction is not included in your RUWĀD Score.</p>
@@ -94,7 +94,7 @@ function ScoreGauge({ value }: { value: number }) {
  *   Predictive Intelligence the experimental funding outlook (a separate model that never touches the score)
  * Read-only. It never starts scoring; it only shows what the backend has produced, and re-checks briefly while an assessment is still
  * being processed. */
-export function StartupAssessmentSection({ startupId }: { startupId: string }) {
+export function StartupAssessmentSection({ startupId, slug }: { startupId: string; slug: string }) {
   const [a, setA] = useState<StartupAssessment | null>(null);
   const [error, setError] = useState(false);
   const polls = useRef(0);
@@ -176,7 +176,7 @@ export function StartupAssessmentSection({ startupId }: { startupId: string }) {
         </div>
       </section>
 
-      {model && <PredictiveIntelligence m={model} />}
+      {model && <PredictiveIntelligence m={model} slug={slug} />}
     </>
   );
 }

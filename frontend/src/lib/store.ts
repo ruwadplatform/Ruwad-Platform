@@ -621,6 +621,10 @@ const LISTING_STATUS_LABEL: Record<string, ListingStatus> = {
 
 const ownedListingsCache = createResourceCache<Listing[]>([]);
 
+export function areOwnedListingsLoaded(): boolean {
+  return !isLoggedIn() || ownedListingsCache.isLoaded();
+}
+
 export function getOwnedListings(): Listing[] {
   if (!isLoggedIn()) return [];
   ownedListingsCache.ensureLoaded(async () => {
