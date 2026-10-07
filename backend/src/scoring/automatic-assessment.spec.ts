@@ -167,14 +167,16 @@ describe("startup submission: admin approval publishes, then scoring and ML run 
     expect(view.ruwadScore.state).toBe("READY");
     expect(view.predictiveIntelligence.models[0]).toMatchObject({ experimental: true, includedInRuwadScore: false });
   });
-  it("6. if the score cannot be calculated yet the founder sees Pending (never 0), and ML data gaps never block that", async () => {
+  it("6. a startup that provided very little still gets a score for exactly what it provided (never Pending just for being sparse), and ML data gaps never block that", async () => {
     const sc = scoring({ startupRow: { id: "startup-1", name: "Bare", category: "Digital Health", sfda: "N/A", fda: "N/A", ce: "N/A", marketTam: "", marketSam: "", marketSom: "", fundingTotal: 0 } });
     const t = submissions(EntityKind.STARTUP, { scoring: sc.svc });
     await submit(t);
     t.item.status = SubmissionStatus.UNDER_REVIEW;
     await t.svc.approve("admin-1", "sub-1");
     const view = await new StartupAssessmentService(sc.svc, { ownerView: async () => ({ models: [] }) } as any).get("startup-1");
-    expect(view.ruwadScore).toMatchObject({ state: "PENDING", value: null, message: PENDING_MESSAGE });
+    expect(view.ruwadScore).toMatchObject({ state: "READY", basis: "EXISTING_DATA" });
+    expect(view.ruwadScore.value).not.toBeNull(); // the only thing provided is the earliest regulatory stage, which honestly scores near 0
+    expect(view.ruwadScore.dataConfidence).toBeLessThan(0.5); // honest: little was provided
   });
   it("an ML failure after approval does not undo the publish or the score", async () => {
     const sc = scoring({ startupRow: { ...richStartup("startup-1") }, derived: RICH_FEATURES, experimental: { onFeaturesChanged: jest.fn(async () => { throw new Error("fastapi down"); }) } });

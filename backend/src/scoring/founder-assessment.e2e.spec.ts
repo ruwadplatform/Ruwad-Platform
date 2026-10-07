@@ -7,7 +7,7 @@ import { SubmissionsService } from "../submissions/submissions.service";
 import { FeatureDerivationService } from "./feature-derivation.service";
 import { ScoringService } from "./scoring.service";
 import { StartupAssessmentService } from "./startup-assessment.service";
-import { MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, ML_WEIGHT, RULE_WEIGHT } from "./scoring.constants";
+import { MIN_OVERALL_CONFIDENCE, ML_WEIGHT, RULE_WEIGHT } from "./scoring.constants";
 
 /** End-to-end regression of the founder assessment, using the REAL submission validation, the REAL startup publisher, the REAL
  * feature derivation, the REAL six scoring engines, the REAL experimental-inference service and the REAL assessment service. Only the
@@ -240,6 +240,42 @@ describe("founder assessment, end to end", () => {
     expect(view.ruwadScore.state).toBe("READY");
     expect(view.ruwadScore.dataConfidence).toBeLessThan(MIN_OVERALL_CONFIDENCE);
     expect(view.factors.some((f) => f.missingFields.length > 0)).toBe(true); // there is still something to add to improve it
+  });
+
+  it("the score is built only from what the founder provided: every input a factor reports as used is on file, and a factor with none counts as 0", async () => {
+    const w = world();
+    const { startupId } = await submitAndApprove(w, { ...REQUIRED_ONLY, name: "Provided Only", employees: 8, marketTam: "$2B", marketSam: "$500M", marketSom: "$40M" });
+    const view = await w.assessment.get(startupId);
+    const stored = Object.keys((w.features.rows.find((r: { startupId: string }) => r.startupId === startupId) as { features: Record<string, unknown> }).features);
+    const provided = new Set([...stored, "tam", "sam", "som"]); // market size is read from the founder's TAM/SAM/SOM answers
+    for (const f of view.factors) {
+      expect(f.providedFields.every((p) => provided.has(p.key))).toBe(true); // nothing the founder did not supply
+      if (f.providedFields.length === 0 && f.key !== "regulatory" && f.key !== "market") {
+        expect(f.score ?? 0).toBe(0); // no provided input -> no points, never a default
+        expect(f.confidence).toBe(0);
+      }
+    }
+    expect(view.factors.find((f) => f.key === "market")!.providedFields.map((p) => p.key)).toEqual(expect.arrayContaining(["tam", "sam", "som"]));
+    expect(view.factors.find((f) => f.key === "team")!.providedFields.map((p) => p.label)).toContain("Employees");
+  });
+
+  it("a new submission is scored only on what the founder provided: every input a factor reports as used is on file, and a factor with none counts as 0", async () => {
+    const w = world();
+    const { startupId } = await submitAndApprove(w, { ...REQUIRED_ONLY, name: "Provided Only", employees: 8, marketTam: "$2B", marketSam: "$500M", marketSom: "$40M" });
+    const view = await w.assessment.get(startupId);
+    const row = w.features.rows.find((r: { startupId: string }) => r.startupId === startupId) as { features: Record<string, unknown> };
+    const provided = new Set([...Object.keys(row.features), "tam", "sam", "som"]); // market size is read from the founder's TAM/SAM/SOM answers
+    for (const f of view.factors) {
+      expect(f.providedFields.every((p) => provided.has(p.key))).toBe(true); // nothing the founder did not supply
+      if (f.providedFields.length === 0 && f.key !== "regulatory") {
+        expect(f.score ?? 0).toBe(0); // no provided input -> no points, never a default
+        expect(f.confidence).toBe(0);
+      }
+    }
+    expect(view.factors.find((f) => f.key === "market")!.providedFields.map((p) => p.key)).toEqual(expect.arrayContaining(["tam", "sam", "som"]));
+    expect(view.factors.find((f) => f.key === "team")!.providedFields.map((p) => p.label)).toContain("Employees");
+    // and the stored basis never matters: the row is on the provided-data rule from its first save
+    expect(w.startups.rows.find((r: { id: string }) => r.id === startupId)).toMatchObject({ scoringBasis: ScoringBasis.EXISTING_DATA });
   });
 
   it("no separate approval is needed for scoring or ML, and nothing is created before the approval", async () => {

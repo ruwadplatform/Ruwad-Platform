@@ -5,9 +5,9 @@ import { Startup } from "../startups/startup.entity";
 import { StartupScoreHistory } from "./startup-score-history.entity";
 import { StartupScoringFeatures } from "./startup-scoring-features.entity";
 import { StartupScoringFeatureAudit } from "./startup-scoring-feature-audit.entity";
-import { ScoreDataSource, ScoreStatus, ScoreTrigger, ScoringBasis, StartupOutcomeEventType } from "../common/enums";
+import { ScoreDataSource, ScoreStatus, ScoreTrigger, StartupOutcomeEventType } from "../common/enums";
 import { FACTOR_KEYS, FactorKey, FactorResult, FeatureProvenance, FeatureProvenanceEntry, ScoreResult, ScoringFeatureKey, ScoringFeatures } from "./scoring.types";
-import { MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, ML_WEIGHT, RULE_WEIGHT, SCORE_VERSION, SCORE_VERSION_EXISTING_DATA, SOURCE_RANK } from "./scoring.constants";
+import { ML_WEIGHT, RULE_WEIGHT, SCORE_VERSION, SCORE_VERSION_EXISTING_DATA, SOURCE_RANK } from "./scoring.constants";
 import { clampConfidence, clampScore } from "./scoring.utils";
 import { scoreGrowth } from "./engines/growth.engine";
 import { scoreFinancial } from "./engines/financial.engine";
@@ -382,21 +382,14 @@ function compute(features: ScoringFeatures, startup: Startup): ScoreResult {
   const factors = {} as Record<FactorKey, FactorResult>;
   for (const key of FACTOR_KEYS) factors[key] = ENGINES[key](features, startup);
 
-  if (startup.scoringBasis === ScoringBasis.EXISTING_DATA) {
-    const existing = computeExistingBasis(factors);
-    if (existing) return existing;
-  }
+  // Every startup is scored on the information provided for it, whatever its stored `scoringBasis` says: a founder's score must never depend on
+  // which code path created the row. The only way to get no score is to have provided nothing any factor can use (see computeExistingBasis).
+  const existing = computeExistingBasis(factors);
+  if (existing) return existing;
 
-  const computed = FACTOR_KEYS.filter((k) => factors[k].score != null);
+  // Nothing provided that any factor can use: no score, never a made-up number.
   const missingFactors = FACTOR_KEYS.filter((k) => factors[k].score == null);
-  const meanConfidence = computed.length ? computed.reduce((a, k) => a + factors[k].confidence, 0) / computed.length : 0;
-
-  const eligible = computed.length >= MIN_FACTOR_COVERAGE && meanConfidence >= MIN_OVERALL_CONFIDENCE;
-  const status = eligible ? ScoreStatus.CALCULATED : ScoreStatus.INSUFFICIENT_DATA;
-  const ruwadScore = eligible ? clampScore(computed.reduce((a, k) => a + (factors[k].score as number), 0) / computed.length) : null;
-  const confidenceScore = eligible ? clampConfidence(meanConfidence) : null;
-
-  return { status, ruwadScore, confidenceScore, version: SCORE_VERSION, calculatedAt: new Date().toISOString(), factors, missingFactors };
+  return { status: ScoreStatus.INSUFFICIENT_DATA, ruwadScore: null, confidenceScore: null, version: SCORE_VERSION, calculatedAt: new Date().toISOString(), factors, missingFactors };
 }
 
 function emptyResult(): ScoreResult {

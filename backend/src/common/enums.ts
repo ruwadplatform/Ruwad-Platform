@@ -272,8 +272,8 @@ export enum OutcomeCoverageMethod {
 /** How a startup's RUWAD Score is calculated. EXISTING_DATA ("score what was provided"): scored on the information on file, with a factor that has
  * no data counted as 0, so the score rises as more information is added; Data Confidence shows how complete the information is. Used for the
  * directory startups AND for every newly submitted startup (product decision: a founder always gets a score for the data they provided, plus
- * guidance on what to add). STANDARD: the stricter rule (at least 4 of 6 factors and 50% mean confidence; a missing factor is never counted
- * as 0); no new startup is created on it any more. */
+ * guidance on what to add). This is now the only rule the scoring service applies, whatever a row's stored value says; the column and STANDARD
+ * remain only so history and old rows stay readable. STANDARD was the stricter rule (at least 4 of 6 factors and 50% mean confidence). */
 export enum ScoringBasis {
   STANDARD = "STANDARD",
   EXISTING_DATA = "EXISTING_DATA",

@@ -49,7 +49,7 @@ export class Startup extends BaseEntity {
   foundedBasis!: FoundedYearBasis;
 
   /** Which scoring rule applies (see ScoringBasis). Internal; never part of the public profile. */
-  @Column({ type: "varchar", default: ScoringBasis.STANDARD })
+  @Column({ type: "varchar", default: ScoringBasis.EXISTING_DATA })
   scoringBasis!: ScoringBasis;
 
   @Column()

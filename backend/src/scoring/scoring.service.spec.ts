@@ -74,6 +74,29 @@ describe("ScoringService", () => {
     expect(row.ruwadScore).toBe(7.55);
   });
 
+  it("whatever basis a row stores, the startup is scored on exactly what was provided: no data -> no score, some data -> a score with the rest counted as 0", async () => {
+    for (const basis of [undefined, "STANDARD", "EXISTING_DATA"]) {
+      startups.rows[0] = { id: "s1", category: "Digital Health", sfda: "N/A", fda: "N/A", ce: "N/A", marketTam: "", marketSam: "", marketSom: "", fundingTotal: 0, scoringBasis: basis };
+      features.rows.length = 0;
+      history.rows.length = 0;
+      const none = await svc.recalculateStartupScore("s1", ScoreTrigger.STARTUP_UPDATED);
+      expect(none.ruwadScore).toBeNull(); // nothing provided: never a made-up number
+      expect(none.status).toBe(ScoreStatus.INSUFFICIENT_DATA);
+
+      features.rows.push({ id: "f1", startupId: "s1", features: { teamSize: 12 }, provenance: { teamSize: { source: ScoreDataSource.FOUNDER_SUBMITTED, verified: false } } });
+      const some = await svc.recalculateStartupScore("s1", ScoreTrigger.STARTUP_UPDATED);
+      expect(some.status).toBe(ScoreStatus.CALCULATED);
+      expect(some.ruwadScore).toBeGreaterThan(0);
+      expect(some.factors.team.inputsUsed).toContain("teamSize");
+      for (const k of ["growth", "financial", "market", "technology"] as const) {
+        expect(some.factors[k].inputsUsed).toEqual([]); // not provided -> contributes nothing
+        expect(some.factors[k].score).toBe(0);
+        expect(some.factors[k].confidence).toBe(0);
+      }
+      expect(some.ruwadScore).toBeCloseTo((some.factors.team.score as number) / 6, 1); // mean of six, five of them counted as 0
+    }
+  });
+
   it("returns NOT_CALCULATED with a null score when nothing has ever been calculated", async () => {
     const r = await svc.getScoreForStartup("s1");
     expect(r.status).toBe(ScoreStatus.NOT_CALCULATED);

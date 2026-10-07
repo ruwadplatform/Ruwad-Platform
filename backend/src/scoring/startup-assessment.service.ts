@@ -50,9 +50,13 @@ export const FOUNDER_FIELDS: Partial<Record<ScoringFeatureKey, { label: string; 
   regulatoryMilestone: { label: "Regulatory Strategy Status", where: "Clinical & Regulatory" },
 };
 
+/** Scoring inputs that are founder-provided but are not form fields of their own (market size is three text answers), labelled for "what this score is based on". */
+const PROVIDED_ONLY_LABELS: Partial<Record<ScoringFeatureKey, string>> = { tam: "Total Addressable Market (TAM)", sam: "Serviceable Addressable Market (SAM)", som: "Serviceable Obtainable Market (SOM)" };
+
 export type AssessmentScoreState = "READY" | "PENDING" | "PROCESSING";
 
 export interface MissingField { key: string; label: string; where: string }
+export interface ProvidedField { key: string; label: string }
 
 export interface StartupAssessment {
   startupId: string;
@@ -60,11 +64,24 @@ export interface StartupAssessment {
   ruwadScore: { state: AssessmentScoreState; value: number | null; outOf: 10; dataConfidence: number | null; version: string; calculatedAt: string; message?: string; basis: "STANDARD" | "EXISTING_DATA"; basisNote?: string };
   /** Present while the score is PENDING: exactly why, in the engine's own terms. */
   completion?: { factorsAvailable: number; factorsRequired: number; meanConfidence: number | null; confidenceRequired: number; blockers: string[]; unavailableFactors: { key: FactorKey; label: string; missingFields: MissingField[] }[] };
-  factors: { key: FactorKey; label: string; status: "AVAILABLE" | "UNAVAILABLE"; score: number | null; confidence: number; explanation: string; missingFields: MissingField[] }[];
+  factors: { key: FactorKey; label: string; status: "AVAILABLE" | "UNAVAILABLE"; score: number | null; confidence: number; explanation: string; providedFields: ProvidedField[]; missingFields: MissingField[] }[];
   /** Separate from the score on purpose. Only models that actually exist are listed. */
   predictiveIntelligence: PredictiveIntelligence;
   /** True while either the score or an experimental prediction is still being produced: the page should keep polling briefly. */
   processing: boolean;
+}
+
+/** What this factor's score was actually built from: only inputs the engine reports as used, i.e. information on file for this company. */
+function providedFrom(keys: ScoringFeatureKey[]): ProvidedField[] {
+  const seen = new Set<string>();
+  const out: ProvidedField[] = [];
+  for (const k of keys) {
+    const label = FOUNDER_FIELDS[k]?.label ?? PROVIDED_ONLY_LABELS[k];
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    out.push({ key: k, label });
+  }
+  return out;
 }
 
 function founderMissing(keys: ScoringFeatureKey[]): MissingField[] {
@@ -99,7 +116,7 @@ export class StartupAssessmentService {
     const factors = FACTOR_KEYS.map((key) => {
       const f = score.factors[key];
       const available = f.score != null;
-      return { key, label: FACTOR_LABELS[key], status: (available ? "AVAILABLE" : "UNAVAILABLE") as "AVAILABLE" | "UNAVAILABLE", score: f.score, confidence: f.confidence, explanation: f.reason, missingFields: founderMissing(f.missingInputs) };
+      return { key, label: FACTOR_LABELS[key], status: (available ? "AVAILABLE" : "UNAVAILABLE") as "AVAILABLE" | "UNAVAILABLE", score: f.score, confidence: f.confidence, explanation: f.reason, providedFields: providedFrom(f.inputsUsed), missingFields: founderMissing(f.missingInputs) };
     });
 
     let completion: StartupAssessment["completion"];
@@ -107,8 +124,7 @@ export class StartupAssessmentService {
       const computed = factors.filter((f) => f.status === "AVAILABLE");
       const mean = computed.length ? computed.reduce((a, f) => a + f.confidence, 0) / computed.length : null;
       const blockers: string[] = [];
-      if (computed.length < MIN_FACTOR_COVERAGE) blockers.push(`Only ${computed.length} of ${FACTOR_KEYS.length} scoring factors can be calculated from the information provided; at least ${MIN_FACTOR_COVERAGE} are needed.`);
-      if (mean != null && mean < MIN_OVERALL_CONFIDENCE) blockers.push(`The calculated factors rest on ${Math.round(mean * 100)}% of their inputs on average; at least ${Math.round(MIN_OVERALL_CONFIDENCE * 100)}% is needed.`);
+      if (!computed.length) blockers.push("None of the information provided so far can be used by a scoring factor. Add any of the items below and your score is calculated from it.");
       if (score.status === ScoreStatus.ERROR) blockers.push("The assessment could not be completed. It will be retried when your company information changes.");
       completion = {
         factorsAvailable: computed.length, factorsRequired: MIN_FACTOR_COVERAGE, meanConfidence: mean, confidenceRequired: MIN_OVERALL_CONFIDENCE, blockers,

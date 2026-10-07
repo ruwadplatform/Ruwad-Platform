@@ -18,6 +18,8 @@ export interface AssessmentFactor {
   /** 0..1: the share of this factor's inputs that were provided. */
   confidence: number;
   explanation: string;
+  /** The information on file that this factor's score was built from. */
+  providedFields: { key: string; label: string }[];
   missingFields: MissingField[];
 }
 

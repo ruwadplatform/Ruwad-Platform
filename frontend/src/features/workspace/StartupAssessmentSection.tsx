@@ -34,6 +34,7 @@ function FactorRow({ f }: { f: AssessmentFactor }) {
       )}
       <p className="small muted mt-8">{f.explanation}</p>
       {!unavailable && <p className="fs-11 muted mt-4">Based on {pct(f.confidence)} of this factor&apos;s inputs.</p>}
+      {f.providedFields.length > 0 && <p className="fs-11 muted mt-4">Calculated from what you provided: {f.providedFields.map((p) => p.label).join(", ")}.</p>}
       {f.missingFields.length > 0 && (
         <>
           <p className="fs-11 muted mt-8">{unavailable ? "To calculate this factor, add:" : "To raise the confidence of this factor, add:"}</p>

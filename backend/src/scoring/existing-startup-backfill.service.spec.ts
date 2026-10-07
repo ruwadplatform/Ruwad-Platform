@@ -281,16 +281,15 @@ describe("existing directory startups: scored on what is on file, a factor with 
     expect(w.t.history.rows).toHaveLength(rows);
   });
 
-  it("the standard rule is untouched: a startup a founder submitted keeps STANDARD, a missing factor is never counted as 0, and it still needs 4 factors at 50%", async () => {
+  it("a founder-submitted startup is never held to the old 4-factor rule: it is scored on what it provided, and the old thresholds are still defined", async () => {
     const w = setup({
       startups: [startupRow("founder", { name: "Founder Co", employees: 12, fundingTotal: 1 })],
       submissions: [{ publishedEntityId: "founder", kind: EntityKind.STARTUP, status: SubmissionStatus.APPROVED, payload: { name: "Founder Co", employees: 12 } }],
     });
     const r = await w.svc.run({ dryRun: false });
     const f = r.startups[0];
-    expect(f.basis).not.toBe(ScoringBasis.EXISTING_DATA);
-    expect(f).toMatchObject({ scoreStatus: "PENDING", ruwadScore: null }); // thin data: Pending, not a score padded with zeros
-    expect(w.t.startups.rows[0].scoringBasis).not.toBe(ScoringBasis.EXISTING_DATA);
+    expect(f.scoreStatus).toBe("CALCULATED"); // thin data still scores: the headcount and funding the founder gave
+    expect(f.ruwadScore).toBeGreaterThan(0);
     expect([MIN_FACTOR_COVERAGE, MIN_OVERALL_CONFIDENCE, SCORE_VERSION]).toEqual([4, 0.5, "RUWAD-2.0"]);
   });
 
