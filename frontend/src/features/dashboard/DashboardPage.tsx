@@ -13,6 +13,7 @@ import { compareEvents, eventStatusOf, formatEventDates, safeHttpUrl } from "@/l
 import { AddToCalendar } from "@/components/intelligence/AddToCalendar";
 import { useStartups, useInvestors, useHubs, useNews, useEvents, useReports } from "@/hooks/use-directory-data";
 import { initials } from "@/lib/scoring";
+import { FEATURED_STARTUP_SLUGS } from "@/lib/featured";
 import { regBadgeClass } from "@/lib/widgets";
 import { startupsUrl } from "@/lib/startup-category";
 
@@ -182,7 +183,7 @@ function FeaturedProfiles() {
   const { data: INVESTORS } = useInvestors();
   const { data: HUBS_ENABLERS } = useHubs();
   const items = [
-    ...STARTUPS.slice(0, 4).map((s) => ({ n: s.name, route: "/startups/" + s.id, logoUrl: s.logoUrl })),
+    ...FEATURED_STARTUP_SLUGS.flatMap((slug) => STARTUPS.filter((s) => s.id === slug)).map((s) => ({ n: s.name, route: "/startups/" + s.id, logoUrl: s.logoUrl })),
     ...INVESTORS.slice(0, 4).map((v) => ({ n: v.name, route: "/investors/" + v.id, logoUrl: v.logoUrl })),
     ...HUBS_ENABLERS.slice(0, 2).map((h) => ({ n: h.name, route: "/hubs/" + h.id, logoUrl: h.logoUrl })),
   ];
