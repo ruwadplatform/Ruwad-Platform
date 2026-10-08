@@ -10,7 +10,7 @@ Browser ──► frontend (Next.js)  ──► backend (NestJS API)  ──► 
 
 | Service | Folder | Hosted as | Role |
 |---|---|---|---|
-| Frontend | `frontend/` | Render web service `ruwad-frontend` | Pages, forms, admin tools. Talks only to the backend API. |
+| Frontend | `frontend/` | Vercel (project root `frontend/`) | Pages, forms, admin tools. Talks only to the backend API. |
 | Backend | `backend/` | Render web service `ruwad-backend` | REST API, authentication, business rules, scoring. The only service that touches the database. |
 | ML | `ml/` | Render web service `ruwad-ml` | Serves the experimental prediction model and trains candidate models offline. Never reads the database. |
 | Database | `supabase/` (docs only) | Supabase Postgres | Single database for every environment. Schema changes go through TypeORM migrations. |

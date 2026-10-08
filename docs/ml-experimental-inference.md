@@ -100,7 +100,7 @@ existing ones (`RULE_WEIGHT=1`, `ML_WEIGHT=0`), and the experimental model is ne
 ## Production architecture
 
 ```
-Browser ──► ruwad-frontend (Next.js)  ──►  ruwad-backend (NestJS) ──Bearer ML_SERVICE_TOKEN──► ruwad-ml (FastAPI)
+Browser ──► frontend (Next.js, Vercel)  ──►  ruwad-backend (NestJS) ──Bearer ML_SERVICE_TOKEN──► ruwad-ml (FastAPI)
                                                 │                                                │
                                            Supabase Postgres                       packaged, hash-verified artifact
 ```
