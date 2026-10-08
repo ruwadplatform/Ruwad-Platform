@@ -53,6 +53,13 @@ export interface ExperimentalPredictResult {
   warnings: string[];
 }
 
+const DEFAULT_WAKE_TIMEOUT_MS = 75_000;
+const WAKE_POLL_MS = 3_000;
+const WAKE_COOLDOWN_MS = 60_000;
+const RETRY_TIMEOUT_MS = 15_000;
+/** Failures that can simply mean "the service was asleep". */
+const TRANSIENT_REASONS = new Set<string>(["TIMEOUT", "NETWORK", "SERVICE_ERROR"]);
+
 /** Never throws: either the service's answer, or a short, safe failure reason (no stack traces, no response bodies). */
 export type ExperimentalCallOutcome = { ok: true; result: ExperimentalPredictResult } | { ok: false; reason: "DISABLED" | "TIMEOUT" | "NETWORK" | "AUTH_FAILED" | "SERVICE_ERROR" | "MODEL_NOT_FOUND" | "SCHEMA_MISMATCH" | "NOT_EXPERIMENTAL" | "BAD_RESPONSE" };
 
@@ -72,11 +79,19 @@ export class MlInferenceClient {
   private readonly baseUrl: string;
   private readonly token: string;
   private readonly timeoutMs: number;
+  /** How long to wait for a sleeping service to wake (free hosting spins an idle service down; the first request after that takes ~50-60 s).
+   * 0 turns the wake-up off. */
+  private readonly wakeTimeoutMs: number;
+  /** One wake-up is shared by every call that needs it, so a burst of failures sends a single health request, not one each. */
+  private wakeInFlight: Promise<boolean> | null = null;
+  private lastFailedWakeAt = 0;
 
   constructor(config: ConfigService) {
     this.baseUrl = (config.get<string>("ML_SCORING_SERVICE_URL") ?? "").replace(/\/+$/, "");
     this.token = (config.get<string>("ML_SERVICE_TOKEN") ?? "").trim();
     this.timeoutMs = Number(config.get<string>("ML_SCORING_TIMEOUT_MS") ?? "3000") || 3000;
+    const wake = Number(config.get<string>("ML_WAKE_TIMEOUT_MS") ?? DEFAULT_WAKE_TIMEOUT_MS);
+    this.wakeTimeoutMs = Number.isFinite(wake) && wake >= 0 ? wake : DEFAULT_WAKE_TIMEOUT_MS;
     this.enabled = config.get<string>("ML_SCORING_ENABLED") === "true" && !!this.baseUrl;
     this.experimentalEnabled = config.get<string>("ML_EXPERIMENTAL_INFERENCE_ENABLED") === "true" && !!this.baseUrl && !!this.token;
     if (!this.enabled) {
@@ -119,9 +134,47 @@ export class MlInferenceClient {
   /** One startup, one explicitly named EXPERIMENTAL model, via the service's /predict/experimental. Short timeout; any failure becomes a
    * safe reason code so RUWĀD scoring is never affected. */
   async predictExperimental(request: ExperimentalPredictRequest, modelVersion: string): Promise<ExperimentalCallOutcome> {
+    const first = await this.attemptExperimental(request, modelVersion);
+    // A sleeping free-tier service answers a short request with a timeout, a connection error or a 5xx from the host's proxy. Wake it once and
+    // retry once. Anything else (auth, unknown model, schema mismatch, a bad body) is a real answer and is never retried.
+    if (first.ok || !TRANSIENT_REASONS.has(first.reason) || !(await this.wake())) return first;
+    this.logger.log("ML service is awake; retrying the prediction once");
+    return this.attemptExperimental(request, modelVersion, Math.max(this.timeoutMs, RETRY_TIMEOUT_MS)); // just woken: allow a cold model its first, slower answer
+  }
+
+  /** Waits for the ML service to answer /health, for up to ML_WAKE_TIMEOUT_MS. Never throws. Concurrent callers share one wait; after a wait
+   * that failed, further calls skip it for a short cool-down so a service that is truly down does not make every request wait. */
+  private wake(): Promise<boolean> {
+    if (this.wakeTimeoutMs <= 0) return Promise.resolve(false);
+    if (this.wakeInFlight) return this.wakeInFlight;
+    if (Date.now() - this.lastFailedWakeAt < WAKE_COOLDOWN_MS) return Promise.resolve(false);
+    this.logger.log("ML service did not answer in time; waking it (an idle free-plan service can take about a minute)");
+    this.wakeInFlight = this.waitForHealth().then((ok) => {
+      if (!ok) { this.lastFailedWakeAt = Date.now(); this.logger.warn("ML service did not wake within the allowed time"); }
+      return ok;
+    }).finally(() => { this.wakeInFlight = null; });
+    return this.wakeInFlight;
+  }
+
+  private async waitForHealth(): Promise<boolean> {
+    const deadline = Date.now() + this.wakeTimeoutMs;
+    while (Date.now() < deadline) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), Math.max(1, deadline - Date.now()));
+      try {
+        const res = await fetch(`${this.baseUrl}/health`, { signal: ctrl.signal });
+        if (res.ok) return true;
+      } catch { /* not up yet */ } finally { clearTimeout(timer); }
+      if (Date.now() + WAKE_POLL_MS >= deadline) break;
+      await new Promise((r) => setTimeout(r, WAKE_POLL_MS));
+    }
+    return false;
+  }
+
+  private async attemptExperimental(request: ExperimentalPredictRequest, modelVersion: string, timeoutMs = this.timeoutMs): Promise<ExperimentalCallOutcome> {
     if (!this.experimentalEnabled) return { ok: false, reason: "DISABLED" };
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
       const res = await fetch(`${this.baseUrl}/predict/experimental`, {
         method: "POST",

@@ -181,12 +181,87 @@ describe("experimental inference — gates and failures never escape", () => {
     expect(Object.keys(m).filter((k) => /accuracy|auc|roc|f1|precision|recall|brier/i.test(k))).toEqual([]); // no fake accuracy metric
   });
   it("the client turns a timeout into a TIMEOUT reason instead of throwing", async () => {
-    const client = new MlInferenceClient({ get: (k: string) => ({ ML_EXPERIMENTAL_INFERENCE_ENABLED: "true", ML_SCORING_SERVICE_URL: "http://127.0.0.1:1", ML_SERVICE_TOKEN: "t", ML_SCORING_TIMEOUT_MS: "20" } as Record<string, string>)[k] } as any);
+    const client = new MlInferenceClient({ get: (k: string) => ({ ML_EXPERIMENTAL_INFERENCE_ENABLED: "true", ML_SCORING_SERVICE_URL: "http://127.0.0.1:1", ML_SERVICE_TOKEN: "t", ML_SCORING_TIMEOUT_MS: "20", ML_WAKE_TIMEOUT_MS: "0" } as Record<string, string>)[k] } as any);
     const original = global.fetch;
     global.fetch = ((_u: unknown, init: { signal: AbortSignal }) => new Promise((_res, rej) => init.signal.addEventListener("abort", () => rej(Object.assign(new Error("aborted"), { name: "AbortError" }))))) as never;
     try {
       await expect(client.predictExperimental({ startupId: S1, featureSchemaVersion: ML_FEATURE_SCHEMA_VERSION, features: GOOD }, MODEL)).resolves.toEqual({ ok: false, reason: "TIMEOUT" });
     } finally { global.fetch = original; }
+  });
+  describe("waking a sleeping ML service", () => {
+    const cfg = (extra: Record<string, string> = {}) => ({ get: (k: string) => ({ ML_EXPERIMENTAL_INFERENCE_ENABLED: "true", ML_SCORING_SERVICE_URL: "http://svc", ML_SERVICE_TOKEN: "tok", ML_SCORING_TIMEOUT_MS: "50", ML_WAKE_TIMEOUT_MS: "500", ...extra } as Record<string, string>)[k] }) as any;
+    const req = { startupId: S1, featureSchemaVersion: ML_FEATURE_SCHEMA_VERSION, features: GOOD };
+    const down = (status: number) => ({ ok: false, status, json: async () => ({}) });
+    let original: typeof global.fetch;
+    beforeEach(() => { original = global.fetch; });
+    afterEach(() => { global.fetch = original; });
+
+    it("a prediction that fails while the service is asleep is retried once after /health answers", async () => {
+      const client = new MlInferenceClient(cfg());
+      const urls: string[] = [];
+      let predictCalls = 0;
+      global.fetch = (async (url: string) => {
+        urls.push(url.replace("http://svc", ""));
+        if (url.endsWith("/health")) return { ok: true, status: 200 };
+        return ++predictCalls === 1 ? down(503) : { ok: true, status: 200, json: async () => okResult() };
+      }) as never;
+      const out = await client.predictExperimental(req, MODEL);
+      expect(out.ok).toBe(true);
+      expect(urls).toEqual(["/predict/experimental", "/health", "/predict/experimental"]);
+    });
+
+    it("keeps checking /health until the service is up (it answers 503 while waking)", async () => {
+      const client = new MlInferenceClient(cfg({ ML_WAKE_TIMEOUT_MS: "8000" }));
+      let healthCalls = 0, predictCalls = 0;
+      global.fetch = (async (url: string) => {
+        if (url.endsWith("/health")) return ++healthCalls < 2 ? down(503) : { ok: true, status: 200 };
+        return ++predictCalls === 1 ? down(502) : { ok: true, status: 200, json: async () => okResult() };
+      }) as never;
+      expect((await client.predictExperimental(req, MODEL)).ok).toBe(true);
+      expect(healthCalls).toBe(2);
+    }, 15000);
+
+    it("answers that are not 'service asleep' are never retried or waited on", async () => {
+      const client = new MlInferenceClient(cfg());
+      const urls: string[] = [];
+      global.fetch = (async (url: string) => { urls.push(url); return { ok: false, status: 401, json: async () => ({}) }; }) as never;
+      await expect(client.predictExperimental(req, MODEL)).resolves.toEqual({ ok: false, reason: "AUTH_FAILED" });
+      expect(urls).toHaveLength(1);
+    });
+
+    it("if the service never wakes, the original failure is returned, and the next call does not wait again during the cool-down", async () => {
+      const client = new MlInferenceClient(cfg({ ML_WAKE_TIMEOUT_MS: "300" }));
+      let healthCalls = 0;
+      global.fetch = (async (url: string) => { if (url.endsWith("/health")) { healthCalls++; return down(503); } return down(503); }) as never;
+      await expect(client.predictExperimental(req, MODEL)).resolves.toEqual({ ok: false, reason: "SERVICE_ERROR" });
+      const afterFirst = healthCalls;
+      expect(afterFirst).toBeGreaterThan(0);
+      await expect(client.predictExperimental(req, MODEL)).resolves.toEqual({ ok: false, reason: "SERVICE_ERROR" });
+      expect(healthCalls).toBe(afterFirst); // cool-down: no second wait
+    });
+
+    it("several failing calls at once share a single wake-up", async () => {
+      const client = new MlInferenceClient(cfg());
+      let healthCalls = 0;
+      const seen = new Map<string, number>();
+      global.fetch = (async (url: string, init: any) => {
+        if (url.endsWith("/health")) { healthCalls++; await new Promise((r) => setTimeout(r, 30)); return { ok: true, status: 200 }; }
+        const key = String(JSON.parse(init.body).startupId);
+        seen.set(key, (seen.get(key) ?? 0) + 1);
+        return seen.get(key) === 1 ? down(503) : { ok: true, status: 200, json: async () => okResult() };
+      }) as never;
+      const outs = await Promise.all(["a", "b", "c"].map((id) => client.predictExperimental({ ...req, startupId: id }, MODEL)));
+      expect(outs.every((o) => o.ok)).toBe(true);
+      expect(healthCalls).toBe(1);
+    });
+
+    it("ML_WAKE_TIMEOUT_MS=0 turns the wake-up off", async () => {
+      const client = new MlInferenceClient(cfg({ ML_WAKE_TIMEOUT_MS: "0" }));
+      const urls: string[] = [];
+      global.fetch = (async (url: string) => { urls.push(url); return down(503); }) as never;
+      await expect(client.predictExperimental(req, MODEL)).resolves.toEqual({ ok: false, reason: "SERVICE_ERROR" });
+      expect(urls).toHaveLength(1);
+    });
   });
   it("the client reports a 401/403 from the inference service as AUTH_FAILED, and the failure is counted by reason", async () => {
     const client = new MlInferenceClient({ get: (k: string) => ({ ML_EXPERIMENTAL_INFERENCE_ENABLED: "true", ML_SCORING_SERVICE_URL: "http://svc", ML_SERVICE_TOKEN: "secret-token-value" } as Record<string, string>)[k] } as any);
