@@ -252,20 +252,22 @@ const MARKET_INVESTMENT_STATS = [
 
 function HealthcareInvestments() {
   const { data: STARTUPS } = useStartups();
-  const total = STARTUPS.reduce((a, s) => a + s.fundingTotal, 0);
+  // Only companies that have actually raised money are listed, largest first; a company with no recorded funding never appears here.
+  const raised = STARTUPS.filter((s) => s.fundingTotal > 0).sort((a, b) => b.fundingTotal - a.fundingTotal);
+  const total = raised.reduce((a, s) => a + s.fundingTotal, 0);
   return (
     <div className="panel mt-32">
-      <div className="panel-head"><h3>Healthcare Ecosystem Investments</h3><span className="sub">{STARTUPS.length === 0 ? "Saudi Arabia market context" : "Last 90 days"}</span></div>
+      <div className="panel-head"><h3>Healthcare Ecosystem Investments</h3><span className="sub">{raised.length === 0 ? "Saudi Arabia market context" : "Last 90 days"}</span></div>
       <div className="panel-pad">
-        {STARTUPS.length === 0 ? (
+        {raised.length === 0 ? (
           <MarketInvestmentContext />
         ) : (
           <>
             <EcoStackBar />
             <div className="trend-total"><b className="mono">SAR {total.toFixed(1)}M</b><span>Public &amp; private investments — trending healthcare</span></div>
             <div className="trend-companies">
-              {STARTUPS.slice(0, 6).map((s) => (
-                <div className="trend-co" key={s.id}><div className="tlogo">{s.logo}</div><b>{s.name}</b><span>SAR {s.fundingTotal}M</span></div>
+              {raised.slice(0, 6).map((s) => (
+                <div className="trend-co" key={s.id}><OrganizationLogo logo={s.logo} logoUrl={s.logoUrl} className="tlogo" /><b>{s.name}</b><span>SAR {s.fundingTotal}M</span></div>
               ))}
             </div>
           </>
