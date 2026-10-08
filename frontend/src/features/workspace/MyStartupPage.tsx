@@ -159,7 +159,7 @@ export function MyStartupPage({ slug }: { slug: string }) {
             ["Total raised", `SAR ${s.fundingTotal}M`],
             ["Valuation", `SAR ${s.valuation}M`],
             ["Funding rounds", s.rounds.length],
-            ["Fundraising", s.fundraising ? `Yes — ${s.targetRaise ?? ""}` : "Not currently"],
+            ["Fundraising", s.fundraising ? (s.targetRaise ? `Yes — ${s.targetRaise}` : "Yes") : "Not currently"],
           ]} />
         </Card>
 
