@@ -1,4 +1,4 @@
-import { API_BASE, ApiError, api } from "./client";
+import { API_BASE, ApiError, api, UPLOAD_API_BASE } from "./client";
 
 export type LabelStatus = "NOT_MATURED" | "AVAILABLE" | "INSUFFICIENT_DATA" | "UNVERIFIED" | "EXCLUDED" | "COVERAGE_UNATTESTED";
 export type StartupOutcomeEventType =
@@ -401,7 +401,7 @@ export function uploadHistoricalBatch(
     form.append("sourceType", meta.sourceType);
     form.append("dryRun", String(meta.dryRun));
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/ml-data/historical/batches`);
+    xhr.open("POST", `${UPLOAD_API_BASE}/ml-data/historical/batches`);
     xhr.withCredentials = true;
     xhr.responseType = "text";
     xhr.timeout = 5 * 60 * 1000;

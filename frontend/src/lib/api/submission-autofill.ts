@@ -1,4 +1,4 @@
-import { API_BASE, ApiError } from "./client";
+import { ApiError, UPLOAD_API_BASE } from "./client";
 
 export interface AutofillMeta {
   units: number; chunks: number; skipped: number; partial: boolean;
@@ -44,7 +44,7 @@ export function autofillSubmission(submissionId: string, file: File, handlers: {
     const form = new FormData();
     form.append("file", file);
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/submissions/${encodeURIComponent(submissionId)}/autofill`);
+    xhr.open("POST", `${UPLOAD_API_BASE}/submissions/${encodeURIComponent(submissionId)}/autofill`);
     xhr.withCredentials = true;
     xhr.responseType = "text";
     xhr.timeout = 15 * 60 * 1000; // a 100 MB upload on a slow connection can take a while

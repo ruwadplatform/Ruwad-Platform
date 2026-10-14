@@ -11,6 +11,11 @@ export const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL?.startsWith("http
  * auth cookie stays first-party. Identical on server and client so rendered URLs never mismatch. */
 export const API_BASE = "/api";
 
+/** Large multipart uploads (pitch decks, data-room files…) still go straight to the backend: they are
+ * not routed through the Vercel proxy until its request-body limit has been verified. These calls need
+ * the auth cookie to be sendable cross-site, exactly as before this proxy was introduced. */
+export const UPLOAD_API_BASE = BACKEND_API_URL;
+
 export class ApiError extends Error {
   constructor(
     public status: number,

@@ -1,4 +1,4 @@
-import { API_BASE, ApiError, api } from "./client";
+import { API_BASE, ApiError, api, UPLOAD_API_BASE } from "./client";
 
 export type SubmissionStatus = "PENDING_REVIEW" | "PUBLISHED" | "REJECTED";
 export const STATUS_LABEL: Record<SubmissionStatus, string> = { PENDING_REVIEW: "Pending Review", PUBLISHED: "Published", REJECTED: "Rejected" };
@@ -35,7 +35,7 @@ export interface AdminSubmissionRow {
 export async function uploadReportPdf(file: File): Promise<{ fileId: string; fileName: string; size: number }> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${API_BASE}/reports/submissions/file`, { method: "POST", credentials: "include", body: form });
+  const res = await fetch(`${UPLOAD_API_BASE}/reports/submissions/file`, { method: "POST", credentials: "include", body: form });
   if (!res.ok) {
     if (res.status === 413) throw new ApiError(413, "The PDF must be 10 MB or smaller.");
     let message = res.statusText || `Upload failed (${res.status})`;

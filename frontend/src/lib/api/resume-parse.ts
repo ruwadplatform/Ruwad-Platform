@@ -1,4 +1,4 @@
-import { API_BASE, ApiError } from "./client";
+import { ApiError, UPLOAD_API_BASE } from "./client";
 
 export interface ParsedResume {
   firstName?: string;
@@ -20,7 +20,7 @@ export interface ParsedResume {
 export async function parseResume(file: File): Promise<ParsedResume> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${API_BASE}/resume-parse`, { method: "POST", credentials: "include", body: form });
+  const res = await fetch(`${UPLOAD_API_BASE}/resume-parse`, { method: "POST", credentials: "include", body: form });
   if (!res.ok) {
     let message = res.statusText || `Couldn't read that file (${res.status})`;
     try {

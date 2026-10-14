@@ -1,4 +1,4 @@
-import { API_BASE, ApiError } from "./client";
+import { API_BASE, ApiError, UPLOAD_API_BASE } from "./client";
 
 /** Multipart upload — bypasses the shared `api` helper (which always sends
  * JSON) since this needs FormData with no Content-Type header (the browser
@@ -6,7 +6,7 @@ import { API_BASE, ApiError } from "./client";
 export async function uploadLogo(file: File): Promise<{ id: string }> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${API_BASE}/uploads/logo`, { method: "POST", credentials: "include", body: form });
+  const res = await fetch(`${UPLOAD_API_BASE}/uploads/logo`, { method: "POST", credentials: "include", body: form });
   if (!res.ok) {
     let message = res.statusText || `Upload failed (${res.status})`;
     try {
@@ -25,7 +25,7 @@ export async function uploadLogo(file: File): Promise<{ id: string }> {
 export async function uploadAvatar(file: File): Promise<{ id: string }> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${API_BASE}/uploads/avatar`, { method: "POST", credentials: "include", body: form });
+  const res = await fetch(`${UPLOAD_API_BASE}/uploads/avatar`, { method: "POST", credentials: "include", body: form });
   if (!res.ok) {
     if (res.status === 413) throw new ApiError(413, "Profile photo must be 2 MB or smaller.");
     let message = res.statusText || `Upload failed (${res.status})`;
