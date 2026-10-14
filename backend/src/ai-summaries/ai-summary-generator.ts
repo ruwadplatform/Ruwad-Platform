@@ -6,7 +6,8 @@ import { webForPrompt, type WebSource } from "./ai-summary-web";
 
 export const PROMPT_VERSION = "v2";
 const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+// Google retires models for new accounts over time (gemini-2.5-flash answered 404 "no longer available to new users"); set AI_SUMMARY_MODEL to override without a deploy.
+const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com";
 
 export type SummaryProvider = "anthropic" | "gemini";
@@ -109,16 +110,27 @@ export class AiSummaryGenerator {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);
     try {
-      const res = await fetch(`${this.geminiBase}/v1beta/models/${encodeURIComponent(this.model)}:generateContent`, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-goog-api-key": this.geminiKey },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: system }] },
-          contents: [{ role: "user", parts: [{ text: user }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 1500, responseMimeType: "application/json", thinkingConfig: { thinkingBudget: 0 } },
-        }),
-        signal: ctrl.signal,
-      });
+      // Only the 2.5 family accepts "thinkingBudget: 0"; newer models get no thinking override (and more output headroom, since thinking tokens count).
+      const legacyThinking = /^gemini-2\.5/.test(this.model);
+      const send = (withThinkingOverride: boolean) =>
+        fetch(`${this.geminiBase}/v1beta/models/${encodeURIComponent(this.model)}:generateContent`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-goog-api-key": this.geminiKey },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: system }] },
+            contents: [{ role: "user", parts: [{ text: user }] }],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: legacyThinking ? 1500 : 3000,
+              responseMimeType: "application/json",
+              ...(withThinkingOverride ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+            },
+          }),
+          signal: ctrl.signal,
+        });
+      let res = await send(legacyThinking);
+      // A model that rejects the thinking override is retried once without it.
+      if (res.status === 400 && legacyThinking) res = await send(false);
       if (!res.ok) {
         let providerMessage = "";
         try { providerMessage = String(((await res.json()) as { error?: { message?: string } })?.error?.message ?? ""); } catch { /* body was not JSON */ }

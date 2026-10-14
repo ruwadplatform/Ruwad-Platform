@@ -40,13 +40,23 @@ describe("Gemini calls", () => {
     const out = await new AiSummaryGenerator(cfg({ GEMINI_API_KEY: "secret-key" })).generate("startups", facts);
     expect(out.highlights).toHaveLength(2);
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, { headers: Record<string, string>; body: string }];
-    expect(url).toContain("/v1beta/models/gemini-2.5-flash:generateContent");
+    expect(url).toContain("/v1beta/models/gemini-3.8-flash:generateContent");
     expect(url).not.toContain("secret-key");
     expect(init.headers["x-goog-api-key"]).toBe("secret-key");
     const body = JSON.parse(init.body);
     expect(body.generationConfig.responseMimeType).toBe("application/json");
+    expect(body.generationConfig.thinkingConfig).toBeUndefined(); // newer models get no thinking override
     expect(body.contents[0].parts[0].text).toContain("<data>");
     expect(body.systemInstruction.parts[0].text).toContain("Never invent");
+  });
+
+  it("sends the thinking override only to the 2.5 family, and retries without it if rejected", async () => {
+    const fetchMock = jest.fn().mockResolvedValueOnce(geminiResponse("", false, 400)).mockResolvedValueOnce(geminiResponse(reply));
+    global.fetch = fetchMock as never;
+    await new AiSummaryGenerator(cfg({ GEMINI_API_KEY: "k", AI_SUMMARY_MODEL: "gemini-2.5-flash" })).generate("startups", facts);
+    const bodies = fetchMock.mock.calls.map((c) => JSON.parse((c as unknown as [string, { body: string }])[1].body));
+    expect(bodies[0].generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
+    expect(bodies[1].generationConfig.thinkingConfig).toBeUndefined();
   });
 
   it("retries once when the first reply breaks a rule, then succeeds", async () => {
