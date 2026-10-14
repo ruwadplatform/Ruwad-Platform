@@ -140,8 +140,8 @@ function HubTable({ list }: { list: Hub[] }) {
       <table className="data-table">
         <thead>
           <tr>
-            <th></th><th>Organization</th><th>Type</th><th>Healthcare Focus</th><th>City</th><th>Country</th>
-            <th>Programs</th><th>Stage Supported</th><th>Website</th><th>Last Updated</th><th>Actions</th>
+            <th></th><th>Organization</th><th>Type</th><th>City</th><th>Country</th>
+            <th>Programs</th><th>Website</th><th>Last Updated</th><th>Actions</th>
           </tr>
         </thead>
         <tbody>{list.map((h) => <HubRow key={h.id} h={h} />)}</tbody>
@@ -159,11 +159,9 @@ function HubRow({ h }: { h: Hub }) {
       <td><OrganizationLogo logo={h.logo} logoUrl={h.logoUrl} className="row-logo" style={{ background: "var(--navy-800)", color: "#fff" }} /></td>
       <td><div className="cell-main">{h.name}</div><div className="cell-sub">{h.type}</div></td>
       <td>{h.type}</td>
-      <td className="cell-sub">{h.healthcareFocus.join(", ")}</td>
       <td>{h.city}</td>
       <td>{h.country}</td>
       <td className="mono">{h.programs.length}</td>
-      <td className="cell-sub">{h.stagesSupported.join(", ")}</td>
       <td className="cell-sub">{h.website}</td>
       <td className="cell-sub">{h.provenance.lastUpdated}</td>
       <td onClick={(e) => e.stopPropagation()}>

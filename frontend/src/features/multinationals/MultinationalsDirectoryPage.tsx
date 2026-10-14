@@ -146,7 +146,7 @@ function MncTable({ list }: { list: Multinational[] }) {
         <thead>
           <tr>
             <th></th><th>Company</th><th>Healthcare Sector</th><th>Headquarters</th><th>MENA Presence</th>
-            <th>Saudi Presence</th><th>Employees</th><th>Products</th><th>R&amp;D Presence</th><th>Website</th><th>Actions</th>
+            <th>Saudi Presence</th><th>Website</th><th>Actions</th>
           </tr>
         </thead>
         <tbody>{list.map((m) => <MncRow key={m.id} m={m} />)}</tbody>
@@ -167,9 +167,6 @@ function MncRow({ m }: { m: Multinational }) {
       <td>{m.hq}</td>
       <td className="cell-sub">{m.menaPresence.countriesActiveIn.join(", ") || "—"}</td>
       <td><span className={`badge ${m.menaPresence.saudiOffice ? "badge-good" : "badge-neutral"}`}>{m.menaPresence.saudiOffice ? "Yes" : "No"}</span></td>
-      <td className="mono">{m.employees.toLocaleString()}</td>
-      <td className="mono">{m.products.length}</td>
-      <td>{m.rdCenters > 0 ? <span className="tag">{m.rdCenters} centers</span> : "—"}</td>
       <td className="cell-sub">{m.website}</td>
       <td onClick={(e) => e.stopPropagation()}>
         <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("multinationals", m.id)}><RuwadIcon name="star" size={16} /></button>

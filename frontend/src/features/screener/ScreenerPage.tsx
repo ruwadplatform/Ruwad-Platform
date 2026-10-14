@@ -103,7 +103,7 @@ export function ScreenerPage() {
               {rows.map((r) => (
                 <tr key={r.type + r.route} style={{ cursor: "pointer" }} onClick={() => router.push(r.route)}>
                   <td><span className="tag">{r.type}</span></td>
-                  <td><div className="cell-main">{r.name}</div><div className="cell-sub">{r.sub}</div></td>
+                  <td><div className="cell-main">{r.name}</div></td>
                   <td>{r.category || "—"}</td>
                   <td>{r.city}</td>
                   <td>{r.stageList.join(", ") || "—"}</td>

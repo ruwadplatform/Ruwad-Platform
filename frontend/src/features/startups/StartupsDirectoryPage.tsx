@@ -223,7 +223,7 @@ function StartupRow({ s }: { s: Startup }) {
   return (
     <tr onClick={() => router.push(`/startups/${s.id}`)}>
       <td><OrganizationLogo logo={s.logo} logoUrl={s.logoUrl} className="row-logo" /></td>
-      <td><div className="cell-main">{s.name}</div><div className="cell-sub">{s.tagline}</div></td>
+      <td><div className="cell-main">{s.name}</div></td>
       <td>{s.category}</td>
       <td>{s.city}</td>
       <td><span className="tag">{s.stage}</span></td>

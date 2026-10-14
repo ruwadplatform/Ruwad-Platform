@@ -152,7 +152,7 @@ function InvestorTable({ list }: { list: Investor[] }) {
       <table className="data-table">
         <thead>
           <tr>
-            <th></th><th>Investor</th><th>Type</th><th>Headquarters</th><th>Stage Focus</th><th>Healthcare Focus</th>
+            <th></th><th>Investor</th><th>Type</th><th>Headquarters</th>
             <th>Typical Ticket</th><th>Portfolio Size</th><th>Recent Deals</th><th>Actions</th>
           </tr>
         </thead>
@@ -172,8 +172,6 @@ function InvestorRow({ v }: { v: Investor }) {
       <td><div className="cell-main">{v.name}</div><div className="cell-sub">{v.founded ? `Est. ${v.founded}` : "—"}</div></td>
       <td>{v.type}</td>
       <td>{v.city}</td>
-      <td className="cell-sub">{v.stageFocus.join(", ")}</td>
-      <td className="cell-sub">{v.hcFocus.join(", ")}</td>
       <td className="mono">{v.ticket}</td>
       <td className="mono">{v.portfolio.length}</td>
       <td className="cell-sub">{v.recentDeals[0]?.startup || "—"}</td>

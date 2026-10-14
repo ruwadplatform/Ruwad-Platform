@@ -145,8 +145,8 @@ function ResearchTable({ list }: { list: ResearchInstitution[] }) {
       <table className="data-table">
         <thead>
           <tr>
-            <th></th><th>Institution</th><th>Type</th><th>Primary Research Area</th><th>Healthcare Focus</th>
-            <th>City</th><th>Country</th><th>Active Projects</th><th>Publications</th><th>Collaboration Status</th><th>Actions</th>
+            <th></th><th>Institution</th><th>Type</th>
+            <th>City</th><th>Country</th><th>Collaboration Status</th><th>Actions</th>
           </tr>
         </thead>
         <tbody>{list.map((r) => <ResearchRow key={r.id} r={r} />)}</tbody>
@@ -164,12 +164,8 @@ function ResearchRow({ r }: { r: ResearchInstitution }) {
       <td><OrganizationLogo logo={r.logo} logoUrl={r.logoUrl} className="row-logo" style={{ background: "var(--navy-700)", color: "#fff" }} /></td>
       <td><div className="cell-main">{r.name}</div><div className="cell-sub">Est. {r.founded}</div></td>
       <td>{r.type}</td>
-      <td className="cell-sub">{r.coreResearchAreas[0]}</td>
-      <td className="cell-sub">{r.healthcareFocus.join(", ")}</td>
       <td>{r.city}</td>
       <td>{r.country}</td>
-      <td className="mono">{r.activeProjects.length}</td>
-      <td className="mono">{r.publications.length}</td>
       <td><span className={`badge ${r.collaborationStatus === "Open" ? "badge-good" : r.collaborationStatus === "Selective" ? "badge-warn" : "badge-neutral"}`}>{r.collaborationStatus}</span></td>
       <td onClick={(e) => e.stopPropagation()}>
         <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("research", r.id)}><RuwadIcon name="star" size={16} /></button>
