@@ -3,7 +3,13 @@
  * URL and error shape stay consistent in one place instead of scattered
  * fetch() calls. */
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
+/** Where the backend really lives. Used only for server-side fetches (server components can't use a
+ * relative URL) — the browser never calls this address directly. */
+export const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL?.startsWith("http") ? process.env.NEXT_PUBLIC_API_URL : "http://localhost:4000/api";
+
+/** What the browser calls: this site's own `/api` (proxied to the backend by next.config.ts), so the
+ * auth cookie stays first-party. Identical on server and client so rendered URLs never mismatch. */
+export const API_BASE = "/api";
 
 export class ApiError extends Error {
   constructor(
@@ -16,7 +22,9 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  // Server-side renders call the backend directly; the browser goes through the same-origin proxy.
+  const base = typeof window === "undefined" ? BACKEND_API_URL : API_BASE;
+  const res = await fetch(`${base}${path}`, {
     ...init,
     credentials: "include",
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },

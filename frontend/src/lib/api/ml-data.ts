@@ -225,8 +225,7 @@ export async function downloadMlDatasetExport(filters: ExportFilters): Promise<v
   if (filters.includeImmature) params.set("includeImmature", "true");
   if (filters.includeAnalysisOnly) params.set("includeAnalysisOnly", "true");
 
-  const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
-  const res = await fetch(`${base}/ml-data/export?${params.toString()}`, { credentials: "include" });
+  const res = await fetch(`${API_BASE}/ml-data/export?${params.toString()}`, { credentials: "include" });
   if (!res.ok) throw new Error(`Export failed (${res.status})`);
   const blob = await res.blob();
   const href = URL.createObjectURL(blob);
