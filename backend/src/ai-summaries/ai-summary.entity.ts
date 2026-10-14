@@ -23,6 +23,10 @@ export class AiSummary extends BaseEntity {
   @Column({ type: "jsonb", default: [] })
   highlights!: string[];
 
+  /** The public web search results the text cites (as [W1], [W2]…), kept with it so the panel can link them. */
+  @Column({ type: "jsonb", default: [] })
+  webSources!: { id: string; title: string; url: string; site: string }[];
+
   @Column({ type: "varchar" })
   modelVersion!: string;
 

@@ -8,6 +8,8 @@ export interface AiSummaryReady {
   name: string;
   overview: string;
   highlights: string[];
+  /** Public web results the text cites with [W1]… markers. */
+  webSources: { id: string; title: string; url: string; site: string }[];
   aiGenerated: true;
   cached: boolean;
   generatedAt: string;

@@ -10,9 +10,10 @@ import { Hub } from "../hubs/hub.entity";
 import { HubProgram } from "../hubs/hub-program.entity";
 import { Multinational } from "../multinationals/multinational.entity";
 import { DirectorySharedModule } from "../directory-shared/directory-shared.module";
+import { ContentModule } from "../content/content.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AiSummary, Startup, Investor, Hub, HubProgram, Multinational]), DirectorySharedModule],
+  imports: [TypeOrmModule.forFeature([AiSummary, Startup, Investor, Hub, HubProgram, Multinational]), DirectorySharedModule, ContentModule],
   providers: [AiSummariesService, AiSummaryGenerator],
   controllers: [AiSummariesController],
 })

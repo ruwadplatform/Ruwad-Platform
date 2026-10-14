@@ -9,6 +9,8 @@ import { Hub } from "../hubs/hub.entity";
 import { HubProgram } from "../hubs/hub-program.entity";
 import { Multinational } from "../multinationals/multinational.entity";
 import { DirectorySharedService } from "../directory-shared/directory-shared.service";
+import { ResearchService } from "../content/research.service";
+import { buildWebQuery, citedSources, selectWebSources } from "./ai-summary-web";
 import { AiSummaryGenerator, PROMPT_VERSION, ProviderFailureError, ProviderNotConfiguredError, type GeneratedSummary } from "./ai-summary-generator";
 import {
   ENTITY_KIND_BY_TYPE, buildHubContext, buildInvestorContext, buildMultinationalContext, buildStartupContext, hasEnoughData, isSummaryEntityType,
@@ -27,6 +29,8 @@ export type AiSummaryResponse =
       name: string;
       overview: string;
       highlights: string[];
+      /** Public web results the text cites, as [W1]… markers in the overview/highlights. */
+      webSources: { id: string; title: string; url: string; site: string }[];
       aiGenerated: true;
       cached: boolean;
       generatedAt: string;
@@ -41,7 +45,8 @@ type Loaded = { id: string; name: string; ctx: SummaryContext };
 export class AiSummariesService {
   private readonly logger = new Logger(AiSummariesService.name);
   /** Concurrent requests for the same entity+data share one provider call. */
-  private readonly inFlight = new Map<string, Promise<GeneratedSummary>>();
+  private readonly inFlight = new Map<string, Promise<{ summary: GeneratedSummary; web: { id: string; title: string; url: string; site: string }[] }>>();
+  private readonly webEnabled: boolean;
   private readonly generationTimes: number[] = [];
   private readonly ttlMs: number;
   private readonly maxPerHour: number;
@@ -55,8 +60,10 @@ export class AiSummariesService {
     @InjectRepository(Multinational) private readonly multinationals: Repository<Multinational>,
     private readonly shared: DirectorySharedService,
     private readonly generator: AiSummaryGenerator,
+    private readonly research: ResearchService,
     config: ConfigService,
   ) {
+    this.webEnabled = (config.get<string>("AI_SUMMARY_WEB_SEARCH") ?? "true").toLowerCase() !== "false";
     this.ttlMs = (Number(config.get<string>("AI_SUMMARY_TTL_DAYS")) || 30) * 24 * 3600 * 1000;
     this.maxPerHour = Number(config.get<string>("AI_SUMMARY_MAX_GENERATIONS_PER_HOUR")) || 200;
   }
@@ -84,11 +91,11 @@ export class AiSummariesService {
     let pending = this.inFlight.get(key);
     if (!pending) {
       this.assertUnderHourlyCap();
-      pending = this.generator.generate(type, ctx.facts).finally(() => this.inFlight.delete(key));
+      pending = this.generateWithWeb(type, loaded).finally(() => this.inFlight.delete(key));
       this.inFlight.set(key, pending);
     }
 
-    let generated: GeneratedSummary;
+    let generated: { summary: GeneratedSummary; web: { id: string; title: string; url: string; site: string }[] };
     try {
       generated = await pending;
     } catch (e) {
@@ -101,7 +108,7 @@ export class AiSummariesService {
     const generatedAt = new Date();
     await this.cache.upsert(
       {
-        entityType: kind, entityId: loaded.id, accessScope: ACCESS_SCOPE, overview: generated.overview, highlights: generated.highlights,
+        entityType: kind, entityId: loaded.id, accessScope: ACCESS_SCOPE, overview: generated.summary.overview, highlights: generated.summary.highlights, webSources: generated.web,
         modelVersion: this.generator.model, promptVersion: PROMPT_VERSION, sourceFingerprint: fingerprint, generatedAt,
         expiresAt: new Date(generatedAt.getTime() + this.ttlMs), status: "READY",
       },
@@ -113,10 +120,28 @@ export class AiSummariesService {
 
   private ready(type: SummaryEntityType, loaded: Loaded, row: AiSummary, cached: boolean): AiSummaryResponse {
     return {
-      status: "ready", entityType: type, name: loaded.name, overview: row.overview, highlights: row.highlights, aiGenerated: true, cached,
+      status: "ready", entityType: type, name: loaded.name, overview: row.overview, highlights: row.highlights, webSources: row.webSources ?? [], aiGenerated: true, cached,
       generatedAt: row.generatedAt.toISOString(), modelVersion: row.modelVersion,
       source: { label: "RUWĀD profile data", sources: loaded.ctx.provenance.sources, confidence: loaded.ctx.provenance.confidence, lastUpdated: loaded.ctx.provenance.lastUpdated },
     };
+  }
+
+  /** Optional enrichment: a few public web results about this organization (one cached Serper search). A failed or empty search just means
+   * the summary is written from the profile alone; it never blocks or fails the request. */
+  private async generateWithWeb(type: SummaryEntityType, loaded: Loaded) {
+    let found: ReturnType<typeof selectWebSources> = [];
+    const query = this.webEnabled && this.research.enabled ? buildWebQuery(loaded.ctx.facts) : null;
+    if (query) {
+      try {
+        const r = await this.research.session(1, { ttlHours: 24 * 7 }).run(query, { kind: "search", num: 8, topic: "ai-summary" });
+        found = selectWebSources(r.items, loaded.name);
+      } catch (e) {
+        this.logger.warn(`AI summary web context skipped (${(e as Error).message})`);
+      }
+    }
+    const summary = await this.generator.generate(type, loaded.ctx.facts, found);
+    const cited = citedSources(`${summary.overview} ${summary.highlights.join(" ")}`, found);
+    return { summary, web: cited.map(({ id, title, url, site }) => ({ id, title, url, site })) };
   }
 
   private assertUnderHourlyCap(): void {

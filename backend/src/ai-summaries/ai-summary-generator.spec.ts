@@ -38,6 +38,20 @@ describe("validateSummary", () => {
     expect(validateSummary({ ...good, highlights: ["Funding: undefined.", "Founded in 2026."] }, data)).toMatch(/placeholder/);
   });
 
+  it("accepts citations of web results that were supplied, ignoring the marker in word and number checks", () => {
+    const cited = { overview: overview + " [W1]", highlights: ["Founded in 2026 [W2].", "Pre-Seed stage."] };
+    expect(validateSummary(cited, data, ["W1", "W2"])).toBeNull();
+  });
+
+  it("rejects a citation that does not exist", () => {
+    expect(validateSummary({ ...good, highlights: ["Founded in 2026 [W3].", "Pre-Seed stage."] }, data, ["W1"])).toMatch(/citation \[W3\]/);
+    expect(validateSummary({ ...good, overview: overview + " [W1]" }, data)).toMatch(/citation/);
+  });
+
+  it("still rejects an invented number even when a citation is present", () => {
+    expect(validateSummary({ ...good, highlights: ["Raised 12 million [W1].", "Pre-Seed stage."] }, data, ["W1"])).toMatch(/number 12/);
+  });
+
   it("enforces length and highlight count", () => {
     expect(validateSummary({ ...good, overview: "Too short." }, data)).toMatch(/words/);
     expect(validateSummary({ ...good, highlights: ["Only one highlight here."] }, data)).toMatch(/2 or 3/);

@@ -12,7 +12,12 @@ const STARTUP = {
 };
 const SUMMARY = { overview: "word ".repeat(70).trim(), highlights: ["Founded in 2026.", "Pre-Seed stage."] };
 
-function setup(over: { startup?: unknown; cached?: Record<string, unknown> | null; generate?: jest.Mock; available?: boolean } = {}) {
+const WEB_ITEMS = [
+  { title: "Gees Health raises seed", url: "https://news.example.com/gees", snippet: "Gees Health, a Riyadh company, launched an at-home hormone test.", date: null, source: null, position: 1 },
+  { title: "Unrelated Co", url: "https://other.example.com/x", snippet: "Another company entirely.", date: null, source: null, position: 2 },
+];
+
+function setup(over: { startup?: unknown; cached?: Record<string, unknown> | null; generate?: jest.Mock; available?: boolean; research?: { enabled: boolean; run: jest.Mock }; env?: Record<string, string> } = {}) {
   const store: { row: Record<string, unknown> | null } = { row: over.cached === undefined ? null : over.cached };
   const cache = {
     findOne: jest.fn(async () => store.row),
@@ -22,10 +27,12 @@ function setup(over: { startup?: unknown; cached?: Record<string, unknown> | nul
   const generate = over.generate ?? jest.fn(async () => SUMMARY);
   const generator = { available: over.available ?? true, model: "test-model", generate };
   const shared = { getSectorNames: jest.fn(async () => []), getProducts: jest.fn(async () => []), getPartnerships: jest.fn(async () => []) };
-  const config = { get: () => undefined };
+  const run = over.research?.run ?? jest.fn(async () => ({ items: WEB_ITEMS, knowledgeGraph: null, cached: false, failed: false, skipped: false }));
+  const research = { enabled: over.research?.enabled ?? true, session: jest.fn(() => ({ run })) };
+  const config = { get: (k: string) => over.env?.[k] };
   const startup = over.startup === undefined ? STARTUP : over.startup;
-  const service = new AiSummariesService(cache as never, repoOf(startup) as never, repoOf(null) as never, repoOf(null) as never, repoOf(null) as never, repoOf(null) as never, shared as never, generator as never, config as never);
-  return { service, cache, generate, store, startupRepo: service["startups" as keyof typeof service] as unknown as { findOne: jest.Mock } };
+  const service = new AiSummariesService(cache as never, repoOf(startup) as never, repoOf(null) as never, repoOf(null) as never, repoOf(null) as never, repoOf(null) as never, shared as never, generator as never, research as never, config as never);
+  return { service, cache, generate, store, run, research, startupRepo: service["startups" as keyof typeof service] as unknown as { findOne: jest.Mock } };
 }
 
 describe("AiSummariesService", () => {
@@ -72,6 +79,48 @@ describe("AiSummariesService", () => {
     const results = await Promise.all(calls);
     expect(generate).toHaveBeenCalledTimes(1);
     expect(results.every((r) => r.status === "ready")).toBe(true);
+  });
+
+  it("adds relevant public web results as context, keeps only the cited ones, and stores them with the summary", async () => {
+    const generate = jest.fn(async () => ({ overview: SUMMARY.overview + " [W1]", highlights: ["Founded in 2026.", "Pre-Seed stage."] }));
+    const { service, run, cache } = setup({ generate });
+    const r = await service.get("startups", "gees-health");
+    expect(run).toHaveBeenCalledWith(expect.stringContaining('"Gees Health"'), expect.objectContaining({ kind: "search" }));
+    // only the result that names the organization is offered to the model
+    expect((generate.mock.calls[0] as unknown[])[2]).toEqual([expect.objectContaining({ id: "W1", site: "news.example.com" })]);
+    expect(r).toMatchObject({ status: "ready", webSources: [{ id: "W1", site: "news.example.com", url: "https://news.example.com/gees" }] });
+    expect(cache.upsert).toHaveBeenCalledWith(expect.objectContaining({ webSources: [expect.objectContaining({ id: "W1" })] }), expect.anything());
+  });
+
+  it("does not store web sources the text never cites", async () => {
+    const { service } = setup();
+    expect(await service.get("startups", "gees-health")).toMatchObject({ status: "ready", webSources: [] });
+  });
+
+  it("still writes the summary from the profile when the web search fails or is empty", async () => {
+    const failing = setup({ research: { enabled: true, run: jest.fn(async () => { throw new Error("serper down"); }) } });
+    expect(await failing.service.get("startups", "gees-health")).toMatchObject({ status: "ready", webSources: [] });
+    expect((failing.generate.mock.calls[0] as unknown[])[2]).toEqual([]);
+    const empty = setup({ research: { enabled: true, run: jest.fn(async () => ({ items: [], knowledgeGraph: null, cached: false, failed: true, skipped: false })) } });
+    expect(await empty.service.get("startups", "gees-health")).toMatchObject({ status: "ready" });
+  });
+
+  it("makes no web search when Serper is not configured or the feature is switched off", async () => {
+    const noKey = setup({ research: { enabled: false, run: jest.fn() } });
+    await noKey.service.get("startups", "gees-health");
+    expect(noKey.run).not.toHaveBeenCalled();
+    const off = setup({ env: { AI_SUMMARY_WEB_SEARCH: "false" } });
+    await off.service.get("startups", "gees-health");
+    expect(off.run).not.toHaveBeenCalled();
+  });
+
+  it("does not spend a web search when the profile is thin or the AI provider is missing", async () => {
+    const thin = setup({ startup: { ...STARTUP, tagline: "—", desc: "—", problem: "—", solution: "—", hq: "—", employees: 0 } });
+    await thin.service.get("startups", "gees-health");
+    expect(thin.run).not.toHaveBeenCalled();
+    const noAi = setup({ available: false });
+    await noAi.service.get("startups", "gees-health");
+    expect(noAi.run).not.toHaveBeenCalled();
   });
 
   it("answers 'unavailable' for thin profiles without calling the provider", async () => {

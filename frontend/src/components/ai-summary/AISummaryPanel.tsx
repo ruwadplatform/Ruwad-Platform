@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
@@ -24,14 +24,29 @@ export interface AISummaryEntity {
 
 const FOCUSABLE = 'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
 
+const stripMarkers = (t: string) => t.replace(/\s*\[W\d+\]/g, "");
+
+/** Text with [W1]-style markers → plain text with small linked reference numbers that open the cited web page. */
+function withCitations(text: string, sources: AiSummaryReady["webSources"]): ReactNode[] {
+  return text.split(/(\[W\d+\])/).map((part, i) => {
+    const m = part.match(/^\[(W\d+)\]$/);
+    if (!m) return part;
+    const n = sources.findIndex((s) => s.id === m[1]);
+    if (n < 0) return null;
+    const s = sources[n];
+    return <sup key={i}><a href={s.url} target="_blank" rel="noopener noreferrer" title={`${s.site} — ${s.title}`} className="ai-cite">[{n + 1}]</a></sup>;
+  });
+}
+
 function plainText(entity: AISummaryEntity, d: AiSummaryReady): string {
   return [
     `${entity.name} — AI summary`,
     "",
-    d.overview,
+    stripMarkers(d.overview),
     "",
-    ...d.highlights.map((h) => `• ${h}`),
+    ...d.highlights.map((h) => `• ${stripMarkers(h)}`),
     "",
+    ...(d.webSources.length ? ["Web sources:", ...d.webSources.map((s, i) => `[${i + 1}] ${s.site} — ${s.url}`), ""] : []),
     `AI-generated from ${d.source.label}${d.source.lastUpdated ? ` (profile updated ${d.source.lastUpdated})` : ""}. Verify before relying on it.`,
   ].join("\n");
 }
@@ -135,12 +150,22 @@ export function AISummaryPanel({ entity }: { entity: AISummaryEntity }) {
         {state.phase === "ready" && (
           <>
             <span className="ai-badge"><RuwadIcon name="sparkle" size={11} /> AI-generated</span>
-            <p className="ai-overview">{state.data.overview}</p>
+            <p className="ai-overview">{withCitations(state.data.overview, state.data.webSources)}</p>
             <h4 className="ai-sub">Key highlights</h4>
-            <ul className="ai-highlights">{state.data.highlights.map((h) => <li key={h}>{h}</li>)}</ul>
+            <ul className="ai-highlights">{state.data.highlights.map((h) => <li key={h}>{withCitations(h, state.data.webSources)}</li>)}</ul>
+            {state.data.webSources.length > 0 && (
+              <>
+                <h4 className="ai-sub">Web sources</h4>
+                <ol className="ai-websources">
+                  {state.data.webSources.map((s, i) => (
+                    <li key={s.id}><span>[{i + 1}]</span> <a href={s.url} target="_blank" rel="noopener noreferrer">{s.site}</a> <span className="muted">— {s.title}</span></li>
+                  ))}
+                </ol>
+              </>
+            )}
             <div className="ai-source small muted">
               <div>
-                Source: {state.data.source.label}
+                Source: {state.data.source.label}{state.data.webSources.length > 0 && ` + ${state.data.webSources.length} public web result${state.data.webSources.length === 1 ? "" : "s"}`}
                 {state.data.source.sources.length > 0 && ` (${state.data.source.sources.join(", ")})`}
                 {state.data.source.confidence && ` · ${state.data.source.confidence} confidence`}
               </div>

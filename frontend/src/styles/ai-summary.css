@@ -48,3 +48,8 @@
 .ai-state h4{color:var(--text);font-size:var(--fs-14)}
 .ai-state p{font-size:var(--fs-13);max-width:34ch;line-height:1.5}
 @media(max-width:520px){.filter-drawer:has(.ai-panel){width:100vw}}
+.ai-cite{color:#1f7488;font-weight:600;text-decoration:none;margin-left:2px}
+.ai-cite:hover{text-decoration:underline}
+.ai-websources{display:flex;flex-direction:column;gap:6px;margin:0 0 18px;padding:0;list-style:none;font-size:var(--fs-12);line-height:1.5}
+.ai-websources a{color:#1f7488;font-weight:600;text-decoration:none}
+.ai-websources a:hover{text-decoration:underline}
