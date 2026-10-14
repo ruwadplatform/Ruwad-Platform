@@ -6,6 +6,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import { AppModule } from "./app.module";
+import { RejectNulBytesPipe, rejectMalformedUrls, resolveTrustProxyHops } from "./common/request-hygiene";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,9 +21,15 @@ async function bootstrap() {
   // still gets blocked client-side because of this. Every other Helmet
   // default (CSP, HSTS, COOP, etc.) stays as-is.
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
+  // Behind Render's proxy the visitor's address arrives in X-Forwarded-For. Without this every request is counted against the balancer's own address
+  // and the per-IP rate limit (100/min) is shared by ALL visitors; with it, each visitor gets their own allowance.
+  const proxyHops = resolveTrustProxyHops({ TRUST_PROXY_HOPS: config.get("TRUST_PROXY_HOPS"), NODE_ENV: config.get("NODE_ENV") });
+  if (proxyHops > 0) (app.getHttpAdapter().getInstance() as { set: (k: string, v: unknown) => void }).set("trust proxy", proxyHops);
+  app.use(rejectMalformedUrls);
   app.use(cookieParser());
   app.setGlobalPrefix("api");
   app.useGlobalPipes(
+    new RejectNulBytesPipe(),
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,

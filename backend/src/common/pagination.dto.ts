@@ -9,6 +9,7 @@ export class PaginationQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100_000) // a page number beyond this overflows the database's OFFSET and used to return a 500
   page?: number = 1;
 
   @IsOptional()

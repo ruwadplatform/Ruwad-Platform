@@ -46,6 +46,7 @@ function signatureMatches(kind: Kind, b: Buffer): boolean {
 
 /** Strips anything that could act as a path or break a header; the result is only ever used as a download name. */
 export function safeFileName(original: string): string {
+  // eslint-disable-next-line no-control-regex -- stripping control characters is the point
   const base = path.basename(original.replace(/\\/g, "/")).replace(/[\u0000-\u001f"<>|:*?]/g, "").trim();
   return base.slice(0, 150) || "document";
 }

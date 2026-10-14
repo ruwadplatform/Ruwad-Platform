@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Controller, Get, Param, ParseUUIDPipe, Post, Res, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiCookieAuth, ApiTags } from "@nestjs/swagger";
 import type { Response } from "express";
@@ -32,7 +32,7 @@ export class UploadsController {
    * once uploaded (a re-upload gets a new id, never overwrites this one),
    * so a long-lived cache header is safe. */
   @Get(":id")
-  async serve(@Param("id") id: string, @Res() res: Response) {
+  async serve(@Param("id", ParseUUIDPipe) id: string, @Res() res: Response) {
     const image = await this.uploadsService.find(id);
     res.setHeader("Content-Type", image.mimeType);
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
