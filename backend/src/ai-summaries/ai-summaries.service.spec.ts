@@ -141,6 +141,16 @@ describe("AiSummariesService", () => {
     expect(cache.upsert).not.toHaveBeenCalled();
   });
 
+  it("shows the failure reason to admins only", async () => {
+    const generate = jest.fn(async () => { throw new ProviderFailureError("Provider error 403", "gemini 403: API key not valid"); });
+    const admin = setup({ generate });
+    await expect(admin.service.get("startups", "gees-health", { admin: true })).rejects.toMatchObject({ response: { detail: "gemini 403: API key not valid" } });
+    const member = setup({ generate });
+    const err = await member.service.get("startups", "gees-health").catch((e) => e);
+    expect(err).toBeInstanceOf(ServiceUnavailableException);
+    expect(JSON.stringify(err.getResponse())).not.toContain("API key");
+  });
+
   it("maps a not-configured error raised mid-flight to 'unavailable'", async () => {
     const { service } = setup({ generate: jest.fn(async () => { throw new ProviderNotConfiguredError("no key"); }) });
     expect(await service.get("startups", "gees-health")).toMatchObject({ status: "unavailable", reason: "provider_not_configured" });

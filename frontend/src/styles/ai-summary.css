@@ -53,3 +53,7 @@
 .ai-websources{display:flex;flex-direction:column;gap:6px;margin:0 0 18px;padding:0;list-style:none;font-size:var(--fs-12);line-height:1.5}
 .ai-websources a{color:#1f7488;font-weight:600;text-decoration:none}
 .ai-websources a:hover{text-decoration:underline}
+.ai-detail{font-family:var(--font-mono);font-size:var(--fs-12);text-align:left;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-xs);padding:8px 10px;max-width:100%;overflow-wrap:anywhere;color:var(--text)}
+/* the logo box is only sized inside .data-table elsewhere; give it a fixed size in the panel header */
+.ai-panel-org .row-logo{width:40px;height:40px;border-radius:var(--radius-card);background:var(--green-tint);color:var(--green-dark);display:flex;align-items:center;justify-content:center;font-size:var(--fs-12);font-weight:600;overflow:hidden}
+.ai-panel-org .row-logo img{width:100%;height:100%;object-fit:contain}

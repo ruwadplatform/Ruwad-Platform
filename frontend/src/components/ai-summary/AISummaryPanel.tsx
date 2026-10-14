@@ -131,6 +131,7 @@ export function AISummaryPanel({ entity }: { entity: AISummaryEntity }) {
             <RuwadIcon name="help" size={26} />
             <h4>Summary unavailable</h4>
             <p>{state.message}</p>
+            {state.detail && <p className="ai-detail"><b>Admin detail:</b> {state.detail}</p>}
             <button className="btn btn-outline btn-sm" onClick={state.retry}>Retry</button>
           </div>
         )}

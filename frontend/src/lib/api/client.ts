@@ -20,6 +20,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Extra diagnostic text the server only sends to admins. */
+    public detail?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -37,13 +39,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     let message = res.statusText || `Request failed (${res.status})`;
+    let detail: string | undefined;
     try {
       const body = await res.json();
       if (body?.message) message = Array.isArray(body.message) ? body.message.join(", ") : body.message;
+      if (typeof body?.detail === "string") detail = body.detail;
     } catch {
       // response had no JSON body — keep the status-text fallback
     }
-    throw new ApiError(res.status, message);
+    throw new ApiError(res.status, message, detail);
   }
 
   if (res.status === 204) return undefined as T;

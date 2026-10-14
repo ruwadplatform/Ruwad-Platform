@@ -68,7 +68,7 @@ export class AiSummariesService {
     this.maxPerHour = Number(config.get<string>("AI_SUMMARY_MAX_GENERATIONS_PER_HOUR")) || 200;
   }
 
-  async get(typeParam: string, idParam: string): Promise<AiSummaryResponse> {
+  async get(typeParam: string, idParam: string, opts: { admin?: boolean } = {}): Promise<AiSummaryResponse> {
     if (!isSummaryEntityType(typeParam)) throw new BadRequestException("Unsupported entity type.");
     if (!SAFE_ID.test(idParam)) throw new BadRequestException("Invalid identifier.");
     const type = typeParam;
@@ -100,7 +100,11 @@ export class AiSummariesService {
       generated = await pending;
     } catch (e) {
       if (e instanceof ProviderNotConfiguredError) return { status: "unavailable", entityType: type, name: loaded.name, reason: "provider_not_configured" };
-      if (e instanceof ProviderFailureError) throw new ServiceUnavailableException("The AI summary could not be generated right now. Please try again.");
+      if (e instanceof ProviderFailureError) {
+        const message = "The AI summary could not be generated right now. Please try again.";
+        // Admins also get the secret-free reason, so a misconfigured key/model is diagnosable without reading server logs.
+        throw new ServiceUnavailableException(opts.admin ? { statusCode: 503, error: "Service Unavailable", message, detail: e.detail } : message);
+      }
       this.logger.error(`AI summary failed: ${(e as Error).message}`);
       throw new ServiceUnavailableException("The AI summary could not be generated right now. Please try again.");
     }

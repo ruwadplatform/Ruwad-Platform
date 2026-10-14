@@ -65,6 +65,21 @@ describe("Gemini calls", () => {
     await expect(new AiSummaryGenerator(cfg({ GEMINI_API_KEY: "k" })).generate("startups", facts)).rejects.toBeInstanceOf(ProviderFailureError);
   });
 
+  it("explains an HTTP failure in a secret-free detail (status + Google's message)", async () => {
+    global.fetch = jest.fn(async () => ({ ok: false, status: 403, json: async () => ({ error: { message: "API key not valid AIzaSyABCDEFGHIJKLMNOPQRSTUVWXYZ0123 for this project" } }) }) as unknown as Response) as never;
+    const err = await new AiSummaryGenerator(cfg({ GEMINI_API_KEY: "k" })).generate("startups", facts).catch((e) => e);
+    expect(err).toBeInstanceOf(ProviderFailureError);
+    expect(err.detail).toContain("gemini 403");
+    expect(err.detail).toContain("API key not valid");
+    expect(err.detail).not.toContain("AIza");
+  });
+
+  it("reports which rule the text broke when validation fails twice", async () => {
+    global.fetch = jest.fn(async () => geminiResponse("not json at all")) as never;
+    const err = await new AiSummaryGenerator(cfg({ GEMINI_API_KEY: "k" })).generate("startups", facts).catch((e) => e);
+    expect(err.detail).toMatch(/gemini output rejected twice/);
+  });
+
   it("gives up with ProviderFailureError when the model keeps breaking the rules", async () => {
     global.fetch = jest.fn(async () => geminiResponse("not json at all")) as never;
     await expect(new AiSummaryGenerator(cfg({ GEMINI_API_KEY: "k" })).generate("startups", facts)).rejects.toBeInstanceOf(ProviderFailureError);

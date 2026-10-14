@@ -15,7 +15,13 @@ export interface GeneratedSummary { overview: string; highlights: string[] }
 
 export class ProviderNotConfiguredError extends Error {}
 /** The provider timed out, rate-limited us, errored, or returned text that failed validation twice. */
-export class ProviderFailureError extends Error {}
+export class ProviderFailureError extends Error {
+  /** Short, secret-free reason (provider + HTTP status/message, or which rule the text broke). Shown only to admins. */
+  constructor(message: string, readonly detail: string = message) { super(message); }
+}
+
+/** Provider error text can be echoed back to an admin, so strip anything shaped like an API key first. */
+const redact = (s: string) => s.replace(/AIza[0-9A-Za-z_-]{20,}/g, "[key]").replace(/sk-[A-Za-z0-9_-]{16,}/g, "[key]").replace(/\s+/g, " ").trim().slice(0, 220);
 
 const SYSTEM_RULES = `You write a short, factual summary of ONE organization for investors and ecosystem professionals on RUWĀD, a Saudi and MENA healthcare innovation platform.
 Return ONLY a JSON object, no markdown fences, exactly in this shape:
@@ -77,7 +83,7 @@ export class AiSummaryGenerator {
       lastProblem = problem ?? "invalid";
       this.logger.warn(`AI summary rejected (attempt ${attempt + 1}): ${lastProblem}`);
     }
-    throw new ProviderFailureError(`Generated text failed validation: ${lastProblem}`);
+    throw new ProviderFailureError(`Generated text failed validation: ${lastProblem}`, redact(`${this.provider} output rejected twice: ${lastProblem}`));
   }
 
   private async call(type: SummaryEntityType, data: string, correction?: string): Promise<string> {
@@ -87,8 +93,9 @@ export class AiSummaryGenerator {
       return this.provider === "gemini" ? await this.callGemini(system, user) : await this.callAnthropic(system, user);
     } catch (e) {
       const status = (e as { status?: number }).status;
+      const providerMessage = (e as { providerMessage?: string }).providerMessage ?? (this.provider === "anthropic" ? (e as Error).message : "");
       this.logger.warn(`AI summary provider call failed (${this.provider}: ${status ?? (e as Error).name ?? "no status"})`);
-      throw new ProviderFailureError(`Provider error${status ? ` ${status}` : ""}`);
+      throw new ProviderFailureError(`Provider error${status ? ` ${status}` : ""}`, redact(`${this.provider} ${status ?? (e as Error).name ?? "error"}${providerMessage ? `: ${providerMessage}` : ""}`));
     }
   }
 
@@ -112,7 +119,11 @@ export class AiSummaryGenerator {
         }),
         signal: ctrl.signal,
       });
-      if (!res.ok) throw Object.assign(new Error("Gemini request failed"), { status: res.status });
+      if (!res.ok) {
+        let providerMessage = "";
+        try { providerMessage = String(((await res.json()) as { error?: { message?: string } })?.error?.message ?? ""); } catch { /* body was not JSON */ }
+        throw Object.assign(new Error("Gemini request failed"), { status: res.status, providerMessage });
+      }
       const body = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
       return (body.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join(" ").trim();
     } finally {

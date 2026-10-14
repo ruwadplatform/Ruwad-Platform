@@ -8,7 +8,7 @@ export type AiSummaryState =
   | { phase: "loading" }
   | { phase: "ready"; data: AiSummaryReady }
   | { phase: "unavailable"; reason: "insufficient_data" | "provider_not_configured" }
-  | { phase: "error"; message: string };
+  | { phase: "error"; message: string; detail?: string };
 
 /** Summaries already fetched in this tab, so re-opening the same organization is instant. The server keeps the durable cache and
  * decides when a summary is stale; this only avoids a round trip while the page is open. */
@@ -41,7 +41,7 @@ export function useAISummary(type: AiSummaryEntityType, id: string): AiSummarySt
         if (r.status === "ready") { memory.set(keyOf(type, id), r); setOutcome({ key: requestKey, state: { phase: "ready", data: r } }); }
         else setOutcome({ key: requestKey, state: { phase: "unavailable", reason: r.reason } });
       },
-      (e: unknown) => { if (!cancelled) setOutcome({ key: requestKey, state: { phase: "error", message: messageFor(e) } }); },
+      (e: unknown) => { if (!cancelled) setOutcome({ key: requestKey, state: { phase: "error", message: messageFor(e), detail: e instanceof ApiError ? e.detail : undefined } }); },
     );
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
