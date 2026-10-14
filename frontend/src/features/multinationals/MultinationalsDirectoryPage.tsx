@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { AISummaryButton } from "@/components/ai-summary/AISummaryButton";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { FilterGroup, GuestAdvancedFilterGate } from "@/components/shared/FilterGroup";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
@@ -133,6 +134,7 @@ function MncGridCard({ m }: { m: Multinational }) {
     <EntityCard
       href={`/multinationals/${m.id}`} logo={m.logo} logoUrl={m.logoUrl} logoStyle={{ background: "var(--navy-900)", color: "#fff" }}
       name={m.name} subtitle={`${m.hq} · ${m.category}`} desc={m.tagline} kind="multinationals" id={m.id}
+      aiSummary={{ type: "multinationals", id: m.id, name: m.name, logo: m.logo, logoUrl: m.logoUrl, sector: m.category, headquarters: m.hq }}
       meta={<><span className="tag">{m.menaPresence.saudiOffice ? "Saudi Presence" : "No Saudi Presence"}</span><span className="tag">{m.products.length} products</span></>}
       foot={<span className="small muted">{m.employees.toLocaleString()} employees</span>}
     />
@@ -169,7 +171,10 @@ function MncRow({ m }: { m: Multinational }) {
       <td><span className={`badge ${m.menaPresence.saudiOffice ? "badge-good" : "badge-neutral"}`}>{m.menaPresence.saudiOffice ? "Yes" : "No"}</span></td>
       <td className="cell-sub">{m.website}</td>
       <td onClick={(e) => e.stopPropagation()}>
-        <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("multinationals", m.id)}><RuwadIcon name="star" size={16} /></button>
+        <div className="row-actions">
+          <AISummaryButton entity={{ type: "multinationals", id: m.id, name: m.name, logo: m.logo, logoUrl: m.logoUrl, sector: m.category, headquarters: m.hq }} />
+          <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("multinationals", m.id)}><RuwadIcon name="star" size={16} /></button>
+        </div>
       </td>
     </tr>
   );

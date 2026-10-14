@@ -19,6 +19,7 @@ import "@/styles/dataroom.css";
 import "@/styles/landscape.css";
 import "@/styles/marketmap.css";
 import "@/styles/gating.css";
+import "@/styles/ai-summary.css";
 import "@/styles/responsive.css";
 import { ModalProvider } from "@/components/shell/ModalProvider";
 import { FilterDrawerProvider } from "@/components/shell/FilterDrawerProvider";

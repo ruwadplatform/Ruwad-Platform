@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { AISummaryButton } from "@/components/ai-summary/AISummaryButton";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { FilterGroup, GuestAdvancedFilterGate } from "@/components/shared/FilterGroup";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
@@ -192,6 +193,7 @@ function StartupGridCard({ s }: { s: Startup }) {
     <EntityCard
       href={`/startups/${s.id}`} logo={s.logo} logoUrl={s.logoUrl} name={s.name} subtitle={`${s.city} · ${s.category}`} desc={s.tagline}
       kind="startups" id={s.id}
+      aiSummary={{ type: "startups", id: s.id, name: s.name, logo: s.logo, logoUrl: s.logoUrl, sector: s.category, headquarters: s.city }}
       meta={<><span className={`badge ${regBadgeClass(s.regulatory.sfda)}`}>{s.regulatory.sfda}</span><span className="tag">{s.stage}</span></>}
       foot={<><span className="escore">{s.ruwadScore != null ? s.ruwadScore.toFixed(1) : "—"}</span><span className="small muted">RUWĀD Score</span></>}
     />
@@ -233,7 +235,10 @@ function StartupRow({ s }: { s: Startup }) {
       <td className="score">{s.ruwadScore != null ? s.ruwadScore.toFixed(1) : "—"}</td>
       <td className="cell-sub">{s.provenance.lastUpdated}</td>
       <td onClick={(e) => e.stopPropagation()}>
-        <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("startups", s.id)}><RuwadIcon name="star" size={16} /></button>
+        <div className="row-actions">
+          <AISummaryButton entity={{ type: "startups", id: s.id, name: s.name, logo: s.logo, logoUrl: s.logoUrl, sector: s.category, headquarters: s.city }} />
+          <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("startups", s.id)}><RuwadIcon name="star" size={16} /></button>
+        </div>
       </td>
     </tr>
   );

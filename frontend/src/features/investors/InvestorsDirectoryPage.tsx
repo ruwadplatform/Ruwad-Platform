@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { AISummaryButton } from "@/components/ai-summary/AISummaryButton";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { FilterGroup, GuestAdvancedFilterGate } from "@/components/shared/FilterGroup";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
@@ -140,6 +141,7 @@ function InvestorGridCard({ v }: { v: Investor }) {
     <EntityCard
       href={`/investors/${v.id}`} logo={v.logo} logoUrl={v.logoUrl} logoStyle={{ background: "var(--navy-900)", color: "#fff" }}
       name={v.name} subtitle={`${v.city} · ${v.type}`} desc={v.desc} kind="investors" id={v.id}
+      aiSummary={{ type: "investors", id: v.id, name: v.name, logo: v.logo, logoUrl: v.logoUrl, sector: v.type, headquarters: v.city }}
       meta={<><span className="tag">{v.ticket}</span><span className="tag">{v.hcFocus.length} focus areas</span></>}
       foot={<span className="small muted">{v.portfolio.length} in portfolio</span>}
     />
@@ -176,7 +178,10 @@ function InvestorRow({ v }: { v: Investor }) {
       <td className="mono">{v.portfolio.length}</td>
       <td className="cell-sub">{v.recentDeals[0]?.startup || "—"}</td>
       <td onClick={(e) => e.stopPropagation()}>
-        <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("investors", v.id)}><RuwadIcon name="star" size={16} /></button>
+        <div className="row-actions">
+          <AISummaryButton entity={{ type: "investors", id: v.id, name: v.name, logo: v.logo, logoUrl: v.logoUrl, sector: v.type, headquarters: v.city }} />
+          <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("investors", v.id)}><RuwadIcon name="star" size={16} /></button>
+        </div>
       </td>
     </tr>
   );

@@ -3,6 +3,7 @@ import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { accountKey, resolveClientIp } from "./common/rate-limit-keys";
+import { AiSummariesModule } from "./ai-summaries/ai-summaries.module";
 import { DatabaseModule } from "./database/database.module";
 import { HealthModule } from "./health/health.module";
 import { ActivityModule } from "./activity/activity.module";
@@ -76,6 +77,7 @@ import { MlDataModule } from "./ml-data/ml-data.module";
     ResumeParseModule,
     DataRoomModule,
     AnalyticsModule,
+    AiSummariesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

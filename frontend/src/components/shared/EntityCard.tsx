@@ -4,6 +4,8 @@ import Link from "next/link";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { useIsSaved, useToggleSaved } from "@/hooks/use-store";
+import { AISummaryButton } from "@/components/ai-summary/AISummaryButton";
+import type { AISummaryEntity } from "@/components/ai-summary/AISummaryPanel";
 import type { WatchlistKind } from "@/lib/store";
 import type { ReactNode } from "react";
 
@@ -14,7 +16,7 @@ import type { ReactNode } from "react";
  * tag+tag+portfolio-count), so those two slots are the only parameterized
  * parts — not force-abstracted beyond what's already byte-identical. */
 export function EntityCard({
-  href, logo, logoUrl, logoStyle, name, subtitle, desc, meta, foot, kind, id,
+  href, logo, logoUrl, logoStyle, name, subtitle, desc, meta, foot, kind, id, aiSummary,
 }: {
   href: string;
   logo: string;
@@ -29,6 +31,8 @@ export function EntityCard({
   foot: ReactNode;
   kind: WatchlistKind;
   id: string;
+  /** When set, the card shows a compact "AI Summary" button before the bookmark star. */
+  aiSummary?: AISummaryEntity;
 }) {
   const saved = useIsSaved(kind, id);
   const toggleSaved = useToggleSaved();
@@ -38,12 +42,15 @@ export function EntityCard({
       <div className="entity-card-top">
         <OrganizationLogo logo={logo} logoUrl={logoUrl} className="elogo avatar avatar-sq" style={{ width: 38, height: 38, ...logoStyle }} />
         <div className="etitle"><b>{name}</b><span>{subtitle}</span></div>
-        <button
-          className={`save-star${saved ? " saved" : ""}`}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleSaved(kind, id); }}
-        >
-          <RuwadIcon name="star" size={15} />
-        </button>
+        <div className="card-actions">
+          {aiSummary && <AISummaryButton entity={aiSummary} compact />}
+          <button
+            className={`save-star${saved ? " saved" : ""}`}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleSaved(kind, id); }}
+          >
+            <RuwadIcon name="star" size={15} />
+          </button>
+        </div>
       </div>
       <div className="edesc">{desc}</div>
       <div className="emeta">{meta}</div>

@@ -1,0 +1,50 @@
+/* ============ AI SUMMARY ============
+   "AI Summary" button on directory rows/cards + the right-hand slide-over it opens.
+   Uses the app's own tokens; the brand accent (#45AEC8) is used only for the sparkle and focus/hover cues. */
+.ai-summary-btn{
+  position:relative;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;flex:none;
+  background:#fff;color:var(--text);border:1px solid var(--border-strong);border-radius:var(--radius-input);
+  font-size:var(--fs-12);font-weight:600;white-space:nowrap;cursor:pointer;
+  transition:border-color .12s ease,background-color .12s ease;
+}
+.ai-summary-btn svg{color:#45AEC8}
+.ai-summary-btn:hover{border-color:#45AEC8;background:rgba(69,174,200,.08)}
+.ai-summary-btn:focus-visible{outline:2px solid #45AEC8;outline-offset:2px}
+/* icon-only: grid cards always; table rows on tablet/mobile */
+.ai-summary-btn--icon{width:28px;padding:0;justify-content:center}
+.ai-summary-btn--icon .ai-summary-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+@media(max-width:1100px){
+  .ai-summary-btn{width:28px;padding:0;justify-content:center}
+  .ai-summary-btn .ai-summary-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+}
+.row-actions{display:flex;align-items:center;gap:6px}
+.card-actions{display:flex;align-items:center;gap:4px;flex:none}
+
+/* the shared drawer is 360px; the AI panel needs 420-480px (full width on phones) */
+.filter-drawer:has(.ai-panel){width:min(460px,100vw);overflow-x:hidden}
+.ai-panel{display:flex;flex-direction:column;min-height:100%;animation:aiPanelIn .22s ease-out}
+@keyframes aiPanelIn{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){.ai-panel{animation:none}}
+.ai-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border)}
+.ai-panel-head h3{display:flex;align-items:center;gap:8px;font-size:var(--fs-16)}
+.ai-panel-head .ai-ico{color:#45AEC8}
+.ai-panel-org{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);background:var(--bg-2)}
+.ai-panel-org .row-logo{flex:none}
+.ai-org-name{font-weight:600;font-size:var(--fs-14);overflow-wrap:anywhere}
+.ai-panel-body{flex:1;padding:18px 20px 12px}
+.ai-badge{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-11);font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#1f7488;background:rgba(69,174,200,.14);border-radius:var(--radius-xs);padding:3px 8px;margin-bottom:12px}
+.ai-overview{font-size:var(--fs-14);line-height:1.65;color:var(--text);margin-bottom:16px}
+.ai-sub{font-size:var(--fs-12);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px}
+.ai-highlights{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.ai-highlights li{position:relative;padding-left:16px;font-size:var(--fs-13);line-height:1.55}
+.ai-highlights li::before{content:"";position:absolute;left:0;top:.6em;width:6px;height:6px;border-radius:1px;background:#45AEC8}
+.ai-source{border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:3px;line-height:1.5}
+.ai-panel-foot{position:sticky;bottom:0;display:flex;gap:10px;padding:12px 20px;background:#fff;border-top:1px solid var(--border)}
+.ai-panel-foot .btn{flex:1}
+.ai-skeleton{display:flex;flex-direction:column;gap:10px}
+.ai-skeleton .skel{display:block;height:12px}
+.ai-skeleton-points{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.ai-state{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:36px 12px;color:var(--muted)}
+.ai-state h4{color:var(--text);font-size:var(--fs-14)}
+.ai-state p{font-size:var(--fs-13);max-width:34ch;line-height:1.5}
+@media(max-width:520px){.filter-drawer:has(.ai-panel){width:100vw}}

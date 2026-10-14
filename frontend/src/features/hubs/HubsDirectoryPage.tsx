@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EntityCard } from "@/components/shared/EntityCard";
+import { AISummaryButton } from "@/components/ai-summary/AISummaryButton";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { FilterGroup, GuestAdvancedFilterGate } from "@/components/shared/FilterGroup";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
@@ -128,6 +129,7 @@ function HubGridCard({ h }: { h: Hub }) {
     <EntityCard
       href={`/hubs/${h.id}`} logo={h.logo} logoUrl={h.logoUrl} logoStyle={{ background: "var(--navy-800)", color: "#fff" }}
       name={h.name} subtitle={`${h.city} · ${h.type}`} desc={h.desc} kind="hubs" id={h.id}
+      aiSummary={{ type: "hubs", id: h.id, name: h.name, logo: h.logo, logoUrl: h.logoUrl, sector: h.type, headquarters: h.city }}
       meta={<><span className={`badge ${h.status === "Open" ? "badge-good" : "badge-neutral"}`}>{h.status}</span><span className="tag">{h.programs.length} program{h.programs.length === 1 ? "" : "s"}</span></>}
       foot={<span className="small muted">{h.portfolio.length} companies supported</span>}
     />
@@ -165,7 +167,10 @@ function HubRow({ h }: { h: Hub }) {
       <td className="cell-sub">{h.website}</td>
       <td className="cell-sub">{h.provenance.lastUpdated}</td>
       <td onClick={(e) => e.stopPropagation()}>
-        <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("hubs", h.id)}><RuwadIcon name="star" size={16} /></button>
+        <div className="row-actions">
+          <AISummaryButton entity={{ type: "hubs", id: h.id, name: h.name, logo: h.logo, logoUrl: h.logoUrl, sector: h.type, headquarters: h.city }} />
+          <button className={`save-star${saved ? " saved" : ""}`} onClick={() => toggleSaved("hubs", h.id)}><RuwadIcon name="star" size={16} /></button>
+        </div>
       </td>
     </tr>
   );
