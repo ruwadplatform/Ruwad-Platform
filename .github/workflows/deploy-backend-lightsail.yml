@@ -1,0 +1,98 @@
+name: Deploy backend to AWS Lightsail
+
+# Builds the backend image and deploys it to the `ruwad-backend` Lightsail container service (Sydney).
+# AWS access is keyless: GitHub issues a short-lived OIDC token that only the `master` branch of this repository can exchange for the
+# `ruwad-github-deploy` role (see infra/aws/). No AWS keys are stored in GitHub.
+# Runtime settings (database URL, API keys, …) live on the Lightsail service itself. Each deployment copies them from the current
+# deployment and only swaps the image, so no secret is ever stored in this repository or printed in these logs.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "backend/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".dockerignore"
+      - ".github/workflows/deploy-backend-lightsail.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: lightsail-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-2
+  SERVICE: ruwad-backend
+  ROLE_ARN: arn:aws:iam::699475958979:role/ruwad-github-deploy
+  CONTAINER_PORT: "4000"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build image
+        run: docker build -f backend/Dockerfile -t ruwad-backend:${{ github.sha }} .
+
+      - name: Install lightsailctl (needed to push images)
+        run: |
+          sudo curl -fsSL "https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl" -o /usr/local/bin/lightsailctl
+          sudo chmod +x /usr/local/bin/lightsailctl
+
+      - name: Push image to Lightsail
+        id: push
+        run: |
+          out=$(aws lightsail push-container-image --service-name "$SERVICE" --label api --image "ruwad-backend:${{ github.sha }}" 2>&1)
+          echo "$out" | tail -n 3
+          ref=$(echo "$out" | grep -oE ':[A-Za-z0-9._-]+\.api\.[0-9]+' | tail -n 1)
+          test -n "$ref" || { echo "could not read the pushed image reference"; exit 1; }
+          echo "image=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy (reuse the service's current settings, swap the image)
+        id: deploy
+        run: |
+          set -euo pipefail
+          aws lightsail get-container-service-deployments --service-name "$SERVICE" --query 'deployments[0]' --output json > current.json
+          # Never let a setting value reach the log, even by accident.
+          jq -r '.containers[]?.environment // {} | to_entries[] | .value' current.json | while IFS= read -r v; do [ "${#v}" -ge 8 ] && echo "::add-mask::$v"; done || true
+          jq --arg img "${{ steps.push.outputs.image }}" --arg port "$CONTAINER_PORT" \
+            '{ app: { image: $img, environment: (.containers | to_entries[0].value.environment // {}), ports: { ($port): "HTTP" } } }' current.json > containers.json
+          jq -n --argjson port "$CONTAINER_PORT" \
+            '{ containerName: "app", containerPort: $port, healthCheck: { healthyThreshold: 2, unhealthyThreshold: 5, timeoutSeconds: 10, intervalSeconds: 30, path: "/api/health", successCodes: "200-399" } }' > endpoint.json
+          version=$(aws lightsail create-container-service-deployment --service-name "$SERVICE" --containers file://containers.json --public-endpoint file://endpoint.json --query 'containerService.nextDeployment.version' --output text)
+          rm -f current.json containers.json endpoint.json
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Created deployment version $version"
+
+      - name: Wait until the new version is live and healthy
+        run: |
+          set -euo pipefail
+          want="${{ steps.deploy.outputs.version }}"
+          for i in $(seq 1 60); do
+            state=$(aws lightsail get-container-service-deployments --service-name "$SERVICE" --query "deployments[?version==\`$want\`].state | [0]" --output text)
+            echo "deployment $want: $state"
+            if [ "$state" = "ACTIVE" ]; then break; fi
+            if [ "$state" = "FAILED" ]; then echo "Deployment failed — the previous version keeps serving."; aws lightsail get-container-log --service-name "$SERVICE" --container-name app --query 'logEvents[-20:].message' --output text || true; exit 1; fi
+            sleep 20
+          done
+          [ "$state" = "ACTIVE" ] || { echo "Timed out waiting for the deployment"; exit 1; }
+          url=$(aws lightsail get-container-services --service-name "$SERVICE" --query 'containerServices[0].url' --output text)
+          for i in $(seq 1 10); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "${url}api/health" || true)
+            echo "health check: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          echo "Service did not answer /api/health with 200"; exit 1

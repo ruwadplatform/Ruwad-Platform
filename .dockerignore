@@ -1,0 +1,18 @@
+# Keep the Docker build context small and free of secrets / local data.
+**/node_modules
+**/.next
+**/dist
+.git
+.github
+frontend
+!frontend/package.json
+ml
+data
+docs
+supabase
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+backend/pglog.txt
+backend/scripts/seed-real-directory-entities.js
