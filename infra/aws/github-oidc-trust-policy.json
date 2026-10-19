@@ -9,7 +9,7 @@
       "Condition": {
         "StringEquals": {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
-          "token.actions.githubusercontent.com:sub": "repo:ruwadplatform/Ruwad-Platform:ref:refs/heads/master"
+          "token.actions.githubusercontent.com:sub": "repo:ruwadplatform@329062619/Ruwad-Platform@1369738545:ref:refs/heads/master"
         }
       }
     }

@@ -2,7 +2,7 @@ name: Deploy backend to AWS Lightsail
 
 # Builds the backend image and deploys it to the `ruwad-backend` Lightsail container service (Sydney).
 # AWS access is keyless: GitHub issues a short-lived OIDC token that only the `master` branch of this repository can exchange for the
-# `ruwad-github-deploy` role (see infra/aws/). No AWS keys are stored in GitHub.
+# `ruwad-github-deploy` role (see infra/aws/; the trust policy pins GitHub's immutable owner/repo IDs, not just the names). No AWS keys are stored in GitHub.
 # Runtime settings (database URL, API keys, …) live on the Lightsail service itself. Each deployment copies them from the current
 # deployment and only swaps the image, so no secret is ever stored in this repository or printed in these logs.
 
@@ -37,14 +37,6 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-
-      - name: Show OIDC claims (diagnostic — claims only, never the token)
-        continue-on-error: true
-        run: |
-          t=$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r .value)
-          echo "::add-mask::$t"
-          claims=$(python3 -c "import sys,json,base64; p=sys.argv[1].split('.')[1]; p+='='*(-len(p)%4); d=json.loads(base64.urlsafe_b64decode(p)); print(json.dumps({k:d.get(k) for k in ('sub','aud','ref','repository','repository_owner','iss')}))" "$t")
-          echo "::notice title=oidc-claims::$claims"
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
