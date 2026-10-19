@@ -68,16 +68,17 @@ jobs:
       - name: Deploy (reuse the service's current settings, swap the image)
         id: deploy
         run: |
-          set -euo pipefail
-          aws lightsail get-container-service-deployments --service-name "$SERVICE" --query 'deployments[0]' --output json > current.json
+          set -uo pipefail
+          # Error text comes only from the AWS CLI (never from jq, which could echo settings values) and is cut short.
+          fail() { echo "::error title=deploy failed::$1"; exit 1; }
+          awserr() { tr -s '[:space:]' ' ' < aws.err | cut -c1-400; }
+          aws lightsail get-container-service-deployments --service-name "$SERVICE" --query 'deployments[0]' --output json > current.json 2> aws.err || fail "reading the current deployment: $(awserr)"
           # Never let a setting value reach the log, even by accident.
-          jq -r '.containers[]?.environment // {} | to_entries[] | .value' current.json | while IFS= read -r v; do [ "${#v}" -ge 8 ] && echo "::add-mask::$v"; done || true
-          jq --arg img "${{ steps.push.outputs.image }}" --arg port "$CONTAINER_PORT" \
-            '{ app: { image: $img, environment: (.containers | to_entries[0].value.environment // {}), ports: { ($port): "HTTP" } } }' current.json > containers.json
-          jq -n --argjson port "$CONTAINER_PORT" \
-            '{ containerName: "app", containerPort: $port, healthCheck: { healthyThreshold: 2, unhealthyThreshold: 5, timeoutSeconds: 10, intervalSeconds: 30, path: "/api/health", successCodes: "200-399" } }' > endpoint.json
-          version=$(aws lightsail create-container-service-deployment --service-name "$SERVICE" --containers file://containers.json --public-endpoint file://endpoint.json --query 'containerService.nextDeployment.version' --output text)
-          rm -f current.json containers.json endpoint.json
+          jq -r '.containers[]?.environment // {} | to_entries[] | .value' current.json 2>/dev/null | while IFS= read -r v; do [ "${#v}" -ge 8 ] && echo "::add-mask::$v"; done || true
+          jq --arg img "${{ steps.push.outputs.image }}" --arg port "$CONTAINER_PORT"             '{ app: { image: $img, environment: (.containers | to_entries[0].value.environment // {}), ports: { ($port): "HTTP" } } }' current.json > containers.json 2>/dev/null || fail "could not build the containers definition (jq)"
+          jq -n --argjson port "$CONTAINER_PORT"             '{ containerName: "app", containerPort: $port, healthCheck: { healthyThreshold: 2, unhealthyThreshold: 5, timeoutSeconds: 10, intervalSeconds: 30, path: "/api/health", successCodes: "200-399" } }' > endpoint.json 2>/dev/null || fail "could not build the endpoint definition (jq)"
+          version=$(aws lightsail create-container-service-deployment --service-name "$SERVICE" --containers file://containers.json --public-endpoint file://endpoint.json --query 'containerService.nextDeployment.version' --output text 2> aws.err) || fail "creating the deployment: $(awserr)"
+          rm -f current.json containers.json endpoint.json aws.err
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Created deployment version $version"
 
