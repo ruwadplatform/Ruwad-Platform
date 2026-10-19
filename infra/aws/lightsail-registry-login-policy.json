@@ -1,0 +1,11 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RegistryLoginForImagePush",
+      "Effect": "Allow",
+      "Action": "lightsail:CreateContainerServiceRegistryLogin",
+      "Resource": "arn:aws:lightsail:ap-southeast-2:699475958979:*"
+    }
+  ]
+}
