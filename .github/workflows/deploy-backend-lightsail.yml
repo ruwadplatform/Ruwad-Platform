@@ -56,8 +56,7 @@ jobs:
         run: |
           if ! out=$(aws lightsail push-container-image --service-name "$SERVICE" --label api --image "ruwad-backend:${{ github.sha }}" 2>&1); then
             echo "$out" | tail -n 20
-            echo "::error title=push-container-image failed::$(echo "$out" | tail -n 6 | tr '
-' ' ' | cut -c1-600)"
+            echo "::error title=push-container-image failed::$(echo "$out" | tail -n 6 | tr -s '[:space:]' ' ' | cut -c1-600)"
             exit 1
           fi
           echo "$out" | tail -n 3
