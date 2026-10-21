@@ -5,7 +5,7 @@ import Link from "next/link";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession } from "@/hooks/use-store";
 import { useKeyedResource } from "@/hooks/use-async-resource";
@@ -88,10 +88,10 @@ export function MyHistoricalDataPage({ slug }: { slug: string }) {
 
   if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate />;
-  if (loading) return <div>{header}<div className="mt-20"><EmptyState icon="mystartup" title="Loading…" body="" /></div></div>;
-  if (error || loadError) return <div>{header}<div className="mt-20"><EmptyState icon="help" title="Couldn't load this section" body={error ?? loadError ?? ""} /></div></div>;
+  if (loading) return <div>{header}<div className="mt-20"><LoadingState /></div></div>;
+  if (error || loadError) return <div>{header}<div className="mt-20"><ErrorState title="Couldn't load this section" body={error ?? loadError ?? ""} /></div></div>;
   if (!s || !entityId) return <div>{header}<div className="mt-20"><EmptyState icon="mystartup" title="No company linked to your account yet" body="Once your company profile is approved, you can add its history here." /></div></div>;
-  if (!options || !entries) return <div>{header}<div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div></div>;
+  if (!options || !entries) return <div>{header}<div className="mt-20"><LoadingState /></div></div>;
 
   const fields = KIND_FIELDS[kind].filter((f) => !f.showIf || f.showIf(values));
   const missingRequired = fields.some((f) => f.required && !(values[f.name] ?? "").trim());
@@ -110,7 +110,7 @@ export function MyHistoricalDataPage({ slug }: { slug: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">{editing ? "Revise entry" : "Add an entry"}</h3>
+        <h3 className="card-title">{editing ? "Revise entry" : "Add an entry"}</h3>
         {editing?.reviewNotes && <p className="small mb-12" style={{ color: "var(--warn)" }}>RUWĀD asked: {editing.reviewNotes}</p>}
         <div className="field">
           <label>What would you like to add?</label>
@@ -164,7 +164,7 @@ export function MyHistoricalDataPage({ slug }: { slug: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Your entries</h3>
+        <h3 className="card-title">Your entries</h3>
         {entries.length === 0 ? <p className="small muted">Nothing added yet.</p> : (
           <div className="scroll-x">
             <table className="data-table">

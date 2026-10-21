@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useToast } from "@/components/shell/ToastProvider";
 import { fetchExperimentalForStartup, runExperimentalForStartup, type ExperimentalStartupView } from "@/lib/api/experimental-ml";
 import { ApiError } from "@/lib/api/client";
+import { StatCard } from "@/components/shared/StatCard";
 
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong");
 
@@ -54,7 +55,7 @@ export function ExperimentalMlPanel({ startupId }: { startupId: string }) {
   return (
     <div className="panel panel-pad mt-16">
       <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-        <h3 className="fs-13">Experimental ML <span className="badge badge-warn">Experimental</span></h3>
+        <h3 className="card-title">Experimental ML <span className="badge badge-warn">Experimental</span></h3>
         <button className="btn btn-outline btn-sm" disabled={busy || !view?.enabled} onClick={refresh}>Refresh estimate</button>
       </div>
       <p className="small muted mt-8">{EXPERIMENTAL_WARNING}</p>
@@ -66,15 +67,15 @@ export function ExperimentalMlPanel({ startupId }: { startupId: string }) {
       {view && p && (
         <>
           <div className="flex gap-16 mt-12" style={{ alignItems: "center", flexWrap: "wrap" }}>
-            <div className="stat-mini"><div className="sm-label">Experimental funding likelihood estimate</div><div className="sm-val fs-15">{likelihoodBand(p.prediction)}</div></div>
-            <div className="stat-mini"><div className="sm-label">Target</div><div className="sm-val fs-15">New funding round within 6 months</div></div>
+            <StatCard label="Experimental funding likelihood estimate" size={15} value={likelihoodBand(p.prediction)} />
+            <StatCard label="Target" size={15} value="New funding round within 6 months" />
             <div className="stat-mini"><div className="sm-label">Reliability</div><span className="badge badge-neutral">{reliabilityText(p.reliability)}</span></div>
-            <div className="stat-mini"><div className="sm-label">Feature completeness</div><div className="sm-val fs-15">{p.featureCompleteness != null ? `${Math.round(p.featureCompleteness * 100)}%` : "—"}</div></div>
+            <StatCard label="Feature completeness" size={15} value={<>{p.featureCompleteness != null ? `${Math.round(p.featureCompleteness * 100)}%` : "—"}</>} />
           </div>
           <div className="flex gap-16 mt-12" style={{ flexWrap: "wrap" }}>
             <div className="stat-mini"><div className="sm-label">Model</div><div className="sm-val fs-12 mono">{p.modelVersion}</div></div>
-            <div className="stat-mini"><div className="sm-label">Training examples</div><div className="sm-val fs-15">{view.model?.trainingRows ?? "—"}{view.model?.positiveCount != null ? ` (${view.model.positiveCount} funded / ${view.model.negativeCount} not)` : ""}</div></div>
-            <div className="stat-mini"><div className="sm-label">Estimated</div><div className="sm-val fs-15">{new Date(p.predictedAt).toLocaleString()}</div></div>
+            <StatCard label="Training examples" size={15} value={<>{view.model?.trainingRows ?? "—"}{view.model?.positiveCount != null ? ` (${view.model.positiveCount} funded / ${view.model.negativeCount} not)` : ""}</>} />
+            <StatCard label="Estimated" size={15} value={new Date(p.predictedAt).toLocaleString()} />
             <div className="stat-mini"><div className="sm-label">Feature schema</div><div className="sm-val fs-12 mono">{p.featureSchemaVersion ?? "—"}</div></div>
           </div>
           <p className="fs-11 muted mt-12">Raw model output {p.prediction.toFixed(2)} — uncalibrated; the sample is far too small for it to be read as a probability. The model was chosen by hand, not statistically selected.</p>

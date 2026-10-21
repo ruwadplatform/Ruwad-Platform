@@ -11,6 +11,7 @@ import { requireAuth } from "@/lib/store";
 import { useReports } from "@/hooks/use-directory-data";
 import { ReportAdminPanel } from "./ReportAdminPanel";
 import { REPORT_CATEGORIES } from "@/data/reference";
+import { EmptyState, LoadingState } from "@/components/shared/EmptyState";
 
 type SortKey = "newest" | "pages" | "title";
 
@@ -101,11 +102,11 @@ export function ReportsDirectoryPage() {
 
       <SectionHeader title="Latest Intelligence" />
       {loading ? (
-        <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading reports…</h4></div>
+        <LoadingState title="Loading reports…" />
       ) : !REPORTS.length ? (
-        <div className="empty-state"><RuwadIcon name="reports" size={30} /><h4>No reports are available yet</h4><p>Reports will appear here as soon as they are available.</p></div>
+        <EmptyState icon="reports" title="No reports are available yet" body="Reports will appear here as soon as they are available." />
       ) : !filtered.length ? (
-        <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No reports match those filters</h4><p>Try a different category or search term.</p></div>
+        <EmptyState icon="search" title="No reports match those filters" body="Try a different category or search term." />
       ) : (
         <div className="entity-grid" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))" }}>
           {filtered.map((r) => <ReportCard key={r.id} report={r} />)}

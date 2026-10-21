@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { RuwadIcon, type RuwadIconName } from "@/components/icons/ruwad-icon";
 import { useStartups, useInvestors, useHubs, useResearchInstitutions, useMultinationals } from "@/hooks/use-directory-data";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /** Ported from renderEcosystem() (js/ecosystem.js) — the `.eco-metric-row`
  * + `.category-grid` landing over the five directories, same classes the
@@ -29,10 +30,7 @@ export function EcosystemPage() {
 
   return (
     <div className="ecosystem-page">
-      <div className="page-head">
-        <h2>Saudi Healthcare Ecosystem</h2>
-        <p className="muted small">Explore companies, investors, enablers and institutions shaping healthcare innovation.</p>
-      </div>
+      <PageHeader title="Saudi Healthcare Ecosystem" description="Explore companies, investors, enablers and institutions shaping healthcare innovation." />
       <div className="eco-metric-row">
         <div className="eco-metric"><b className="mono">{STARTUPS.length}</b><span>Startups Tracked</span></div>
         <div className="eco-metric"><b className="mono">{INVESTORS.length}</b><span>Investors Tracked</span></div>
@@ -51,7 +49,7 @@ export function EcosystemPage() {
 
       <div className="panel panel-pad mt-16" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <h3 className="fs-14">See the flagship ecosystem dashboard</h3>
+          <h3 className="card-title">See the flagship ecosystem dashboard</h3>
           <p className="muted small mt-4">Funding, sector and geographic intelligence across the whole ecosystem in one dashboard.</p>
         </div>
         <button className="btn btn-primary" onClick={() => router.push("/analytics/saudi-healthcare-ecosystem")}>

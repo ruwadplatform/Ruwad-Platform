@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { useModal } from "@/components/shell/ModalProvider";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession } from "@/hooks/use-store";
@@ -31,7 +31,7 @@ function ConflictCompareModal({ a, b, onPrefer, onLeave, onCancel }: { a: Histor
   ];
   return (
     <div className="modal-box modal-box-pad">
-      <h3 className="fs-14 mb-12">Evidence Conflict — {a.fieldKey}</h3>
+      <h3 className="card-title">Evidence Conflict — {a.fieldKey}</h3>
       <div className="scroll-x">
         <div style={{ minWidth: 420 }}>
           <div className="cmp-head mb-8" style={{ gridTemplateColumns: "150px 1fr 1fr" }}>
@@ -69,10 +69,10 @@ export function AdminHistoricalConflictsPage() {
   }, [isAdmin]);
   useEffect(load, [load]);
 
-  if (!hydrated) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
+  if (!hydrated) return <div className="mt-20"><LoadingState /></div>;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to review evidence conflicts." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
-  if (error) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load conflicts" body={error} /></div>;
+  if (error) return <div className="mt-20"><ErrorState title="Couldn't load conflicts" body={error} /></div>;
 
   // Group conflicting rows by startup + field + effectiveDate — exactly
   // the key HistoricalEvidenceService uses to detect them.

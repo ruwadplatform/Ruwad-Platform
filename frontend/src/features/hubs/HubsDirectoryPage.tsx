@@ -17,6 +17,8 @@ import { capForGuest } from "@/lib/auth-gate";
 import { useHubs } from "@/hooks/use-directory-data";
 import { HUB_TYPES, HC_CATEGORIES, STAGES } from "@/data/reference";
 import type { Hub } from "@/types/entities";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 
 type ViewMode = "table" | "grid";
 
@@ -78,7 +80,7 @@ export function HubsDirectoryPage() {
 
   return (
     <div className="hubs-page">
-      <div className="page-head"><h2>Hubs &amp; Enablers</h2><p className="muted small">Accelerators, incubators, venture studios and programs supporting Saudi &amp; MENA healthcare startups.</p></div>
+      <PageHeader title="Hubs &amp; Enablers" description="Accelerators, incubators, venture studios and programs supporting Saudi &amp; MENA healthcare startups." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search hubs &amp; enablers" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <button className="btn btn-outline" onClick={openFilters}><RuwadIcon name="filter" size={14} /> Filters</button>
@@ -97,13 +99,13 @@ export function HubsDirectoryPage() {
       <div className="result-count small muted mb-12">{loading ? "Loading hubs…" : `${filtered.length} hub${filtered.length === 1 ? "" : "s"} & enabler${filtered.length === 1 ? "" : "s"}`}</div>
       <div>
         {error ? (
-          <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load hubs</h4><p>{error}</p></div>
+          <ErrorState title="Couldn&apos;t load hubs" body={error} />
         ) : loading ? (
-          <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading hubs…</h4></div>
+          <LoadingState title="Loading hubs…" />
         ) : !HUBS.length ? (
-          <div className="empty-state"><RuwadIcon name="hubs" size={30} /><h4>No hubs or ecosystem enablers available yet</h4><p>Hubs added to the RUWĀD ecosystem will appear here.</p></div>
+          <EmptyState icon="hubs" title="No hubs or ecosystem enablers available yet" body="Hubs added to the RUWĀD ecosystem will appear here." />
         ) : !filtered.length ? (
-          <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No hubs match those filters</h4><p>Try clearing a filter or search term.</p></div>
+          <EmptyState icon="search" title="No hubs match those filters" body="Try clearing a filter or search term." />
         ) : view === "grid" ? (
           <div className="entity-grid">{shown.map((h) => <HubGridCard key={h.id} h={h} />)}</div>
         ) : (

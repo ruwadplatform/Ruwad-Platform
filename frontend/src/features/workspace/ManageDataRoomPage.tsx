@@ -6,7 +6,7 @@ import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useModal } from "@/components/shell/ModalProvider";
@@ -60,9 +60,9 @@ export function ManageDataRoomPage({ slug }: { slug: string }) {
       action={<Link className="btn btn-outline" href={back}>Back to {s?.name ?? "startup"}</Link>}
     />
   );
-  if (loading) return <div className="mystartup-page">{header}<EmptyState icon="doc" title="Loading your Data Room…" body="" /></div>;
-  if (error || !s) return <div className="mystartup-page">{header}<EmptyState icon="help" title="Couldn't load this startup" body={error ?? "It may not exist, or the service is unavailable."} /></div>;
-  if (loadError && !data) return <div className="mystartup-page">{header}<EmptyState icon="help" title="Couldn't open your Data Room" body={loadError} /></div>;
+  if (loading) return <div className="mystartup-page">{header}<LoadingState title="Loading your Data Room…" /></div>;
+  if (error || !s) return <div className="mystartup-page">{header}<ErrorState title="Couldn't load this startup" body={error ?? "It may not exist, or the service is unavailable."} /></div>;
+  if (loadError && !data) return <div className="mystartup-page">{header}<ErrorState title="Couldn't open your Data Room" body={loadError} /></div>;
 
   const files = data?.files ?? [];
   const usage = data?.usage;

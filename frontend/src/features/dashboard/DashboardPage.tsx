@@ -190,7 +190,7 @@ function FeaturedProfiles() {
   if (!items.length) return null;
   return (
     <>
-      <div className="panel-head" style={{ border: "none", padding: "4px 0 12px" }}><h3 className="fs-14">Featured Profiles</h3></div>
+      <div className="panel-head" style={{ border: "none", padding: "4px 0 12px" }}><h3 className="card-title">Featured Profiles</h3></div>
       <div className="featured-row">
         {items.map((x, i) => (
           <Link key={i} href={x.route} className="featured-card">
@@ -214,7 +214,7 @@ function EcosystemSnapshot() {
   const openHubs = HUBS_ENABLERS.filter((h) => h.status === "Open").length;
   return (
     <div className="panel panel-pad mt-32">
-      <h3 className="fs-14" style={{ marginBottom: 4 }}>Ecosystem snapshot</h3>
+      <h3 className="card-title" style={{ marginBottom: 4 }}>Ecosystem snapshot</h3>
       <p className="muted small" style={{ marginBottom: 16 }}>Live counts from RUWĀD&apos;s tracked directories — no trend claims, since there&apos;s no historical data yet to compute one honestly.</p>
       <div className="kpi-row">
         <div className="kpi"><div className="k-label">Tracked Funding</div><div className="k-val fs-16">SAR {trackedFunding.toFixed(1)}M</div><div className="k-delta">{STARTUPS.length} startups</div></div>
@@ -344,7 +344,7 @@ function EcosystemDashboard({ loggedIn }: { loggedIn: boolean }) {
       <div className="intel-center">
         {!hydrated ? (
           <div className="panel panel-pad">
-            <h3 className="fs-14 mb-8">Recommended For You</h3>
+            <h3 className="card-title">Recommended For You</h3>
             <div className="locked-teaser" aria-hidden="true">
               <div className="lt-bars">{[88, 74, 60, 82].map((w, i) => <div key={i} className="lt-bar" style={{ width: `${w}%` }} />)}</div>
             </div>
@@ -353,7 +353,7 @@ function EcosystemDashboard({ loggedIn }: { loggedIn: boolean }) {
           <RecommendedPanels />
         ) : (
           <div className="panel panel-pad">
-            <h3 className="fs-14 mb-8">Recommended For You</h3>
+            <h3 className="card-title">Recommended For You</h3>
             <LockedTeaser
               title="Unlock Personalized Recommendations"
               body="Sign in to see startups and investors recommended based on your interests."

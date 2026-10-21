@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession } from "@/hooks/use-store";
 import { useStartups } from "@/hooks/use-directory-data";
@@ -16,6 +16,7 @@ import { ApiError } from "@/lib/api/client";
 import { REG_MILESTONES_DIGITAL_HEALTH, REG_MILESTONES_MEDICAL_DEVICE, REG_MILESTONES_THERAPEUTIC, MEDICAL_DEVICE_CATEGORIES, THERAPEUTIC_CATEGORIES, TRL_LABELS } from "@/data/reference";
 import type { ScoreFactorKey } from "@/types/entities";
 import { ExperimentalMlPanel } from "./ExperimentalMlPanel";
+import { StatCard } from "@/components/shared/StatCard";
 
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong");
 
@@ -152,11 +153,11 @@ export function AdminStartupScoringPage({ id }: { id: string }) {
     } catch (e) { toast(errText(e)); } finally { setBusy(false); }
   }
 
-  if (!hydrated) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
+  if (!hydrated) return <div className="mt-20"><LoadingState /></div>;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to manage RUWĀD Score data." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
-  if (error) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load scoring data" body={error} /></div>;
-  if (!score || !features) return <div className="mt-20"><EmptyState icon="reports" title="Loading scoring data…" body="" /></div>;
+  if (error) return <div className="mt-20"><ErrorState title="Couldn't load scoring data" body={error} /></div>;
+  if (!score || !features) return <div className="mt-20"><LoadingState title="Loading scoring data…" /></div>;
 
   const groups = fieldsByFactor(startup?.category);
 
@@ -175,11 +176,11 @@ export function AdminStartupScoringPage({ id }: { id: string }) {
 
       <div className="panel panel-pad mt-16">
         <div className="flex gap-16" style={{ alignItems: "center", flexWrap: "wrap" }}>
-          <div className="stat-mini"><div className="sm-label">Score</div><div className="sm-val fs-15">{score.ruwadScore != null ? score.ruwadScore.toFixed(1) : "—"} / 10</div></div>
+          <StatCard label="Score" size={15} value={<>{score.ruwadScore != null ? score.ruwadScore.toFixed(1) : "—"} / 10</>} />
           <div className="stat-mini"><div className="sm-label">Status</div><span className={`badge ${scoreBadgeClass(score.status)}`}>{score.status.replace(/_/g, " ")}</span></div>
-          <div className="stat-mini"><div className="sm-label">Confidence</div><div className="sm-val fs-15">{score.confidenceScore != null ? `${Math.round(score.confidenceScore * 100)}%` : "—"}</div></div>
-          <div className="stat-mini"><div className="sm-label">Version</div><div className="sm-val fs-15">{score.version}</div></div>
-          <div className="stat-mini"><div className="sm-label">Calculated</div><div className="sm-val fs-15">{new Date(score.calculatedAt).toLocaleString()}</div></div>
+          <StatCard label="Confidence" size={15} value={<>{score.confidenceScore != null ? `${Math.round(score.confidenceScore * 100)}%` : "—"}</>} />
+          <StatCard label="Version" size={15} value={score.version} />
+          <StatCard label="Calculated" size={15} value={new Date(score.calculatedAt).toLocaleString()} />
         </div>
       </div>
 
@@ -191,7 +192,7 @@ export function AdminStartupScoringPage({ id }: { id: string }) {
           return (
             <div className="panel panel-pad" key={key}>
               <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                <h3 className="fs-13">{FACTOR_LABELS[key]}</h3>
+                <h3 className="card-title">{FACTOR_LABELS[key]}</h3>
                 <span className="mono small">{f.score != null ? f.score.toFixed(1) : "—"} / 10</span>
               </div>
               <p className="small muted mt-8">{f.reason}</p>
@@ -203,7 +204,7 @@ export function AdminStartupScoringPage({ id }: { id: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Feature Values &amp; Provenance</h3>
+        <h3 className="card-title">Feature Values &amp; Provenance</h3>
         {Object.keys(features.features).length === 0 ? (
           <p className="small muted">No structured scoring inputs reported for this startup yet.</p>
         ) : (
@@ -235,7 +236,7 @@ export function AdminStartupScoringPage({ id }: { id: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Edit Scoring Inputs</h3>
+        <h3 className="card-title">Edit Scoring Inputs</h3>
         <p className="small muted mb-12">Every change is audited with a reason and never silently overwrites a value a founder or a verified document already reported at equal or higher confidence — an admin edit always applies.</p>
         {(Object.keys(FACTOR_LABELS) as ScoreFactorKey[]).map((factorKey) => (
           <div key={factorKey} className="mt-16">

@@ -11,6 +11,7 @@ import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
 import { useToast } from "@/components/shell/ToastProvider";
 import { requireAuth } from "@/lib/store";
 import type { Hub } from "@/types/entities";
+import { StatCard } from "@/components/shared/StatCard";
 
 const TABS = ["Overview", "Organization", "Programs", "Focus Areas", "Supported Companies", "Partnerships", "Documents", "Analytics", "Contacts"] as const;
 type Tab = (typeof TABS)[number];
@@ -72,14 +73,14 @@ function Overview({ h }: { h: Hub }) {
     <div className="profile-body" style={{ gridTemplateColumns: "1fr" }}>
       <div>
         <div className="stat-mini-row">
-          <div className="stat-mini"><div className="sm-label">Programs</div><div className="sm-val">{h.programs.length}</div></div>
-          <div className="stat-mini"><div className="sm-label">Startups Supported</div><div className="sm-val">{h.portfolio.length}</div></div>
-          <div className="stat-mini"><div className="sm-label">Active Cohorts</div><div className="sm-val">{h.programs.filter((p) => p.status === "Open").length}</div></div>
-          <div className="stat-mini"><div className="sm-label">Partners</div><div className="sm-val">{h.partnerships.length}</div></div>
-          <div className="stat-mini"><div className="sm-label">Focus Sectors</div><div className="sm-val">{h.healthcareFocus.length}</div></div>
+          <StatCard label="Programs" value={h.programs.length} />
+          <StatCard label="Startups Supported" value={h.portfolio.length} />
+          <StatCard label="Active Cohorts" value={h.programs.filter((p) => p.status === "Open").length} />
+          <StatCard label="Partners" value={h.partnerships.length} />
+          <StatCard label="Focus Sectors" value={h.healthcareFocus.length} />
         </div>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">About</h3>
+          <h3 className="card-title">About</h3>
           <p className="db-text">{h.about}</p>
         </div>
       </div>
@@ -94,12 +95,12 @@ function TabBody({ tab, h, loggedIn }: { tab: Tab; h: Hub; loggedIn: boolean }) 
       return (
         <div className="panel panel-pad">
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Type</div><div className="sm-val fs-15">{h.type}</div></div>
-            <div className="stat-mini"><div className="sm-label">Ownership</div><div className="sm-val fs-15">{h.ownershipType}</div></div>
-            <div className="stat-mini"><div className="sm-label">Operating Region</div><div className="sm-val fs-15">{h.operatingRegion}</div></div>
-            <div className="stat-mini"><div className="sm-label">Founded</div><div className="sm-val fs-15">{h.founded}</div></div>
-            <div className="stat-mini"><div className="sm-label">Funding Available</div><div className="sm-val fs-15">{h.fundingAvailable}</div></div>
-            <div className="stat-mini"><div className="sm-label">Funding Type</div><div className="sm-val fs-15">{h.fundingType}</div></div>
+            <StatCard label="Type" size={15} value={h.type} />
+            <StatCard label="Ownership" size={15} value={h.ownershipType} />
+            <StatCard label="Operating Region" size={15} value={h.operatingRegion} />
+            <StatCard label="Founded" size={15} value={h.founded} />
+            <StatCard label="Funding Available" size={15} value={h.fundingAvailable} />
+            <StatCard label="Funding Type" size={15} value={h.fundingType} />
           </div>
         </div>
       );
@@ -184,11 +185,11 @@ function TabBody({ tab, h, loggedIn }: { tab: Tab; h: Hub; loggedIn: boolean }) 
       return (
         <div className="panel panel-pad">
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Program Contact</div><div className="sm-val fs-15">{h.contacts.programContact}</div></div>
+            <StatCard label="Program Contact" size={15} value={h.contacts.programContact} />
             <div className="stat-mini"><div className="sm-label">Email</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 90 }} /> : loggedIn ? h.contacts.email : <ContactLock />}</div></div>
             <div className="stat-mini"><div className="sm-label">Phone</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 70 }} /> : loggedIn ? h.contacts.phone : <ContactLock />}</div></div>
-            <div className="stat-mini"><div className="sm-label">Website</div><div className="sm-val fs-15">{h.contacts.website}</div></div>
-            <div className="stat-mini"><div className="sm-label">HQ</div><div className="sm-val fs-15">{h.contacts.hq}</div></div>
+            <StatCard label="Website" size={15} value={h.contacts.website} />
+            <StatCard label="HQ" size={15} value={h.contacts.hq} />
           </div>
         </div>
       );

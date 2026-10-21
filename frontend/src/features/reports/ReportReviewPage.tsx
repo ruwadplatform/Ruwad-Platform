@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, LoadingState } from "@/components/shared/EmptyState";
 import { ApiError } from "@/lib/api/client";
 import { acceptReview, fetchReviewInfo, rejectReview, reviewFileUrl, type ReviewInfo } from "@/lib/api/report-submissions";
 
@@ -60,7 +60,7 @@ export function ReportReviewPage({ token, action }: { token: string; action?: "a
     const title = problem.status === 410 ? "This link has expired" : problem.status === 409 ? "Nothing to review here" : problem.status === 404 ? "This link isn't valid" : "Couldn't load this request";
     return <div className="content-in wide"><EmptyState icon="help" title={title} body={problem.message || "Please check the link in your email, or ask an admin to send a new one."} /></div>;
   }
-  if (!info) return <div className="content-in wide"><EmptyState icon="search" title="Loading…" body="" /></div>;
+  if (!info) return <div className="content-in wide"><LoadingState /></div>;
 
   const reportHref = safeHref(info.reportUrl);
   return (
@@ -83,11 +83,11 @@ export function ReportReviewPage({ token, action }: { token: string; action?: "a
         </dl>
       </section>
 
-      <section className="panel panel-pad mb-16"><h3 className="fs-15 mb-8" style={{ fontWeight: 700 }}>Description</h3><p className="fs-14" style={{ whiteSpace: "pre-line", margin: 0 }}>{info.description}</p></section>
-      <section className="panel panel-pad mb-16"><h3 className="fs-15 mb-8" style={{ fontWeight: 700 }}>Executive summary</h3><p className="fs-14" style={{ whiteSpace: "pre-line", margin: 0 }}>{info.executiveSummary}</p></section>
+      <section className="panel panel-pad mb-16"><h3 className="card-title" style={{ fontWeight: 700 }}>Description</h3><p className="fs-14" style={{ whiteSpace: "pre-line", margin: 0 }}>{info.description}</p></section>
+      <section className="panel panel-pad mb-16"><h3 className="card-title" style={{ fontWeight: 700 }}>Executive summary</h3><p className="fs-14" style={{ whiteSpace: "pre-line", margin: 0 }}>{info.executiveSummary}</p></section>
 
       <section className="panel panel-pad mb-16" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-        <h3 className="fs-15" style={{ fontWeight: 700, margin: 0, width: "100%" }}>The report</h3>
+        <h3 className="card-title" style={{ fontWeight: 700, margin: 0, width: "100%" }}>The report</h3>
         {info.hasFile && <a className="btn btn-primary" href={reviewFileUrl(token)} target="_blank" rel="noopener noreferrer">Open uploaded PDF</a>}
         {reportHref && <a className="btn btn-outline" href={reportHref} target="_blank" rel="noopener noreferrer">Open report link</a>}
         {!info.hasFile && !reportHref && <span className="muted fs-13">No file or link was provided.</span>}
@@ -95,7 +95,7 @@ export function ReportReviewPage({ token, action }: { token: string; action?: "a
 
       {info.sources.length > 0 && (
         <section className="panel panel-pad mb-16">
-          <h3 className="fs-15 mb-8" style={{ fontWeight: 700 }}>Sources</h3>
+          <h3 className="card-title" style={{ fontWeight: 700 }}>Sources</h3>
           <ul style={{ paddingLeft: 18, display: "grid", gap: 6, margin: 0 }}>
             {info.sources.map((s, i) => { const href = safeHref(s.url); return <li key={i} className="fs-13">{href ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ overflowWrap: "anywhere" }}>{s.title}</a> : s.title}{href ? <span className="muted"> — {href}</span> : null}</li>; })}
           </ul>

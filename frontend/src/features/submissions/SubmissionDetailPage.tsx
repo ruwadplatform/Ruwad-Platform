@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SubmissionStatusBadge } from "@/components/workspace/SubmissionStatusBadge";
 import { useSession, useOwnedListings } from "@/hooks/use-store";
@@ -24,8 +24,8 @@ export function SubmissionDetailPage({ id }: { id: string }) {
 
   if (!hydrated) return null;
   if (!loggedIn) return <WorkspaceGate title="Sign in to view this submission" />;
-  if (loading) return <div className="mt-20"><EmptyState icon="doc" title="Loading submission…" body="" /></div>;
-  if (error || !submission) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load this submission" body={error ?? "It may not exist, or you may not have access to it."} /></div>;
+  if (loading) return <div className="mt-20"><LoadingState title="Loading submission…" /></div>;
+  if (error || !submission) return <div className="mt-20"><ErrorState title="Couldn't load this submission" body={error ?? "It may not exist, or you may not have access to it."} /></div>;
 
   const schema = schemaFor(submission.kind, submission.payload);
   const publishedListing = submission.publishedEntityId ? listings.find((l) => l.entityId === submission.publishedEntityId) : undefined;
@@ -58,7 +58,7 @@ export function SubmissionDetailPage({ id }: { id: string }) {
           <PayloadSummary schema={schema} payload={submission.payload} hideEmpty={submission.kind === "HUB"} />
         </div>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Review History</h3>
+          <h3 className="card-title">Review History</h3>
           <ReviewHistory events={events ?? []} />
         </div>
       </div>

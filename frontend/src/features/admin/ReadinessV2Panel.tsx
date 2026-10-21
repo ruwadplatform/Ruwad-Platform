@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchReadinessDashboard, type ReadinessDashboard } from "@/lib/api/historical-performance";
 import { ApiError } from "@/lib/api/client";
+import { StatCard } from "@/components/shared/StatCard";
 
 const pct = (n: number) => `${Math.round(n * 1000) / 10}%`;
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong");
@@ -29,16 +30,16 @@ export function ReadinessV2Panel() {
     <>
       <div className="panel panel-pad mt-16">
         <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <h3 className="fs-13">Readiness V2 — {d.focusTarget}</h3>
+          <h3 className="card-title">Readiness V2 — {d.focusTarget}</h3>
           <span className={`badge ${v2.ready ? "badge-good" : "badge-warn"}`}>{v2.ready ? "Ready" : "Not ready — training blocked"}</span>
         </div>
         <p className="small muted mt-8">Counts training-eligible snapshots only, labels a negative only where the outcome family was attested through the window, and excludes not-applicable features from coverage. Thresholds are unchanged.</p>
         <div className="stat-mini-row mt-12">
-          <div className="stat-mini"><div className="sm-label">Usable examples</div><div className="sm-val fs-15">{v2.usableExamples} / {th?.minTrainingRows ?? 200}</div></div>
-          <div className="stat-mini"><div className="sm-label">Positive</div><div className="sm-val fs-15">{v2.positiveExamples} / {th?.minPositiveRows ?? 40}</div></div>
-          <div className="stat-mini"><div className="sm-label">Negative</div><div className="sm-val fs-15">{v2.negativeExamples} / {th?.minNegativeRows ?? 40}</div></div>
-          <div className="stat-mini"><div className="sm-label">Unknown (no attested coverage)</div><div className="sm-val fs-15">{v2.unknownExamples ?? 0}</div></div>
-          <div className="stat-mini"><div className="sm-label">Core coverage</div><div className="sm-val fs-15">{pct(v2.featureCoverage)} / {pct(th?.minCoreFeatureCoverage ?? 0.6)}</div></div>
+          <StatCard label="Usable examples" size={15} value={<>{v2.usableExamples} / {th?.minTrainingRows ?? 200}</>} />
+          <StatCard label="Positive" size={15} value={<>{v2.positiveExamples} / {th?.minPositiveRows ?? 40}</>} />
+          <StatCard label="Negative" size={15} value={<>{v2.negativeExamples} / {th?.minNegativeRows ?? 40}</>} />
+          <StatCard label="Unknown (no attested coverage)" size={15} value={v2.unknownExamples ?? 0} />
+          <StatCard label="Core coverage" size={15} value={<>{pct(v2.featureCoverage)} / {pct(th?.minCoreFeatureCoverage ?? 0.6)}</>} />
         </div>
         <div className="scroll-x mt-12">
           <table className="data-table">
@@ -56,21 +57,21 @@ export function ReadinessV2Panel() {
 
       <div className="insight-row mt-16" style={{ gridTemplateColumns: "1fr 1fr" }}>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Snapshots by training eligibility</h3>
+          <h3 className="card-title">Snapshots by training eligibility</h3>
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Training-eligible</div><div className="sm-val fs-15">{d.snapshots.eligible}</div></div>
-            <div className="stat-mini"><div className="sm-label">Analysis-only</div><div className="sm-val fs-15">{d.snapshots.analysisOnly}</div></div>
-            <div className="stat-mini"><div className="sm-label">Excluded</div><div className="sm-val fs-15">{d.snapshots.excluded}</div></div>
+            <StatCard label="Training-eligible" size={15} value={d.snapshots.eligible} />
+            <StatCard label="Analysis-only" size={15} value={d.snapshots.analysisOnly} />
+            <StatCard label="Excluded" size={15} value={d.snapshots.excluded} />
           </div>
           <p className="small muted mt-8">{Object.entries(d.snapshots.byMethod).map(([k, n]) => `${k.replace(/_/g, " ").toLowerCase()}: ${n}`).join(" · ")}</p>
           <p className="small muted mt-8">Outcome-aware (legacy) snapshots are kept for analysis and never enter the default training export.</p>
         </div>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Evidence &amp; review queue</h3>
+          <h3 className="card-title">Evidence &amp; review queue</h3>
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Verified evidence</div><div className="sm-val fs-15">{d.evidence.verifiedPct}%</div></div>
-            <div className="stat-mini"><div className="sm-label">Open conflicts</div><div className="sm-val fs-15">{d.evidence.openConflicts}</div></div>
-            <div className="stat-mini"><div className="sm-label">Awaiting review</div><div className="sm-val fs-15">{pendingReview}</div></div>
+            <StatCard label="Verified evidence" size={15} value={<>{d.evidence.verifiedPct}%</>} />
+            <StatCard label="Open conflicts" size={15} value={d.evidence.openConflicts} />
+            <StatCard label="Awaiting review" size={15} value={pendingReview} />
           </div>
           <div className="flex gap-8 mt-12">
             <Link className="btn btn-outline btn-sm" href="/admin/ml-data/historical/review">Review founder entries</Link>
@@ -80,7 +81,7 @@ export function ReadinessV2Panel() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Core feature applicability (eligible snapshots)</h3>
+        <h3 className="card-title">Core feature applicability (eligible snapshots)</h3>
         <div className="scroll-x">
           <table className="data-table">
             <thead><tr><th>Feature</th><th>With value</th><th>Applicable, missing</th><th>Unknown</th><th>Not applicable</th></tr></thead>
@@ -95,7 +96,7 @@ export function ReadinessV2Panel() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Outcome coverage attested, by family</h3>
+        <h3 className="card-title">Outcome coverage attested, by family</h3>
         <div className="scroll-x">
           <table className="data-table">
             <thead><tr><th>Outcome family</th><th>Startups attested</th><th>Earliest through</th><th>Latest through</th></tr></thead>
@@ -110,7 +111,7 @@ export function ReadinessV2Panel() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Labels by target (V2, eligible snapshots)</h3>
+        <h3 className="card-title">Labels by target (V2, eligible snapshots)</h3>
         <div className="scroll-x">
           <table className="data-table">
             <thead><tr><th>Target</th><th>Family</th><th>Positive</th><th>Negative</th><th>Unknown</th><th>Not matured</th><th>Other</th></tr></thead>

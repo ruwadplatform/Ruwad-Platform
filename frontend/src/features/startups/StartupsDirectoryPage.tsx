@@ -20,6 +20,8 @@ import { regBadgeClass } from "@/lib/widgets";
 import { useStartups } from "@/hooks/use-directory-data";
 import { HC_CATEGORIES, CITIES, STAGES, STATUSES } from "@/data/reference";
 import type { Startup } from "@/types/entities";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 
 type ViewMode = "table" | "grid";
 type SortKey = "score" | "funding" | "founded" | "name";
@@ -131,7 +133,7 @@ export function StartupsDirectoryPage() {
 
   return (
     <div className="startups-page">
-      <div className="page-head"><h2>Startups</h2><p className="muted small">Saudi &amp; MENA healthcare, biotech and medtech startups.</p></div>
+      <PageHeader title="Startups" description="Saudi &amp; MENA healthcare, biotech and medtech startups." />
       <div className="toolbar">
         <div className="toolbar-search">
           <RuwadIcon name="search" size={14} />
@@ -159,13 +161,13 @@ export function StartupsDirectoryPage() {
       <div className="result-count small muted mb-12">{loading ? "Loading startups…" : `${filtered.length} startup${filtered.length === 1 ? "" : "s"}`}</div>
       <div>
         {error ? (
-          <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load startups</h4><p>{error}</p></div>
+          <ErrorState title="Couldn&apos;t load startups" body={error} />
         ) : loading ? (
-          <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading startups…</h4></div>
+          <LoadingState title="Loading startups…" />
         ) : !STARTUPS.length ? (
-          <div className="empty-state"><RuwadIcon name="startups" size={30} /><h4>No startups available yet</h4><p>Startups added to the RUWĀD ecosystem will appear here.</p></div>
+          <EmptyState icon="startups" title="No startups available yet" body="Startups added to the RUWĀD ecosystem will appear here." />
         ) : !filtered.length ? (
-          <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No startups match those filters</h4><p>Try clearing a filter or search term.</p></div>
+          <EmptyState icon="search" title="No startups match those filters" body="Try clearing a filter or search term." />
         ) : view === "grid" ? (
           <div className="entity-grid">
             {shown.map((s) => <StartupGridCard key={s.id} s={s} />)}

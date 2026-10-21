@@ -7,11 +7,11 @@ export function InsightCard({ title, action, children }: { title: string; action
     <div className="panel panel-pad">
       {action ? (
         <div className="flex mb-16" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <h3 className="fs-13" style={{ margin: 0 }}>{title}</h3>
+          <h3 className="card-title" style={{ margin: 0 }}>{title}</h3>
           {action}
         </div>
       ) : (
-        <h3 className="fs-13 mb-16">{title}</h3>
+        <h3 className="card-title">{title}</h3>
       )}
       {children}
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, LoadingState } from "@/components/shared/EmptyState";
 import { useSession } from "@/hooks/use-store";
 import { fetchAdminReportBySlug } from "@/lib/api/reports";
 import type { Report } from "@/types/intelligence";
@@ -36,7 +36,7 @@ export function AdminReportLoader({ slug }: { slug: string }) {
     <div className="content-in wide">
       {done
         ? <EmptyState icon="help" title="Report not found" body="This report doesn't exist or hasn't been published yet." />
-        : <EmptyState icon="search" title="Loading report…" body="" />}
+        : <LoadingState title="Loading report…" />}
     </div>
   );
 }

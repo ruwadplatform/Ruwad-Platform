@@ -5,7 +5,7 @@ import Link from "next/link";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useModal } from "@/components/shell/ModalProvider";
 import { useToast } from "@/components/shell/ToastProvider";
@@ -66,7 +66,7 @@ export function AdminClaimsPage() {
     );
   }
 
-  if (!hydrated) return <EmptyState icon="reports" title="Loading…" body="" />;
+  if (!hydrated) return <LoadingState />;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to review listing claims." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
 
@@ -85,9 +85,9 @@ export function AdminClaimsPage() {
 
       <div className="mt-16">
         {error ? (
-          <EmptyState icon="help" title="Couldn't load claims" body={error} />
+          <ErrorState title="Couldn't load claims" body={error} />
         ) : filtered === null ? (
-          <EmptyState icon="reports" title="Loading claims…" body="" />
+          <LoadingState title="Loading claims…" />
         ) : !filtered.length ? (
           <EmptyState icon="check" title="No claims match these filters." body="Requests to claim a listing will show up here for review." />
         ) : (

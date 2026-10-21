@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { BarChart } from "@/components/intelligence/BarChart";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession } from "@/hooks/use-store";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/ml-data";
 import { ApiError } from "@/lib/api/client";
 import { ReadinessV2Panel } from "./ReadinessV2Panel";
+import { StatCard } from "@/components/shared/StatCard";
 
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong");
 
@@ -78,11 +79,11 @@ export function AdminMlDataPage() {
     } catch (e) { toast(errText(e)); } finally { setBusy(false); }
   }
 
-  if (!hydrated) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
+  if (!hydrated) return <div className="mt-20"><LoadingState /></div>;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to view ML dataset readiness." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
-  if (error) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load ML dataset data" body={error} /></div>;
-  if (!targets || !coverage || !featureCoverage || !issues || !classBalance) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
+  if (error) return <div className="mt-20"><ErrorState title="Couldn't load ML dataset data" body={error} /></div>;
+  if (!targets || !coverage || !featureCoverage || !issues || !classBalance) return <div className="mt-20"><LoadingState /></div>;
 
   const selectedBalance = classBalance.find((c) => c.target === selectedTarget);
   const selectedMeta = targets.find((t) => t.name === selectedTarget);
@@ -98,14 +99,14 @@ export function AdminMlDataPage() {
       <ReadinessV2Panel />
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Dataset Overview</h3>
+        <h3 className="card-title">Dataset Overview</h3>
         <div className="stat-mini-row">
-          <div className="stat-mini"><div className="sm-label">Published Startups</div><div className="sm-val fs-15">{coverage.totalPublishedStartups}</div></div>
-          <div className="stat-mini"><div className="sm-label">4+ Scoring Factors</div><div className="sm-val fs-15">{coverage.with4PlusFactors}</div></div>
-          <div className="stat-mini"><div className="sm-label">50%+ Confidence</div><div className="sm-val fs-15">{coverage.with50PlusConfidence}</div></div>
-          <div className="stat-mini"><div className="sm-label">70%+ Confidence</div><div className="sm-val fs-15">{coverage.with70PlusConfidence}</div></div>
-          <div className="stat-mini"><div className="sm-label">12mo+ Old Snapshots</div><div className="sm-val fs-15">{coverage.withComplete12MonthHistory}</div></div>
-          <div className="stat-mini"><div className="sm-label">Mature 12mo Funding Labels</div><div className="sm-val fs-15">{coverage.withMature12MonthLabels}</div></div>
+          <StatCard label="Published Startups" size={15} value={coverage.totalPublishedStartups} />
+          <StatCard label="4+ Scoring Factors" size={15} value={coverage.with4PlusFactors} />
+          <StatCard label="50%+ Confidence" size={15} value={coverage.with50PlusConfidence} />
+          <StatCard label="70%+ Confidence" size={15} value={coverage.with70PlusConfidence} />
+          <StatCard label="12mo+ Old Snapshots" size={15} value={coverage.withComplete12MonthHistory} />
+          <StatCard label="Mature 12mo Funding Labels" size={15} value={coverage.withMature12MonthLabels} />
         </div>
         <div className="grid-2 mt-16">
           <div><h4 className="fs-12 muted mb-8">By Category</h4><BarChart data={coverage.byCategory} /></div>
@@ -114,7 +115,7 @@ export function AdminMlDataPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Feature Coverage</h3>
+        <h3 className="card-title">Feature Coverage</h3>
         <div className="scroll-x">
           <table className="data-table">
             <thead><tr><th>Feature</th><th>Coverage</th><th>Verified</th><th>Unique</th><th>Range / Distribution</th></tr></thead>
@@ -134,7 +135,7 @@ export function AdminMlDataPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Target Coverage &amp; Class Balance</h3>
+        <h3 className="card-title">Target Coverage &amp; Class Balance</h3>
         <p className="small muted mb-8">Readiness V2 counts: training-eligible snapshots only. A negative needs attested outcome coverage; otherwise the row is Unknown.</p>
         <div className="scroll-x">
           <table className="data-table">
@@ -159,14 +160,14 @@ export function AdminMlDataPage() {
       {readiness && selectedBalance && (
         <div className="panel panel-pad mt-16">
           <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
-            <h3 className="fs-13">Readiness{readiness.readinessVersion ? ` V${readiness.readinessVersion}` : ""} — {readiness.target}</h3>
+            <h3 className="card-title">Readiness{readiness.readinessVersion ? ` V${readiness.readinessVersion}` : ""} — {readiness.target}</h3>
             <span className={`badge ${readiness.ready ? "badge-good" : "badge-warn"}`}>{readiness.ready ? "Ready" : "Not Ready"}</span>
           </div>
           <div className="stat-mini-row mt-12">
-            <div className="stat-mini"><div className="sm-label">Usable Examples</div><div className="sm-val fs-15">{readiness.usableExamples}</div></div>
-            <div className="stat-mini"><div className="sm-label">Positive</div><div className="sm-val fs-15">{readiness.positiveExamples}</div></div>
-            <div className="stat-mini"><div className="sm-label">Negative</div><div className="sm-val fs-15">{readiness.negativeExamples}</div></div>
-            <div className="stat-mini"><div className="sm-label">Core Feature Coverage</div><div className="sm-val fs-15">{Math.round(readiness.featureCoverage * 100)}%</div></div>
+            <StatCard label="Usable Examples" size={15} value={readiness.usableExamples} />
+            <StatCard label="Positive" size={15} value={readiness.positiveExamples} />
+            <StatCard label="Negative" size={15} value={readiness.negativeExamples} />
+            <StatCard label="Core Feature Coverage" size={15} value={<>{Math.round(readiness.featureCoverage * 100)}%</>} />
           </div>
           {readiness.reasons.length > 0 && (
             <ul className="small mt-12" style={{ paddingLeft: 18 }}>
@@ -177,7 +178,7 @@ export function AdminMlDataPage() {
       )}
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Data Quality Issues {issues.length > 0 && <span className="badge badge-warn">{issues.length}</span>}</h3>
+        <h3 className="card-title">Data Quality Issues {issues.length > 0 && <span className="badge badge-warn">{issues.length}</span>}</h3>
         {issues.length === 0 ? (
           <p className="small muted">No structural data-quality issues detected.</p>
         ) : (
@@ -195,7 +196,7 @@ export function AdminMlDataPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Export Dataset</h3>
+        <h3 className="card-title">Export Dataset</h3>
         <p className="small muted mb-12">Admin-only. Excludes RUWĀD Score and any PII by construction. By default only training-eligible snapshots with defensible labels are exported: immature rows and analysis-only snapshots (such as outcome-aware legacy ones) are excluded unless explicitly included below.</p>
         <div className="grid-2">
           <div className="field">

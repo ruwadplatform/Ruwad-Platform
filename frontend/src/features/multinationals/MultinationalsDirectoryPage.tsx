@@ -17,6 +17,8 @@ import { capForGuest } from "@/lib/auth-gate";
 import { useMultinationals } from "@/hooks/use-directory-data";
 import { HC_CATEGORIES, COUNTRIES, COMPANY_SIZES } from "@/data/reference";
 import type { Multinational } from "@/types/entities";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 
 type ViewMode = "table" | "grid";
 const YES_NO = ["Yes", "No"] as const;
@@ -83,7 +85,7 @@ export function MultinationalsDirectoryPage() {
 
   return (
     <div className="multinationals-page">
-      <div className="page-head"><h2>Multinational Healthcare Companies</h2><p className="muted small">Global pharmaceutical, medical device, diagnostics and digital health companies active in Saudi &amp; MENA.</p></div>
+      <PageHeader title="Multinational Healthcare Companies" description="Global pharmaceutical, medical device, diagnostics and digital health companies active in Saudi &amp; MENA." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search multinationals" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <button className="btn btn-outline" onClick={openFilters}><RuwadIcon name="filter" size={14} /> Filters</button>
@@ -102,13 +104,13 @@ export function MultinationalsDirectoryPage() {
       <div className="result-count small muted mb-12">{loading ? "Loading companies…" : `${filtered.length} compan${filtered.length === 1 ? "y" : "ies"}`}</div>
       <div>
         {error ? (
-          <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load companies</h4><p>{error}</p></div>
+          <ErrorState title="Couldn&apos;t load companies" body={error} />
         ) : loading ? (
-          <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading companies…</h4></div>
+          <LoadingState title="Loading companies…" />
         ) : !MULTINATIONALS.length ? (
-          <div className="empty-state"><RuwadIcon name="corp" size={30} /><h4>No multinational companies available yet</h4><p>Multinationals added to the RUWĀD ecosystem will appear here.</p></div>
+          <EmptyState icon="corp" title="No multinational companies available yet" body="Multinationals added to the RUWĀD ecosystem will appear here." />
         ) : !filtered.length ? (
-          <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No companies match those filters</h4><p>Try clearing a filter or search term.</p></div>
+          <EmptyState icon="search" title="No companies match those filters" body="Try clearing a filter or search term." />
         ) : view === "grid" ? (
           <div className="entity-grid">{shown.map((m) => <MncGridCard key={m.id} m={m} />)}</div>
         ) : (

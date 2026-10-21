@@ -9,6 +9,7 @@ import { useSession, useIsSaved, useToggleSaved } from "@/hooks/use-store";
 import { useToast } from "@/components/shell/ToastProvider";
 import { requireAuth } from "@/lib/store";
 import type { ResearchInstitution } from "@/types/entities";
+import { StatCard } from "@/components/shared/StatCard";
 
 /* NOTE — explicit product rule: Research & Academia profiles have NO Data
  * Room tab and NO NDA/fundraising-document machinery anywhere on this
@@ -74,15 +75,15 @@ function Overview({ r }: { r: ResearchInstitution }) {
     <div className="profile-body" style={{ gridTemplateColumns: "1fr" }}>
       <div>
         <div className="stat-mini-row">
-          <div className="stat-mini"><div className="sm-label">Active Research Projects</div><div className="sm-val">{r.activeProjects.length}</div></div>
-          <div className="stat-mini"><div className="sm-label">Publications</div><div className="sm-val">{r.publications.length}</div></div>
-          <div className="stat-mini"><div className="sm-label">Patents</div><div className="sm-val">{r.patentsCount}</div></div>
-          <div className="stat-mini"><div className="sm-label">Researchers</div><div className="sm-val">{r.numResearchers}</div></div>
-          <div className="stat-mini"><div className="sm-label">Clinical Collaborations</div><div className="sm-val">{r.clinical.hospitalAffiliations}</div></div>
-          <div className="stat-mini"><div className="sm-label">Industry Partnerships</div><div className="sm-val">{r.partnerships.length}</div></div>
+          <StatCard label="Active Research Projects" value={r.activeProjects.length} />
+          <StatCard label="Publications" value={r.publications.length} />
+          <StatCard label="Patents" value={r.patentsCount} />
+          <StatCard label="Researchers" value={r.numResearchers} />
+          <StatCard label="Clinical Collaborations" value={r.clinical.hospitalAffiliations} />
+          <StatCard label="Industry Partnerships" value={r.partnerships.length} />
         </div>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">About</h3>
+          <h3 className="card-title">About</h3>
           <p className="db-text">{r.about}</p>
         </div>
       </div>
@@ -97,11 +98,11 @@ function TabBody({ tab, r, loggedIn }: { tab: Tab; r: ResearchInstitution; logge
       return (
         <div className="panel panel-pad">
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Type</div><div className="sm-val fs-15">{r.type}</div></div>
-            <div className="stat-mini"><div className="sm-label">Founded</div><div className="sm-val fs-15">{r.founded}</div></div>
-            <div className="stat-mini"><div className="sm-label">Research Centers</div><div className="sm-val fs-15">{r.numCenters}</div></div>
-            <div className="stat-mini"><div className="sm-label">Labs</div><div className="sm-val fs-15">{r.numLabs}</div></div>
-            <div className="stat-mini"><div className="sm-label">Website</div><div className="sm-val fs-15">{r.website}</div></div>
+            <StatCard label="Type" size={15} value={r.type} />
+            <StatCard label="Founded" size={15} value={r.founded} />
+            <StatCard label="Research Centers" size={15} value={r.numCenters} />
+            <StatCard label="Labs" size={15} value={r.numLabs} />
+            <StatCard label="Website" size={15} value={r.website} />
           </div>
           {r.researchCenters.length > 0 && (
             <div className="mt-16">
@@ -201,12 +202,12 @@ function TabBody({ tab, r, loggedIn }: { tab: Tab; r: ResearchInstitution; logge
       return (
         <div className="panel panel-pad">
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Main Contact</div><div className="sm-val fs-15">{r.contacts.mainContact}</div></div>
-            <div className="stat-mini"><div className="sm-label">Research Office</div><div className="sm-val fs-15">{r.contacts.researchOffice}</div></div>
-            <div className="stat-mini"><div className="sm-label">Tech Transfer Office</div><div className="sm-val fs-15">{r.contacts.techTransferOffice}</div></div>
+            <StatCard label="Main Contact" size={15} value={r.contacts.mainContact} />
+            <StatCard label="Research Office" size={15} value={r.contacts.researchOffice} />
+            <StatCard label="Tech Transfer Office" size={15} value={r.contacts.techTransferOffice} />
             <div className="stat-mini"><div className="sm-label">Email</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 90 }} /> : loggedIn ? r.contacts.email : <ContactLock />}</div></div>
             <div className="stat-mini"><div className="sm-label">Phone</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 70 }} /> : loggedIn ? r.contacts.phone : <ContactLock />}</div></div>
-            <div className="stat-mini"><div className="sm-label">Website</div><div className="sm-val fs-15">{r.contacts.website}</div></div>
+            <StatCard label="Website" size={15} value={r.contacts.website} />
           </div>
         </div>
       );

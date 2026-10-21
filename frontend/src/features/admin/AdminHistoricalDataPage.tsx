@@ -5,7 +5,7 @@ import Link from "next/link";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { BarChart } from "@/components/intelligence/BarChart";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession } from "@/hooks/use-store";
 import {
@@ -13,6 +13,7 @@ import {
   type HistoricalImportBatch, type HistoricalDashboardMetrics, type HistoricalEvidenceSourceType,
 } from "@/lib/api/ml-data";
 import { ApiError } from "@/lib/api/client";
+import { StatCard } from "@/components/shared/StatCard";
 
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong");
 
@@ -77,10 +78,10 @@ export function AdminHistoricalDataPage() {
     catch (e) { toast(errText(e)); } finally { setBusyId(null); }
   }
 
-  if (!hydrated) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
+  if (!hydrated) return <div className="mt-20"><LoadingState /></div>;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to import historical data." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
-  if (error) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load historical data" body={error} /></div>;
+  if (error) return <div className="mt-20"><ErrorState title="Couldn't load historical data" body={error} /></div>;
 
   return (
     <div>
@@ -96,7 +97,7 @@ export function AdminHistoricalDataPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Import a CSV</h3>
+        <h3 className="card-title">Import a CSV</h3>
         <div className="flex gap-8 mb-12" style={{ flexWrap: "wrap", alignItems: "center" }}>
           <span className="small muted">Download a template first:</span>
           <button className="btn btn-outline btn-sm" onClick={() => downloadHistoricalTemplate("features")}>Features CSV</button>
@@ -130,15 +131,15 @@ export function AdminHistoricalDataPage() {
 
       {metrics && (
         <div className="panel panel-pad mt-16">
-          <h3 className="fs-13 mb-12">Historical Data Quality</h3>
+          <h3 className="card-title">Historical Data Quality</h3>
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Companies Matched</div><div className="sm-val fs-15">{metrics.companiesMatched}</div></div>
-            <div className="stat-mini"><div className="sm-label">Unmatched</div><div className="sm-val fs-15">{metrics.companiesUnmatched}</div></div>
-            <div className="stat-mini"><div className="sm-label">Needs Review</div><div className="sm-val fs-15">{metrics.companiesReviewRequired}</div></div>
-            <div className="stat-mini"><div className="sm-label">Snapshots Created</div><div className="sm-val fs-15">{metrics.snapshotsCreated}</div></div>
-            <div className="stat-mini"><div className="sm-label">≥60% Core Coverage</div><div className="sm-val fs-15">{metrics.snapshotsWithCoreCoverage}</div></div>
-            <div className="stat-mini"><div className="sm-label">Evidence Conflicts</div><div className="sm-val fs-15">{metrics.evidenceConflicts}</div></div>
-            <div className="stat-mini"><div className="sm-label">Verified Evidence</div><div className="sm-val fs-15">{Math.round(metrics.verifiedEvidencePct * 100)}%</div></div>
+            <StatCard label="Companies Matched" size={15} value={metrics.companiesMatched} />
+            <StatCard label="Unmatched" size={15} value={metrics.companiesUnmatched} />
+            <StatCard label="Needs Review" size={15} value={metrics.companiesReviewRequired} />
+            <StatCard label="Snapshots Created" size={15} value={metrics.snapshotsCreated} />
+            <StatCard label="≥60% Core Coverage" size={15} value={metrics.snapshotsWithCoreCoverage} />
+            <StatCard label="Evidence Conflicts" size={15} value={metrics.evidenceConflicts} />
+            <StatCard label="Verified Evidence" size={15} value={<>{Math.round(metrics.verifiedEvidencePct * 100)}%</>} />
           </div>
           <div className="grid-2 mt-16">
             <div>
@@ -154,7 +155,7 @@ export function AdminHistoricalDataPage() {
       )}
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Import Batches</h3>
+        <h3 className="card-title">Import Batches</h3>
         {batches === null ? (
           <p className="small muted">Loading…</p>
         ) : batches.length === 0 ? (

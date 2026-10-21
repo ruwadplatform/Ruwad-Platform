@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useModal } from "@/components/shell/ModalProvider";
 import { useToast } from "@/components/shell/ToastProvider";
@@ -105,10 +105,10 @@ export function AdminMlModelsPage() {
     );
   }
 
-  if (!hydrated) return <EmptyState icon="reports" title="Loading…" body="" />;
+  if (!hydrated) return <LoadingState />;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to review ML models." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
-  if (error) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load ML models" body={error} /></div>;
+  if (error) return <div className="mt-20"><ErrorState title="Couldn't load ML models" body={error} /></div>;
 
   return (
     <div>
@@ -118,7 +118,7 @@ export function AdminMlModelsPage() {
       />
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Train a model</h3>
+        <h3 className="card-title">Train a model</h3>
         <p className="small muted mb-12">Training always runs from the command line, against a local checkout of <code>ml/</code>, and always checks the readiness gate first unless <code>--test-only</code> is passed.</p>
         <div className="grid-2" style={{ alignItems: "end" }}>
           <div className="field">
@@ -146,7 +146,7 @@ export function AdminMlModelsPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Registered Models</h3>
+        <h3 className="card-title">Registered Models</h3>
         {models === null ? (
           <p className="small muted">Loading…</p>
         ) : models.length === 0 ? (
@@ -184,7 +184,7 @@ export function AdminMlModelsPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Training Runs</h3>
+        <h3 className="card-title">Training Runs</h3>
         {runs === null ? (
           <p className="small muted">Loading…</p>
         ) : runs.length === 0 ? (

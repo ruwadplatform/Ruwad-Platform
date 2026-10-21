@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession } from "@/hooks/use-store";
 import { evaluateExperimentalPredictions, fetchExperimentalMonitoring, runExperimentalBatch, type ExperimentalBatchSummary, type ExperimentalMonitoring } from "@/lib/api/experimental-ml";
 import { ApiError } from "@/lib/api/client";
 import { EXPERIMENTAL_WARNING } from "./ExperimentalMlPanel";
+import { StatCard } from "@/components/shared/StatCard";
 
 const errText = (e: unknown) => (e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Something went wrong");
 
@@ -63,11 +64,11 @@ export function AdminExperimentalMlPage() {
     } catch (e) { toast(errText(e)); } finally { setBusy(false); }
   }
 
-  if (!hydrated) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
+  if (!hydrated) return <div className="mt-20"><LoadingState /></div>;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to view experimental ML monitoring." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
-  if (error) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load monitoring" body={error} /></div>;
-  if (!mon) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
+  if (error) return <div className="mt-20"><ErrorState title="Couldn't load monitoring" body={error} /></div>;
+  if (!mon) return <div className="mt-20"><LoadingState /></div>;
 
   return (
     <div>
@@ -87,32 +88,32 @@ export function AdminExperimentalMlPage() {
           <div className="stat-mini"><div className="sm-label">Inference</div><span className={`badge ${mon.enabled ? "badge-good" : "badge-neutral"}`}>{mon.enabled ? "On" : "Off"}</span></div>
           <div className="stat-mini"><div className="sm-label">Model (manually configured)</div><div className="sm-val fs-12 mono">{mon.selectedModelVersion ?? "none"}</div></div>
           <div className="stat-mini"><div className="sm-label">Registry status</div><span className="badge badge-warn">{mon.modelStatus ?? "—"}</span></div>
-          <div className="stat-mini"><div className="sm-label">Estimates stored</div><div className="sm-val fs-15">{mon.predictionsStored}</div></div>
-          <div className="stat-mini"><div className="sm-label">Startups with an estimate</div><div className="sm-val fs-15">{mon.startupsWithPrediction}</div></div>
-          <div className="stat-mini"><div className="sm-label">Insufficient data</div><div className="sm-val fs-15">{mon.startupsInsufficientData}</div></div>
-          <div className="stat-mini"><div className="sm-label">Avg feature completeness</div><div className="sm-val fs-15">{mon.averageFeatureCompleteness != null ? `${Math.round(mon.averageFeatureCompleteness * 100)}%` : "—"}</div></div>
-          <div className="stat-mini"><div className="sm-label">Failures since restart</div><div className="sm-val fs-15">{mon.inferenceFailuresSinceStart}</div></div>
+          <StatCard label="Estimates stored" size={15} value={mon.predictionsStored} />
+          <StatCard label="Startups with an estimate" size={15} value={mon.startupsWithPrediction} />
+          <StatCard label="Insufficient data" size={15} value={mon.startupsInsufficientData} />
+          <StatCard label="Avg feature completeness" size={15} value={<>{mon.averageFeatureCompleteness != null ? `${Math.round(mon.averageFeatureCompleteness * 100)}%` : "—"}</>} />
+          <StatCard label="Failures since restart" size={15} value={mon.inferenceFailuresSinceStart} />
         </div>
         {mon.modelProblem && <p className="small muted mt-12">{mon.modelProblem}.</p>}
         <p className="fs-11 muted mt-12">{mon.note}</p>
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Latest estimate per startup — distribution of raw model output</h3>
+        <h3 className="card-title">Latest estimate per startup — distribution of raw model output</h3>
         <Distribution data={mon.distribution} />
         <p className="fs-11 muted mt-12">Raw output of an uncalibrated model trained on 15 usable examples; the spread says nothing about real funding odds.</p>
       </div>
 
       {batch && (
         <div className="panel panel-pad mt-16">
-          <h3 className="fs-13 mb-12">Last batch</h3>
+          <h3 className="card-title">Last batch</h3>
           <div className="flex gap-16" style={{ flexWrap: "wrap" }}>
-            <div className="stat-mini"><div className="sm-label">Total startups</div><div className="sm-val fs-15">{batch.total}</div></div>
-            <div className="stat-mini"><div className="sm-label">Sent to model</div><div className="sm-val fs-15">{batch.calledModel}</div></div>
-            <div className="stat-mini"><div className="sm-label">Predicted</div><div className="sm-val fs-15">{batch.predicted}</div></div>
-            <div className="stat-mini"><div className="sm-label">Unchanged</div><div className="sm-val fs-15">{batch.unchanged}</div></div>
-            <div className="stat-mini"><div className="sm-label">Insufficient data</div><div className="sm-val fs-15">{batch.insufficientData}</div></div>
-            <div className="stat-mini"><div className="sm-label">Failed</div><div className="sm-val fs-15">{batch.failed}</div></div>
+            <StatCard label="Total startups" size={15} value={batch.total} />
+            <StatCard label="Sent to model" size={15} value={batch.calledModel} />
+            <StatCard label="Predicted" size={15} value={batch.predicted} />
+            <StatCard label="Unchanged" size={15} value={batch.unchanged} />
+            <StatCard label="Insufficient data" size={15} value={batch.insufficientData} />
+            <StatCard label="Failed" size={15} value={batch.failed} />
           </div>
           <div className="mt-12"><Distribution data={batch.distribution} /></div>
           {batch.failures.length > 0 && <ul className="small muted mt-12">{batch.failures.map((f) => <li key={f.startupId}>{f.name}: {f.reason}</li>)}</ul>}

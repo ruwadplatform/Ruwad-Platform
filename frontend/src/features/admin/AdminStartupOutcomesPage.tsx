@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession } from "@/hooks/use-store";
 import { useStartups } from "@/hooks/use-directory-data";
@@ -92,11 +92,11 @@ export function AdminStartupOutcomesPage({ id }: { id: string }) {
     } catch (e) { toast(errText(e)); } finally { setBusy(false); }
   }
 
-  if (!hydrated) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
+  if (!hydrated) return <div className="mt-20"><LoadingState /></div>;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to log startup outcomes." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
-  if (error) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load outcome events" body={error} /></div>;
-  if (!events) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
+  if (error) return <div className="mt-20"><ErrorState title="Couldn't load outcome events" body={error} /></div>;
+  if (!events) return <div className="mt-20"><LoadingState /></div>;
 
   return (
     <div>
@@ -106,7 +106,7 @@ export function AdminStartupOutcomesPage({ id }: { id: string }) {
       />
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Log a New Event</h3>
+        <h3 className="card-title">Log a New Event</h3>
         <div className="grid-2">
           <div className="field">
             <label>Event Type</label>
@@ -188,7 +188,7 @@ export function AdminStartupOutcomesPage({ id }: { id: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Event History</h3>
+        <h3 className="card-title">Event History</h3>
         {events.length === 0 ? (
           <p className="small muted">No outcome events logged for this startup yet.</p>
         ) : (
@@ -213,7 +213,7 @@ export function AdminStartupOutcomesPage({ id }: { id: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Shadow Predictions</h3>
+        <h3 className="card-title">Shadow Predictions</h3>
         <p className="small muted mb-12">Internal-only model predictions for this startup — never shown publicly and never part of the RUWĀD Score above. See <span style={{ fontFamily: "monospace" }}>/admin/ml-models</span> for the models generating these.</p>
         {predictions === null ? (
           <p className="small muted">Loading…</p>

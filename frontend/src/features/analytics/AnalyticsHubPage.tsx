@@ -2,7 +2,7 @@
 
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { DashboardCard } from "@/components/intelligence/DashboardCard";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import {
   useAnalyticsOverview, useFundingByStage, useSectorDistribution, useGeographicDistribution,
   useInvestorActivity, useResearchAnalytics, useMultinationalsAnalytics,
@@ -44,7 +44,7 @@ export function AnalyticsHubPage() {
     return (
       <div className="analytics-page">
         <IntelligencePageHeader title="Dashboards" description="Ecosystem, funding and sector analytics built on RUWĀD's live entity data." />
-        <EmptyState icon="help" title="Couldn't load dashboards" body={error} />
+        <ErrorState title="Couldn't load dashboards" body={error} />
       </div>
     );
   }
@@ -52,7 +52,7 @@ export function AnalyticsHubPage() {
     return (
       <div className="analytics-page">
         <IntelligencePageHeader title="Dashboards" description="Ecosystem, funding and sector analytics built on RUWĀD's live entity data." />
-        <EmptyState icon="search" title="Loading dashboards…" body="" />
+        <LoadingState title="Loading dashboards…" />
       </div>
     );
   }

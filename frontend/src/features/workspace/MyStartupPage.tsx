@@ -8,7 +8,7 @@ import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePa
 import { ProfileCompleteness } from "@/components/workspace/ProfileCompleteness";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { ListingStatusBadge } from "@/components/workspace/ListingStatusBadge";
 import { useSession, useOwnedListings } from "@/hooks/use-store";
@@ -76,8 +76,8 @@ export function MyStartupPage({ slug }: { slug: string }) {
       <IntelligencePageHeader title={TITLE} description={SUBTITLE} action={action} />
     </>
   );
-  if (loading) return <div className="mystartup-page">{header()}<div className="mt-20"><EmptyState icon="mystartup" title="Loading your company profile…" body="" /></div></div>;
-  if (error) return <div className="mystartup-page">{header()}<div className="mt-20"><EmptyState icon="help" title="Couldn't load your company profile" body={error} /></div></div>;
+  if (loading) return <div className="mystartup-page">{header()}<div className="mt-20"><LoadingState title="Loading your company profile…" /></div></div>;
+  if (error) return <div className="mystartup-page">{header()}<div className="mt-20"><ErrorState title="Couldn't load your company profile" body={error} /></div></div>;
   if (!s) {
     return (
       <div className="mystartup-page">
@@ -111,7 +111,7 @@ export function MyStartupPage({ slug }: { slug: string }) {
       <section className="ms-hero">
         <OrganizationLogo logo={s.logo} logoUrl={s.logoUrl} className="plogo ms-logo" />
         <div className="ms-hero-main">
-          <h1>{s.name}</h1>
+          <h2 className="profile-name">{s.name}</h2>
           <p className="ms-tagline">{s.tagline}</p>
           <div className="ms-meta">
             <span><RuwadIcon name="map" size={13} /> {s.city}, {s.country}</span>

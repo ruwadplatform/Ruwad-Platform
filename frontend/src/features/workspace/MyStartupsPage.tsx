@@ -5,7 +5,7 @@ import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, LoadingState } from "@/components/shared/EmptyState";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { ListingStatusBadge } from "@/components/workspace/ListingStatusBadge";
 import { useSession, useOwnedListings, useOwnedListingsLoaded } from "@/hooks/use-store";
@@ -79,7 +79,7 @@ export function MyStartupsPage() {
     <div className="mystartup-page">
       {header}
       {!loaded ? (
-        <EmptyState icon="mystartup" title="Loading your startups…" body="" />
+        <LoadingState title="Loading your startups…" />
       ) : startups.length === 0 ? (
         <EmptyState
           icon="mystartup"

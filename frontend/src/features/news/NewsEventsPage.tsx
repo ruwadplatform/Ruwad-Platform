@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { NewsCard } from "@/components/intelligence/NewsCard";
 import { EventCard } from "@/components/intelligence/EventCard";
@@ -12,6 +11,7 @@ import { useNews, useEvents } from "@/hooks/use-directory-data";
 import { compareEvents, eventStatusOf } from "@/lib/content-format";
 import { readUrlFlash } from "@/hooks/use-google-calendar";
 import { NEWS_CATEGORIES, EVENT_TYPES } from "@/data/reference";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 
 type Tab = "News" | "Events";
 
@@ -47,9 +47,9 @@ function NewsTab() {
   const { shown, capped } = capForGuest(filtered, 6, !hydrated || !loggedIn);
 
 
-  if (error) return <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load news</h4><p>{error}</p></div>;
-  if (loading) return <div className="empty-state"><RuwadIcon name="news" size={30} /><h4>Loading news…</h4></div>;
-  if (!NEWS.length) return <div className="empty-state"><RuwadIcon name="news" size={30} /><h4>No news available yet</h4><p>Healthcare news is collected automatically — check back soon.</p></div>;
+  if (error) return <ErrorState title="Couldn&apos;t load news" body={error} />;
+  if (loading) return <LoadingState title="Loading news…" />;
+  if (!NEWS.length) return <EmptyState icon="news" title="No news available yet" body="Healthcare news is collected automatically — check back soon." />;
 
   return (
     <div>
@@ -65,7 +65,7 @@ function NewsTab() {
       </div>
 
       {shown.length > 0 && <div className="panel mb-24">{shown.map((n) => <NewsCard key={n.id} article={n} />)}</div>}
-      {!shown.length && <div className="empty-state"><RuwadIcon name="news" size={30} /><h4>No news matches those filters</h4><p>Try a different category or country.</p></div>}
+      {!shown.length && <EmptyState icon="news" title="No news matches those filters" body="Try a different category or country." />}
       {hydrated && capped && <DirectoryGateBanner entityLabelPlural="News Articles" totalCount={filtered.length} />}
     </div>
   );
@@ -109,13 +109,13 @@ function EventsTab() {
       </div>
       <div className="result-count small muted mb-12">{loading ? "Loading events…" : `${filtered.length} event${filtered.length === 1 ? "" : "s"}`}</div>
       {error ? (
-        <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load events</h4><p>{error}</p></div>
+        <ErrorState title="Couldn&apos;t load events" body={error} />
       ) : loading ? (
-        <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading events…</h4></div>
+        <LoadingState title="Loading events…" />
       ) : !current.length ? (
-        <div className="empty-state"><RuwadIcon name="clock" size={30} /><h4>No upcoming events available yet</h4><p>Events are collected automatically — check back soon.</p></div>
+        <EmptyState icon="clock" title="No upcoming events available yet" body="Events are collected automatically — check back soon." />
       ) : !filtered.length ? (
-        <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No events match those filters</h4><p>Try a different type, country or status.</p></div>
+        <EmptyState icon="search" title="No events match those filters" body="Try a different type, country or status." />
       ) : (
         <div className="events-grid">{shown.map((e) => <EventCard key={e.id} event={e} />)}</div>
       )}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useSession } from "@/hooks/use-store";
 import { fetchStartupBySlug, fetchStartupEditPayload, saveStartupEdit } from "@/lib/api/startups";
@@ -68,8 +68,8 @@ export function EditStartupPage({ slug: startupSlug }: { slug: string }) {
   if (!loggedIn) return <WorkspaceGate />;
 
   const header = <IntelligencePageHeader title="Edit Startup" description="Update your live profile. Changes go live immediately and your RUWĀD Score and ML estimate are recalculated from what is on file." />;
-  if (loading) return <div>{header}<div className="mt-20"><EmptyState icon="mystartup" title="Loading your company profile…" body="" /></div></div>;
-  if (loadError) return <div>{header}<div className="mt-20"><EmptyState icon="help" title="Couldn't load your company profile" body={loadError} /></div></div>;
+  if (loading) return <div>{header}<div className="mt-20"><LoadingState title="Loading your company profile…" /></div></div>;
+  if (loadError) return <div>{header}<div className="mt-20"><ErrorState title="Couldn't load your company profile" body={loadError} /></div></div>;
   if (!entityId) return <div>{header}<div className="mt-20"><EmptyState icon="mystartup" title="No company linked to your account yet" body="Once your company profile is submitted and approved, you can edit it here." /></div></div>;
 
   const step = schema.steps[stepIndex];

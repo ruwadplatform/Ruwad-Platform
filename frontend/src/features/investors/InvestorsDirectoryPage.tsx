@@ -18,6 +18,8 @@ import { capForGuest } from "@/lib/auth-gate";
 import { useInvestors } from "@/hooks/use-directory-data";
 import { HC_CATEGORIES, STAGES, INVESTOR_TYPES } from "@/data/reference";
 import type { Investor } from "@/types/entities";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 
 type ViewMode = "table" | "grid";
 
@@ -90,7 +92,7 @@ export function InvestorsDirectoryPage() {
 
   return (
     <div className="investors-page">
-      <div className="page-head"><h2>Investors</h2><p className="muted small">VCs, corporate venture arms, sovereign vehicles and angel networks active in Saudi healthcare.</p></div>
+      <PageHeader title="Investors" description="VCs, corporate venture arms, sovereign vehicles and angel networks active in Saudi healthcare." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search investors" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <button className="btn btn-outline" onClick={openFilters}><RuwadIcon name="filter" size={14} /> Filters</button>
@@ -109,13 +111,13 @@ export function InvestorsDirectoryPage() {
       <div className="result-count small muted mb-12">{loading ? "Loading investors…" : `${filtered.length} investor${filtered.length === 1 ? "" : "s"}`}</div>
       <div>
         {error ? (
-          <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load investors</h4><p>{error}</p></div>
+          <ErrorState title="Couldn&apos;t load investors" body={error} />
         ) : loading ? (
-          <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading investors…</h4></div>
+          <LoadingState title="Loading investors…" />
         ) : !INVESTORS.length ? (
-          <div className="empty-state"><RuwadIcon name="investors" size={30} /><h4>No investors available yet</h4><p>Investors added to the RUWĀD ecosystem will appear here.</p></div>
+          <EmptyState icon="investors" title="No investors available yet" body="Investors added to the RUWĀD ecosystem will appear here." />
         ) : !filtered.length ? (
-          <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No investors match those filters</h4><p>Try clearing a filter or search term.</p></div>
+          <EmptyState icon="search" title="No investors match those filters" body="Try clearing a filter or search term." />
         ) : view === "grid" ? (
           <div className="entity-grid">{shown.map((v) => <InvestorGridCard key={v.id} v={v} />)}</div>
         ) : (

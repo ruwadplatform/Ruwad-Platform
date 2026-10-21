@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon, type RuwadIconName } from "@/components/icons/ruwad-icon";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState } from "@/components/shared/EmptyState";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useToast } from "@/components/shell/ToastProvider";
 import { useModal } from "@/components/shell/ModalProvider";
@@ -24,6 +24,7 @@ import { ReviewSection } from "./ReviewSection";
 import { AIAutofillCard } from "./AIAutofillCard";
 import { coerceExtracted } from "./autofill-map";
 import { CompactLogoUploader } from "./CompactLogoUploader";
+import { StatCard } from "@/components/shared/StatCard";
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type Payload = Record<string, unknown>;
@@ -283,7 +284,7 @@ export function SubmissionWizard({ kind }: { kind: ApiSubmissionKind }) {
 
   if (!hydrated) return null;
   if (!loggedIn) return <WorkspaceGate title="Sign in to submit a listing" body="Create a free account or sign in to submit your organization for review." />;
-  if (initError) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load your submission" body={initError} /></div>;
+  if (initError) return <div className="mt-20"><ErrorState title="Couldn't load your submission" body={initError} /></div>;
   if (!submission) {
     return <div className="mt-20"><EmptyState icon={schema.icon as RuwadIconName} title="Starting your submission…" body="" /></div>;
   }
@@ -373,8 +374,8 @@ function SubmissionConfirmation({ submission, schema }: { submission: ApiSubmiss
           {schema.label.toLowerCase().includes("startup") ? " Once it is approved and published, your RUWĀD assessment is calculated automatically and appears on your startup page." : ""}
         </p>
         <div className="stat-mini-row mt-20" style={{ maxWidth: 420, margin: "20px auto 0" }}>
-          <div className="stat-mini"><div className="sm-label">Reference</div><div className="sm-val fs-15">{submission.id.slice(0, 8).toUpperCase()}</div></div>
-          <div className="stat-mini"><div className="sm-label">Status</div><div className="sm-val fs-15">Submitted</div></div>
+          <StatCard label="Reference" size={15} value={submission.id.slice(0, 8).toUpperCase()} />
+          <StatCard label="Status" size={15} value="Submitted" />
         </div>
         <div className="flex gap-8 mt-20" style={{ justifyContent: "center" }}>
           <button className="btn btn-outline" onClick={() => router.push("/workspace")}>Back to Workspace</button>

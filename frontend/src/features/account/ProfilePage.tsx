@@ -11,6 +11,7 @@ import { UserAvatar } from "@/components/shared/UserAvatar";
 import { ApiError } from "@/lib/api/client";
 import { uploadAvatar } from "@/lib/api/uploads";
 import { updateProfile, updateProfilePhoto } from "@/lib/store";
+import { StatCard } from "@/components/shared/StatCard";
 
 const PHOTO_TYPES = ["image/png", "image/jpeg", "image/webp"];
 const PHOTO_MAX_BYTES = 2 * 1024 * 1024;
@@ -121,7 +122,7 @@ export function ProfilePage() {
           <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={onPhotoPicked} hidden />
         </div>
         <div className="profile-head-main">
-          <h1>{user.firstName} {user.lastName}</h1>
+          <h2 className="profile-name">{user.firstName} {user.lastName}</h2>
           <div className="ptagline">{user.jobTitle || user.accountType}{user.org?.name ? ` · ${user.org.name}` : ""}</div>
           <div className="profile-meta">
             <span><RuwadIcon name="mail" size={13} /> {user.email}</span>
@@ -143,7 +144,7 @@ export function ProfilePage() {
       </div>
 
       <div className="panel panel-pad mt-20">
-        <h3 className="fs-13 mb-16">Account Information</h3>
+        <h3 className="card-title">Account Information</h3>
         {editing ? (
           <>
             <div className="grid-2">
@@ -161,12 +162,12 @@ export function ProfilePage() {
           </>
         ) : (
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Email</div><div className="sm-val fs-15">{user.email}</div></div>
-            <div className="stat-mini"><div className="sm-label">Account Type</div><div className="sm-val fs-15">{user.accountType}</div></div>
-            <div className="stat-mini"><div className="sm-label">Organization</div><div className="sm-val fs-15">{user.org?.name || "—"}</div></div>
-            <div className="stat-mini"><div className="sm-label">Job Title</div><div className="sm-val fs-15">{user.jobTitle || "—"}</div></div>
-            <div className="stat-mini"><div className="sm-label">City</div><div className="sm-val fs-15">{user.city || "—"}</div></div>
-            <div className="stat-mini"><div className="sm-label">Member Since</div><div className="sm-val fs-15">{new Date(user.createdAt).toISOString().slice(0, 10)}</div></div>
+            <StatCard label="Email" size={15} value={user.email} />
+            <StatCard label="Account Type" size={15} value={user.accountType} />
+            <StatCard label="Organization" size={15} value={user.org?.name || "—"} />
+            <StatCard label="Job Title" size={15} value={user.jobTitle || "—"} />
+            <StatCard label="City" size={15} value={user.city || "—"} />
+            <StatCard label="Member Since" size={15} value={new Date(user.createdAt).toISOString().slice(0, 10)} />
           </div>
         )}
         {!editing && user.bio && <p className="small muted mt-16">{user.bio}</p>}

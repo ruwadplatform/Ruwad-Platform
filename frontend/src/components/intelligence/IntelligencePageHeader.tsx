@@ -1,13 +1,7 @@
 import type { ReactNode } from "react";
+import { PageHeader } from "@/components/shared/PageHeader";
 
-/** Shared `.page-head` title/description block used across Reports,
- * Dashboards and News & Events — same shape the directory pages already
- * use, kept as one component since it's identical across all three. */
+/** Kept so the ~35 pages that already import it keep working; it is now just the shared PageHeader. */
 export function IntelligencePageHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
-  return (
-    <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-      <div className="page-head"><h2>{title}</h2>{description && <p className="muted small">{description}</p>}</div>
-      {action}
-    </div>
-  );
+  return <PageHeader title={title} description={description} action={action} />;
 }

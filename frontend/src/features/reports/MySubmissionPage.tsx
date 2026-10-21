@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, LoadingState } from "@/components/shared/EmptyState";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { useSession } from "@/hooks/use-store";
@@ -28,7 +28,7 @@ export function MySubmissionPage({ id }: { id: string }) {
   if (!hydrated) return <SessionLoading />;
   if (!loggedIn) return <WorkspaceGate title="Sign in to see your report" body="Sign in to see this report submission." />;
   if (error) return <EmptyState icon="help" title={error.missing ? "Report not found" : "Couldn't load this report"} body={error.missing ? "This submission doesn't exist or isn't yours." : error.message} action={<Link className="btn btn-outline" href="/my-reports">Back to My Reports</Link>} />;
-  if (!sub) return <EmptyState icon="search" title="Loading…" body="" />;
+  if (!sub) return <LoadingState />;
 
   const reportHref = safeHref(sub.reportUrl);
   return (

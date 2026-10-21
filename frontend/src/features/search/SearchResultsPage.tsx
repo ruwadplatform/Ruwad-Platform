@@ -9,6 +9,7 @@ import { useSession } from "@/hooks/use-store";
 import { capForGuest } from "@/lib/auth-gate";
 import { searchIndex, GUEST_SEARCH_CAPS } from "@/lib/search-index";
 import { useStartups, useInvestors, useHubs, useResearchInstitutions, useMultinationals, useReports } from "@/hooks/use-directory-data";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 /** Ported from renderSearchResults() (js/newsevents.js) — groups matches
  * by entity type, guest-caps each group the same way every directory
@@ -43,7 +44,7 @@ export function SearchResultsPage() {
 
   return (
     <div>
-      <div className="page-head"><h2>Search results for &quot;{q}&quot;</h2><p className="muted small">{loading ? "Searching…" : `${totalResults} result${totalResults === 1 ? "" : "s"}`}</p></div>
+      <PageHeader title={<>Search results for &quot;{q}&quot;</>} description={<>{loading ? "Searching…" : `${totalResults} result${totalResults === 1 ? "" : "s"}`}</>} />
       {loading ? (
         <EmptyState icon="search" title="Searching…" body="" />
       ) : !Object.keys(groups).length ? (
@@ -53,7 +54,7 @@ export function SearchResultsPage() {
           const { shown, capped } = unlocked ? { shown: items, capped: false } : capForGuest(items, GUEST_SEARCH_CAPS[type] ?? 3, true);
           return (
             <div key={type}>
-              <div className="panel-head" style={{ border: "none", padding: "6px 0 10px" }}><h3 className="fs-14">{type}</h3></div>
+              <div className="panel-head" style={{ border: "none", padding: "6px 0 10px" }}><h3 className="card-title">{type}</h3></div>
               <div className="panel mb-24">
                 {shown.map((r) => (
                   <div key={r.route} className="event-item" style={{ cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start" }} onClick={() => router.push(r.route)}>

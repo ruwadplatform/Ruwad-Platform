@@ -16,6 +16,8 @@ import { capForGuest } from "@/lib/auth-gate";
 import { useResearchInstitutions } from "@/hooks/use-directory-data";
 import { RESEARCH_INSTITUTION_TYPES, RESEARCH_FIELDS, HC_CATEGORIES, COUNTRIES } from "@/data/reference";
 import type { ResearchInstitution } from "@/types/entities";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 
 type ViewMode = "table" | "grid";
 
@@ -82,7 +84,7 @@ export function ResearchDirectoryPage() {
 
   return (
     <div className="research-directory-page">
-      <div className="page-head"><h2>Research &amp; Academia</h2><p className="muted small">Universities, research institutions and academic healthcare centers across Saudi Arabia &amp; the region.</p></div>
+      <PageHeader title="Research &amp; Academia" description="Universities, research institutions and academic healthcare centers across Saudi Arabia &amp; the region." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search institutions" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <button className="btn btn-outline" onClick={openFilters}><RuwadIcon name="filter" size={14} /> Filters</button>
@@ -101,13 +103,13 @@ export function ResearchDirectoryPage() {
       <div className="result-count small muted mb-12">{loading ? "Loading institutions…" : `${filtered.length} institution${filtered.length === 1 ? "" : "s"}`}</div>
       <div>
         {error ? (
-          <div className="empty-state"><RuwadIcon name="help" size={30} /><h4>Couldn&apos;t load institutions</h4><p>{error}</p></div>
+          <ErrorState title="Couldn&apos;t load institutions" body={error} />
         ) : loading ? (
-          <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>Loading institutions…</h4></div>
+          <LoadingState title="Loading institutions…" />
         ) : !RESEARCH_INSTITUTIONS.length ? (
-          <div className="empty-state"><RuwadIcon name="research" size={30} /><h4>No research institutions available yet</h4><p>Research institutions added to the RUWĀD ecosystem will appear here.</p></div>
+          <EmptyState icon="research" title="No research institutions available yet" body="Research institutions added to the RUWĀD ecosystem will appear here." />
         ) : !filtered.length ? (
-          <div className="empty-state"><RuwadIcon name="search" size={30} /><h4>No institutions match those filters</h4><p>Try clearing a filter or search term.</p></div>
+          <EmptyState icon="search" title="No institutions match those filters" body="Try clearing a filter or search term." />
         ) : view === "grid" ? (
           <div className="entity-grid">{shown.map((r) => <ResearchGridCard key={r.id} r={r} />)}</div>
         ) : (

@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { useHubs } from "@/hooks/use-directory-data";
 import type { Hub } from "@/types/entities";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 interface OppRow {
   hubId: string; hubName: string; program: string; type: string; status: string;
@@ -47,10 +48,7 @@ export function OpportunitiesPage() {
 
   return (
     <div className="opportunities-page">
-      <div className="page-head">
-        <h2>Opportunities Marketplace</h2>
-        <p className="muted small">Every accelerator, incubator, sandbox and funding program currently listed across RUWĀD&apos;s Hubs &amp; Enablers directory — one applyable list instead of an organization-by-organization search.</p>
-      </div>
+      <PageHeader title="Opportunities Marketplace" description="Every accelerator, incubator, sandbox and funding program currently listed across RUWĀD&apos;s Hubs &amp; Enablers directory — one applyable list instead of an organization-by-organization search." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search programs or organizations" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <select className="select" style={{ width: "auto" }} value={status} onChange={(e) => setStatus(e.target.value as "all" | "open" | "closed")}>
@@ -61,9 +59,9 @@ export function OpportunitiesPage() {
       </div>
       <div className="result-count small muted mb-12">{loading ? "Loading programs…" : `${list.length} program${list.length === 1 ? "" : "s"} · ${openCount} open now across ${HUBS.length} organizations`}</div>
       {error ? (
-        <EmptyState icon="help" title="Couldn't load programs" body={error} />
+        <ErrorState title="Couldn't load programs" body={error} />
       ) : loading ? (
-        <EmptyState icon="search" title="Loading programs…" body="" />
+        <LoadingState title="Loading programs…" />
       ) : !list.length ? (
         <EmptyState icon="search" title="No programs match those filters" body="Try clearing the search or status filter." />
       ) : (

@@ -25,7 +25,7 @@ export function IntroductionRequestDetail({ request: r }: { request: IntroReques
   return (
     <div className="modal-box-pad">
       <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-        <h3 className="fs-15">Introduction Request</h3>
+        <h3 className="card-title">Introduction Request</h3>
         <IntroductionStatusBadge status={r.status} />
       </div>
 

@@ -22,6 +22,7 @@ import { initials } from "@/lib/scoring";
 import { safeLinkedInUrl } from "@/lib/linkedin";
 import { useStartups, useInvestors } from "@/hooks/use-directory-data";
 import type { Startup } from "@/types/entities";
+import { StatCard } from "@/components/shared/StatCard";
 
 const TABS = ["Overview", "Company", "Product", "Clinical", "Regulatory", "Market", "Funding", "Team", "Investors", "Traction", "News", "Data Room"] as const;
 type Tab = (typeof TABS)[number];
@@ -117,24 +118,24 @@ function Overview({ s, loggedIn, isOwner }: { s: Startup; loggedIn: boolean; isO
           {!hydrated ? (
             <div className="stat-mini"><div className="sm-label">Total Funding</div><div className="sm-val"><span className="skel" style={{ width: 60 }} /></div></div>
           ) : loggedIn ? (
-            <div className="stat-mini"><div className="sm-label">Total Funding</div><div className="sm-val">SAR {s.fundingTotal}M</div></div>
+            <StatCard label="Total Funding" value={<>SAR {s.fundingTotal}M</>} />
           ) : null}
-          <div className="stat-mini"><div className="sm-label">Employees</div><div className="sm-val">{s.employees}</div></div>
-          <div className="stat-mini"><div className="sm-label">Founded</div><div className="sm-val">{s.founded}</div></div>
+          <StatCard label="Employees" value={s.employees} />
+          <StatCard label="Founded" value={s.founded} />
         </div>
         <div className="panel panel-pad mb-16">
-          <h3 className="fs-13 mb-12">About</h3>
+          <h3 className="card-title">About</h3>
           <p className="db-text">{s.desc}</p>
         </div>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Key Information</h3>
+          <h3 className="card-title">Key Information</h3>
           <div className="stat-mini-row stat-mini-row--facts">
-            <div className="stat-mini"><div className="sm-label">Legal Name</div><div className="sm-val fs-15">{s.legalName}</div></div>
-            <div className="stat-mini"><div className="sm-label">Headquarters</div><div className="sm-val fs-15">{s.hq}</div></div>
-            <div className="stat-mini"><div className="sm-label">Founded</div><div className="sm-val fs-15">{s.founded}</div></div>
-            <div className="stat-mini"><div className="sm-label">Website</div><div className="sm-val fs-15">{s.website}</div></div>
-            <div className="stat-mini"><div className="sm-label">Business Model</div><div className="sm-val fs-15">{s.businessModel}</div></div>
-            <div className="stat-mini"><div className="sm-label">Healthcare Category</div><div className="sm-val fs-15">{s.category}</div></div>
+            <StatCard label="Legal Name" size={15} value={s.legalName} />
+            <StatCard label="Headquarters" size={15} value={s.hq} />
+            <StatCard label="Founded" size={15} value={s.founded} />
+            <StatCard label="Website" size={15} value={s.website} />
+            <StatCard label="Business Model" size={15} value={s.businessModel} />
+            <StatCard label="Healthcare Category" size={15} value={s.category} />
           </div>
         </div>
       </div>
@@ -219,9 +220,9 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
         <>
           <div className="panel panel-pad mb-16">
             <div className="stat-mini-row">
-              <div className="stat-mini"><div className="sm-label">TAM</div><div className="sm-val">{s.market.tam}</div></div>
-              <div className="stat-mini"><div className="sm-label">SAM</div><div className="sm-val">{s.market.sam}</div></div>
-              <div className="stat-mini"><div className="sm-label">SOM</div><div className="sm-val">{s.market.som}</div></div>
+              <StatCard label="TAM" value={s.market.tam} />
+              <StatCard label="SAM" value={s.market.sam} />
+              <StatCard label="SOM" value={s.market.som} />
             </div>
           </div>
           <div className="panel panel-pad">
@@ -234,9 +235,9 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
       const overview = (
         <div className="panel panel-pad mb-16">
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Total Raised</div><div className="sm-val">SAR {s.fundingTotal}M</div></div>
-            <div className="stat-mini"><div className="sm-label">Funding Stage</div><div className="sm-val fs-15">{s.stage}</div></div>
-            <div className="stat-mini"><div className="sm-label">Last Round</div><div className="sm-val fs-15">{s.rounds[s.rounds.length - 1]?.round || "—"}</div></div>
+            <StatCard label="Total Raised" value={<>SAR {s.fundingTotal}M</>} />
+            <StatCard label="Funding Stage" size={15} value={s.stage} />
+            <StatCard label="Last Round" size={15} value={s.rounds[s.rounds.length - 1]?.round || "—"} />
           </div>
         </div>
       );
@@ -245,7 +246,7 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
           <>
             {overview}
             <div className="panel panel-pad">
-              <h3 className="fs-13 mb-16">Funding History</h3>
+              <h3 className="card-title">Funding History</h3>
               <LockedTeaser title="Unlock Funding Intelligence" body="See round-by-round amounts, valuation, investor participation and complete funding history." blurLines={Math.min(5, Math.max(2, s.rounds.length))} cta="Unlock Funding Intelligence" />
             </div>
           </>
@@ -256,12 +257,12 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
           {overview}
           <div className="panel panel-pad mb-16">
             <div className="stat-mini-row">
-              <div className="stat-mini"><div className="sm-label">Valuation</div><div className="sm-val">SAR {s.valuation}M</div></div>
-              <div className="stat-mini"><div className="sm-label">Fundraising</div><div className="sm-val fs-15">{s.fundraising ? `Yes — ${s.targetRaise || ""}` : "Not currently"}</div></div>
+              <StatCard label="Valuation" value={<>SAR {s.valuation}M</>} />
+              <StatCard label="Fundraising" size={15} value={<>{s.fundraising ? `Yes — ${s.targetRaise || ""}` : "Not currently"}</>} />
             </div>
           </div>
           <div className="panel panel-pad">
-            <h3 className="fs-13 mb-16">Funding Timeline</h3>
+            <h3 className="card-title">Funding Timeline</h3>
             <div className="funding-timeline">
               {s.rounds.map((r, i) => (
                 <div className="ft-item" key={i}>

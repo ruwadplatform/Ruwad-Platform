@@ -16,6 +16,7 @@ import { requireAuth } from "@/lib/store";
 import { capForGuest } from "@/lib/auth-gate";
 import { initials } from "@/lib/scoring";
 import type { Investor } from "@/types/entities";
+import { StatCard } from "@/components/shared/StatCard";
 
 const TABS = ["Overview", "Investment Thesis", "Funds", "Portfolio", "Team", "Recent Investments", "Open Opportunities", "News", "Data Room"] as const;
 type Tab = (typeof TABS)[number];
@@ -73,18 +74,18 @@ function Overview({ v }: { v: Investor }) {
     <div className="profile-body">
       <div>
         <div className="stat-mini-row">
-          <div className="stat-mini"><div className="sm-label">AUM</div><div className="sm-val">{v.aum}</div></div>
-          <div className="stat-mini"><div className="sm-label">Available Capital</div><div className="sm-val">{v.available}</div></div>
-          <div className="stat-mini"><div className="sm-label">Investments</div><div className="sm-val">{v.investments}</div></div>
+          <StatCard label="AUM" value={v.aum} />
+          <StatCard label="Available Capital" value={v.available} />
+          <StatCard label="Investments" value={v.investments} />
         </div>
-        <div className="panel panel-pad mb-16"><h3 className="fs-13 mb-12">About</h3><p className="db-text">{v.desc}</p></div>
+        <div className="panel panel-pad mb-16"><h3 className="card-title">About</h3><p className="db-text">{v.desc}</p></div>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Snapshot</h3>
+          <h3 className="card-title">Snapshot</h3>
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Type</div><div className="sm-val fs-15">{v.type}</div></div>
-            <div className="stat-mini"><div className="sm-label">Exits</div><div className="sm-val">{v.exits}</div></div>
-            <div className="stat-mini"><div className="sm-label">Healthcare Deals</div><div className="sm-val">{v.hcDeals}</div></div>
-            <div className="stat-mini"><div className="sm-label">Typical Ticket</div><div className="sm-val fs-15">{v.ticket}</div></div>
+            <StatCard label="Type" size={15} value={v.type} />
+            <StatCard label="Exits" value={v.exits} />
+            <StatCard label="Healthcare Deals" value={v.hcDeals} />
+            <StatCard label="Typical Ticket" size={15} value={v.ticket} />
           </div>
         </div>
       </div>
@@ -107,9 +108,9 @@ function TabBody({ tab, v, loggedIn }: { tab: Tab; v: Investor; loggedIn: boolea
       return (
         <div className="panel panel-pad">
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Current Fund</div><div className="sm-val fs-15">Not provided</div></div>
-            <div className="stat-mini"><div className="sm-label">AUM</div><div className="sm-val">{v.aum}</div></div>
-            <div className="stat-mini"><div className="sm-label">Vintage</div><div className="sm-val">{v.founded || "—"}</div></div>
+            <StatCard label="Current Fund" size={15} value="Not provided" />
+            <StatCard label="AUM" value={v.aum} />
+            <StatCard label="Vintage" value={v.founded || "—"} />
             <div className="stat-mini"><div className="sm-label">Status</div><div className="sm-val fs-15"><span className="badge badge-good">Actively investing</span></div></div>
           </div>
         </div>

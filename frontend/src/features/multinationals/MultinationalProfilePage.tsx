@@ -12,6 +12,7 @@ import { useToast } from "@/components/shell/ToastProvider";
 import { requireAuth } from "@/lib/store";
 import { regBadgeClass } from "@/lib/widgets";
 import type { Multinational } from "@/types/entities";
+import { StatCard } from "@/components/shared/StatCard";
 
 /* NOTE — explicit product rule: no RUWĀD startup score anywhere on this
  * page. Multinationals aren't scored the way early-stage startups are. */
@@ -75,15 +76,15 @@ function Overview({ m }: { m: Multinational }) {
     <div className="profile-body" style={{ gridTemplateColumns: "1fr" }}>
       <div>
         <div className="stat-mini-row">
-          <div className="stat-mini"><div className="sm-label">Countries</div><div className="sm-val">{m.menaPresence.countriesActiveIn.length}</div></div>
-          <div className="stat-mini"><div className="sm-label">Employees</div><div className="sm-val">{m.employees.toLocaleString()}+</div></div>
-          <div className="stat-mini"><div className="sm-label">Healthcare Products</div><div className="sm-val">{m.products.length}</div></div>
-          <div className="stat-mini"><div className="sm-label">R&D Centers</div><div className="sm-val">{m.rdCenters}</div></div>
-          <div className="stat-mini"><div className="sm-label">Regional Partnerships</div><div className="sm-val">{m.partnershipsList.length}</div></div>
-          <div className="stat-mini"><div className="sm-label">Saudi Operations</div><div className="sm-val fs-15">{m.menaPresence.saudiOffice ? "Active" : "None"}</div></div>
+          <StatCard label="Countries" value={m.menaPresence.countriesActiveIn.length} />
+          <StatCard label="Employees" value={<>{m.employees.toLocaleString()}+</>} />
+          <StatCard label="Healthcare Products" value={m.products.length} />
+          <StatCard label="R&D Centers" value={m.rdCenters} />
+          <StatCard label="Regional Partnerships" value={m.partnershipsList.length} />
+          <StatCard label="Saudi Operations" size={15} value={m.menaPresence.saudiOffice ? "Active" : "None"} />
         </div>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">About</h3>
+          <h3 className="card-title">About</h3>
           <p className="db-text">{m.desc}</p>
         </div>
       </div>
@@ -204,10 +205,10 @@ function TabBody({ tab, m, loggedIn }: { tab: Tab; m: Multinational; loggedIn: b
       return (
         <div className="panel panel-pad">
           <div className="stat-mini-row">
-            <div className="stat-mini"><div className="sm-label">Website</div><div className="sm-val fs-15">{m.website}</div></div>
+            <StatCard label="Website" size={15} value={m.website} />
             <div className="stat-mini"><div className="sm-label">Email</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 90 }} /> : loggedIn ? m.email : <ContactLock />}</div></div>
             <div className="stat-mini"><div className="sm-label">Phone</div><div className="sm-val fs-15">{!hydrated ? <span className="skel" style={{ width: 70 }} /> : loggedIn ? m.phone : <ContactLock />}</div></div>
-            <div className="stat-mini"><div className="sm-label">LinkedIn</div><div className="sm-val fs-15">{m.linkedin}</div></div>
+            <StatCard label="LinkedIn" size={15} value={m.linkedin} />
           </div>
         </div>
       );

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { SessionLoading } from "@/components/workspace/SessionLoading";
 import { useSession } from "@/hooks/use-store";
@@ -41,8 +41,8 @@ export function MyReportsPage() {
         action={<Link className="btn btn-primary" href="/reports/submit"><RuwadIcon name="plus" size={14} /> Publish Report</Link>}
       />
       <div className="mt-20">
-        {error ? <EmptyState icon="help" title="Couldn't load your reports" body={error} />
-          : rows === null ? <EmptyState icon="search" title="Loading…" body="" />
+        {error ? <ErrorState title="Couldn't load your reports" body={error} />
+          : rows === null ? <LoadingState />
           : !rows.length ? <EmptyState icon="reports" title="You haven't submitted any reports yet" body="Submit a report and it will appear here while RUWĀD reviews it." action={<Link className="btn btn-primary" href="/reports/submit">Publish Report</Link>} />
           : (
             <div className="panel" style={{ overflowX: "auto" }}>

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { SubmissionStatusBadge, SUBMISSION_STATUS_LABEL } from "@/components/workspace/SubmissionStatusBadge";
 import { useSession } from "@/hooks/use-store";
 import { fetchAdminSubmissions, fetchAdminSubmissionKpis } from "@/lib/api/submissions";
@@ -50,7 +50,7 @@ export function AdminSubmissionsPage() {
     { label: "Rejected", value: kpis?.REJECTED ?? 0 },
   ]), [kpis]);
 
-  if (!hydrated) return <EmptyState icon="reports" title="Loading…" body="" />;
+  if (!hydrated) return <LoadingState />;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to review company submissions." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
 
@@ -78,9 +78,9 @@ export function AdminSubmissionsPage() {
 
       <div className="mt-16">
         {error ? (
-          <EmptyState icon="help" title="Couldn't load submissions" body={error} />
+          <ErrorState title="Couldn't load submissions" body={error} />
         ) : rows === null ? (
-          <EmptyState icon="reports" title="Loading submissions…" body="" />
+          <LoadingState title="Loading submissions…" />
         ) : !rows.length ? (
           <EmptyState icon="reports" title="No submissions match these filters." body="Try adjusting the status, type or search filters above." />
         ) : (

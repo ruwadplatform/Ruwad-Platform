@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { IntelligencePageHeader } from "@/components/intelligence/IntelligencePageHeader";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { ConfirmModal } from "@/components/shared/ConfirmModal";
 import { useModal } from "@/components/shell/ModalProvider";
 import { useToast } from "@/components/shell/ToastProvider";
@@ -23,7 +23,7 @@ function CreateStartupModal({ onCreate, onCancel }: { onCreate: (input: { catego
   const [stage, setStage] = useState("");
   return (
     <div className="modal-box modal-box-pad">
-      <h3 className="fs-14 mb-12">Create New Startup</h3>
+      <h3 className="card-title">Create New Startup</h3>
       <p className="small muted mb-12">Only fields RUWĀD treats as required are asked here — everything else stays unfilled rather than guessed.</p>
       <div className="grid-2">
         <div className="field"><label>Category</label><input className="input" value={category} onChange={(e) => setCategory(e.target.value)} /></div>
@@ -57,10 +57,10 @@ export function AdminHistoricalMatchesPage() {
   }, [isAdmin]);
   useEffect(load, [load]);
 
-  if (!hydrated) return <div className="mt-20"><EmptyState icon="reports" title="Loading…" body="" /></div>;
+  if (!hydrated) return <div className="mt-20"><LoadingState /></div>;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to review company matches." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
-  if (error) return <div className="mt-20"><EmptyState icon="help" title="Couldn't load match review" body={error} /></div>;
+  if (error) return <div className="mt-20"><ErrorState title="Couldn't load match review" body={error} /></div>;
 
   return (
     <div>

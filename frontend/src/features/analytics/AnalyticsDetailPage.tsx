@@ -10,7 +10,7 @@ import { BarChart } from "@/components/intelligence/BarChart";
 import { DonutChart } from "@/components/intelligence/DonutChart";
 import { DataSourceLabel } from "@/components/intelligence/DataSourceLabel";
 import { LockedTeaser } from "@/components/shared/LockedTeaser";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { useSession } from "@/hooks/use-store";
 import { useStartups } from "@/hooks/use-directory-data";
 import {
@@ -20,6 +20,7 @@ import {
 import type { StartupActivityRow, RecentFundingRoundRow, InvestorActivityRow } from "@/lib/api/analytics";
 import { DASHBOARD_META } from "@/data/dashboard-meta";
 import { STAGES } from "@/data/reference";
+import { StatCard } from "@/components/shared/StatCard";
 
 export function AnalyticsDetailPage({ dashboardId }: { dashboardId: string }) {
   const router = useRouter();
@@ -79,10 +80,10 @@ function DashboardBody({ id, loggedIn }: { id: string; loggedIn: boolean }) {
 }
 
 function DashboardLoading() {
-  return <EmptyState icon="search" title="Loading dashboard…" body="" />;
+  return <LoadingState title="Loading dashboard…" />;
 }
 function DashboardError({ message }: { message: string }) {
-  return <EmptyState icon="help" title="Couldn't load this dashboard" body={message} />;
+  return <ErrorState title="Couldn't load this dashboard" body={message} />;
 }
 
 /* ============================================================== FLAGSHIP */
@@ -163,10 +164,10 @@ function EcosystemDashboard({ loggedIn }: { loggedIn: boolean }) {
         <Gated loggedIn={loggedIn} title="Unlock Research & Innovation" body="Research institution activity is available to RUWĀD members.">
           <InsightCard title="Research & Innovation">
             <div className="stat-mini-row mb-16">
-              <div className="stat-mini"><div className="sm-label">Institutions</div><div className="sm-val">{research.data.summary.institutions}</div></div>
-              <div className="stat-mini"><div className="sm-label">Active Projects</div><div className="sm-val">{research.data.summary.activeProjects}</div></div>
-              <div className="stat-mini"><div className="sm-label">Publications</div><div className="sm-val">{research.data.summary.publications}</div></div>
-              <div className="stat-mini"><div className="sm-label">Patents</div><div className="sm-val">{research.data.summary.patents}</div></div>
+              <StatCard label="Institutions" value={research.data.summary.institutions} />
+              <StatCard label="Active Projects" value={research.data.summary.activeProjects} />
+              <StatCard label="Publications" value={research.data.summary.publications} />
+              <StatCard label="Patents" value={research.data.summary.patents} />
             </div>
             <BarChart data={research.data.byField} />
             <DataSourceLabel />
@@ -175,10 +176,10 @@ function EcosystemDashboard({ loggedIn }: { loggedIn: boolean }) {
         <Gated loggedIn={loggedIn} title="Unlock Multinational Presence" body="Multinational sector coverage and R&D presence are available to RUWĀD members.">
           <InsightCard title="Multinational Presence">
             <div className="stat-mini-row mb-16">
-              <div className="stat-mini"><div className="sm-label">Companies</div><div className="sm-val">{mnc.data.summary.companies}</div></div>
-              <div className="stat-mini"><div className="sm-label">Saudi Offices</div><div className="sm-val">{mnc.data.summary.saudiOffices}</div></div>
-              <div className="stat-mini"><div className="sm-label">R&D Centers</div><div className="sm-val">{mnc.data.summary.rdCenters}</div></div>
-              <div className="stat-mini"><div className="sm-label">Partnerships</div><div className="sm-val">{mnc.data.summary.regionalPartnerships}</div></div>
+              <StatCard label="Companies" value={mnc.data.summary.companies} />
+              <StatCard label="Saudi Offices" value={mnc.data.summary.saudiOffices} />
+              <StatCard label="R&D Centers" value={mnc.data.summary.rdCenters} />
+              <StatCard label="Partnerships" value={mnc.data.summary.regionalPartnerships} />
             </div>
             <DonutChart data={mnc.data.bySector} />
             <DataSourceLabel />

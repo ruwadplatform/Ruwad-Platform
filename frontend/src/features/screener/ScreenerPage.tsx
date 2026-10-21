@@ -9,6 +9,7 @@ import { useFilterDrawer } from "@/components/shell/FilterDrawerProvider";
 import { useStartups, useInvestors, useMultinationals } from "@/hooks/use-directory-data";
 import { HC_CATEGORIES, CITIES, STAGES } from "@/data/reference";
 import type { Startup, Investor, Multinational } from "@/types/entities";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 type EntityType = "Startup" | "Multinational" | "Investor";
 interface ScreenerRow {
@@ -75,7 +76,7 @@ export function ScreenerPage() {
 
   return (
     <div className="screener-page">
-      <div className="page-head"><h2>Screener</h2><p className="muted small">Search and filter startups, multinationals and investors together — one query across the whole ecosystem.</p></div>
+      <PageHeader title="Screener" description="Search and filter startups, multinationals and investors together — one query across the whole ecosystem." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search by name" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
         <button className="btn btn-outline" onClick={openFilters}><RuwadIcon name="filter" size={14} /> Filters</button>

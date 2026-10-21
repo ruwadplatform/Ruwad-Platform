@@ -6,6 +6,7 @@ import { useStartups, useInvestors, useHubs, useResearchInstitutions, useMultina
 import { HC_CATEGORIES } from "@/data/reference";
 import { startupsUrl } from "@/lib/startup-category";
 import type { Startup, Investor, Hub, ResearchInstitution, Multinational } from "@/types/entities";
+import { PageHeader } from "@/components/shared/PageHeader";
 
 interface MarketMapRow {
   category: string;
@@ -53,10 +54,7 @@ export function MarketMapPage() {
 
   return (
     <div>
-      <div className="page-head">
-        <h2>Market Map</h2>
-        <p className="muted small">Every tracked startup, investor, hub, research institution and multinational grouped by healthcare category — the same {HC_CATEGORIES.length}-category taxonomy used across RUWĀD&apos;s filters, not a separate dataset.</p>
-      </div>
+      <PageHeader title="Market Map" description={<>Every tracked startup, investor, hub, research institution and multinational grouped by healthcare category — the same {HC_CATEGORIES.length}-category taxonomy used across RUWĀD&apos;s filters, not a separate dataset.</>} />
       <div className="mm-grid mt-16">
         {rows.map((r) => {
           const pct = Math.round((r.total / maxTotal) * 100);
