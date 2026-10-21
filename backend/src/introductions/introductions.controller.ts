@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, UseGuards } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { IntroductionsService } from "./introductions.service";
 import { CreateIntroductionDto } from "./dto/create-introduction.dto";
@@ -33,14 +33,14 @@ export class IntroductionsController {
   }
 
   @Get(":id")
-  async findOne(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+  async findOne(@CurrentUser() user: AuthUser, @Param("id", ParseUUIDPipe) id: string) {
     return this.introductionsService.findOwnedOrThrow(user.userId, id);
   }
 
   @Patch(":id/status")
   @UseGuards(RolesGuard)
   @Roles(UserRole.RUWAD_ADMIN, UserRole.SUPER_ADMIN)
-  updateStatus(@Param("id") id: string, @Body() dto: UpdateIntroductionStatusDto) {
+  updateStatus(@Param("id", ParseUUIDPipe) id: string, @Body() dto: UpdateIntroductionStatusDto) {
     return this.introductionsService.updateStatus(id, dto.status);
   }
 }
