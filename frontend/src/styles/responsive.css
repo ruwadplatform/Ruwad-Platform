@@ -33,6 +33,10 @@
 @media(max-width:760px){
   .grid-2,.grid-3{grid-template-columns:1fr}
   .insight-row{grid-template-columns:1fr}
+  /* Several pages (analytics detail, the ML readiness panel) set a two-column grid with an INLINE style, which beats the rule above, so
+     on a phone two 165px panels sat side by side and their bar-chart rows (150px label + 56px value) spilled past the screen — and
+     html/body are overflow-x:hidden, so the overflow was clipped, not scrollable. Match those inline two-column grids here. */
+  .insight-row[style*="1fr 1fr"]{grid-template-columns:1fr !important}
   .kpi-row{grid-template-columns:repeat(2,1fr)}
   .eco-metric-row{grid-template-columns:repeat(2,1fr)}
   .stat-mini-row{grid-template-columns:1fr}
@@ -62,4 +66,9 @@
   .persona-row{flex-wrap:nowrap}
   .entity-grid{grid-template-columns:1fr}
   .featured-card{width:112px}
+  /* At 320px the header (menu + brand + search + 3 action buttons) was 23px wider than the screen and the avatar was clipped. */
+  .topheader{gap:8px;padding-left:12px;padding-right:12px}
+  .hdr-actions{gap:2px}
+  /* A heading with a nowrap status badge on the right (e.g. "Not ready — training blocked") must wrap instead of spilling out. */
+  .flex[style*="space-between"]{flex-wrap:wrap;gap:6px 10px}
 }
