@@ -123,6 +123,8 @@
 .persona-btn{
   padding:8px 16px;border-radius:var(--radius-pill);border:1px solid rgba(37,99,166,.4);background:#fff;
   font-size:var(--fs-12);font-weight:600;color:var(--muted);white-space:nowrap;cursor:pointer;
+  /* keep each pill its full width: the row scrolls sideways on a phone instead of squeezing the pills and clipping their labels */
+  flex:none;
 }
 .persona-btn.active{background:var(--navy-900);border-color:var(--navy-900);color:#fff}
 
