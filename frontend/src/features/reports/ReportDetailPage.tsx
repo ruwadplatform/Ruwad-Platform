@@ -163,7 +163,7 @@ export function ReportDetailPage({ report: r }: { report: Report }) {
       <div className="mb-24">
         <SectionTitle>Analysis</SectionTitle>
         <Gated loggedIn={loggedIn} hydrated={hydrated} title="Unlock Full Analysis" body="Sign in to read this report's full sector, funding and regulatory analysis.">
-          <div className="insight-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))" }}>
+          <div className="insight-row" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(min(300px,100%),1fr))" }}>
             {/* The last section is broken out as "Outlook" below instead of
                repeated here, when the report has more than one section. */}
             {(outlookSection ? r.sections.slice(0, -1) : r.sections).map((s) => (

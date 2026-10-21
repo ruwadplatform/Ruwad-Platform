@@ -185,7 +185,7 @@ export function AdminStartupScoringPage({ id }: { id: string }) {
 
       <ExperimentalMlPanel startupId={id} />
 
-      <div className="mt-16" style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
+      <div className="mt-16" style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))" }}>
         {(Object.keys(FACTOR_LABELS) as ScoreFactorKey[]).map((key) => {
           const f = score.factors[key];
           return (
