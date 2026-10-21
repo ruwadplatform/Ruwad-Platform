@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_GUARD } from "@nestjs/core";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
-import { accountKey, resolveClientIp } from "./common/rate-limit-keys";
+import { appThrottlers } from "./common/throttler-config";
 import { AiSummariesModule } from "./ai-summaries/ai-summaries.module";
 import { DatabaseModule } from "./database/database.module";
 import { HealthModule } from "./health/health.module";
@@ -36,19 +36,7 @@ import { MlDataModule } from "./ml-data/ml-data.module";
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([
-      // Per visitor: each person's own IP, not the shared proxy address (see rate-limit-keys.ts).
-      { name: "default", ttl: 60_000, limit: 100, getTracker: (req) => resolveClientIp(req) },
-      // Per account, only on login / signup / password-reset-request: caps guessing at one account
-      // regardless of where the attempts appear to come from.
-      {
-        name: "account",
-        ttl: 60_000,
-        limit: 10,
-        skipIf: (context) => accountKey(context.switchToHttp().getRequest()) === null,
-        getTracker: (req) => accountKey(req) ?? resolveClientIp(req),
-      },
-    ]),
+    ThrottlerModule.forRoot(appThrottlers()),
     DatabaseModule,
     HealthModule,
     ActivityModule,
