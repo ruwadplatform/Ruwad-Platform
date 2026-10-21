@@ -32,6 +32,7 @@ export function ProfilePage() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoError, setPhotoError] = useState("");
+  const [photoNote, setPhotoNote] = useState("");
 
   if (!hydrated) return <SessionLoading />;
   if (!loggedIn || !user) return <WorkspaceGate title="Sign in to view your profile" body="Sign in to see and manage your RUWĀD account profile." />;
@@ -47,24 +48,31 @@ export function ProfilePage() {
     if (!file) return;
     if (!PHOTO_TYPES.includes(file.type)) { setPhotoError("Unsupported file type. Please choose a PNG, JPG or WebP image."); return; }
     if (file.size > PHOTO_MAX_BYTES) { setPhotoError("Profile photo must be 2 MB or smaller."); return; }
-    setPhotoError("");
+    setPhotoError(""); setPhotoNote("");
     setPhotoBusy(true);
     try {
       const { id } = await uploadAvatar(file);
       await updateProfilePhoto(id);
       toast("Profile photo updated");
+      flashPhotoNote("Photo updated.");
     } catch (err) {
       setPhotoError(err instanceof ApiError ? err.message : "Couldn't upload your photo — please try again.");
     } finally {
       setPhotoBusy(false);
     }
   }
+  /** Shows a short confirmation under the header, then clears it. */
+  function flashPhotoNote(text: string) {
+    setPhotoNote(text);
+    setTimeout(() => setPhotoNote(""), 4000);
+  }
   async function removePhoto() {
-    setPhotoError("");
+    setPhotoError(""); setPhotoNote("");
     setPhotoBusy(true);
     try {
       await updateProfilePhoto(null);
       toast("Profile photo removed");
+      flashPhotoNote("Photo removed.");
     } catch {
       setPhotoError("Couldn't remove your photo — please try again.");
     } finally {
@@ -95,8 +103,23 @@ export function ProfilePage() {
         action={!editing ? <button className="btn btn-primary" onClick={startEdit}><RuwadIcon name="edit" size={13} /> Edit Profile</button> : null}
       />
 
-      <div className="profile-head mt-20">
-        <UserAvatar user={user} size={80} className="user-avatar-solid" />
+      {/* One header card: the avatar (with its camera button), who the user is, and photo management. */}
+      <div className="profile-head myprofile-head mt-20">
+        <div className={`myprofile-avatar-wrap${photoBusy ? " is-busy" : ""}`}>
+          <UserAvatar user={user} size={96} className="user-avatar-solid" />
+          {photoBusy && <span className="myprofile-avatar-spinner" aria-hidden="true" />}
+          <button
+            type="button"
+            className="myprofile-avatar-edit"
+            onClick={() => fileInput.current?.click()}
+            disabled={photoBusy}
+            aria-label={user.profileImageId ? "Change profile photo" : "Upload profile photo"}
+            title={user.profileImageId ? "Change photo" : "Upload photo"}
+          >
+            <RuwadIcon name="camera" size={14} />
+          </button>
+          <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={onPhotoPicked} hidden />
+        </div>
         <div className="profile-head-main">
           <h1>{user.firstName} {user.lastName}</h1>
           <div className="ptagline">{user.jobTitle || user.accountType}{user.org?.name ? ` · ${user.org.name}` : ""}</div>
@@ -105,24 +128,17 @@ export function ProfilePage() {
             {user.city && <span><RuwadIcon name="map" size={13} /> {user.city}{user.country ? `, ${user.country}` : ""}</span>}
             <span><RuwadIcon name="user" size={13} /> {user.accountType}</span>
           </div>
-        </div>
-      </div>
-
-      <div className="panel panel-pad mt-20">
-        <h3 className="fs-13 mb-16">Profile Photo</h3>
-        <div className="flex gap-16" style={{ alignItems: "center", flexWrap: "wrap" }}>
-          <UserAvatar user={user} size={96} className="user-avatar-solid" />
-          <div>
-            <div className="flex gap-8" style={{ flexWrap: "wrap" }}>
-              <button className="btn btn-primary" onClick={() => fileInput.current?.click()} disabled={photoBusy}>
-                <RuwadIcon name="upload" size={13} /> {photoBusy ? "Uploading…" : user.profileImageId ? "Change Photo" : "Upload Photo"}
+          <div className="myprofile-photo-row">
+            <span className="small muted">PNG, JPG or WebP · max 2 MB</span>
+            {user.profileImageId && (
+              <button type="button" className="btn btn-sm btn-danger-ghost myprofile-remove" onClick={removePhoto} disabled={photoBusy}>
+                <RuwadIcon name="trash" size={12} /> Remove photo
               </button>
-              {user.profileImageId && <button className="btn btn-outline" onClick={removePhoto} disabled={photoBusy}>Remove Photo</button>}
-            </div>
-            <p className="small muted mt-8">PNG, JPG or WebP. Maximum 2 MB.</p>
-            {photoError && <p className="small mt-8" role="alert" style={{ color: "var(--crit)" }}>{photoError}</p>}
+            )}
           </div>
-          <input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={onPhotoPicked} hidden />
+          <div className="myprofile-photo-status small" role="status" aria-live="polite">
+            {photoBusy ? "Updating photo…" : photoError ? <span className="is-error">{photoError}</span> : photoNote}
+          </div>
         </div>
       </div>
 

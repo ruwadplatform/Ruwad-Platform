@@ -25,7 +25,9 @@ export async function uploadLogo(file: File): Promise<{ id: string }> {
 export async function uploadAvatar(file: File): Promise<{ id: string }> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${UPLOAD_API_BASE}/uploads/avatar`, { method: "POST", credentials: "include", body: form });
+  // Through this site's own /api proxy, not straight to the backend: the login cookie is first-party to this site, so a direct cross-site
+  // call arrives without it and gets a 401. A 2 MB photo is well inside the proxy's body limit.
+  const res = await fetch(`${API_BASE}/uploads/avatar`, { method: "POST", credentials: "include", body: form });
   if (!res.ok) {
     if (res.status === 413) throw new ApiError(413, "Profile photo must be 2 MB or smaller.");
     let message = res.statusText || `Upload failed (${res.status})`;
