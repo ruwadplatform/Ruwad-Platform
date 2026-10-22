@@ -77,11 +77,14 @@
   .form-sticky-actions>.flex{flex:1 1 100%;gap:8px;flex-wrap:wrap}
   .form-sticky-actions>.flex>.btn{flex:1 1 auto;min-height:44px}
 
-  /* the floating chat button sat on top of the form's Next button; lift it above the action bar while a form is open */
-  body:has(.form-sticky-actions) .fab{bottom:130px}
+  /* the floating chat button sat on top of the form's Next button; lift it above the action bar while a form is open (the Edit Startup bar is three rows tall at 320px) */
+  body:has(.form-sticky-actions) .fab{bottom:190px}
 
   /* inline multi-column grids (`1fr 320px`, `2fr 1fr`, `1fr 1fr`) beat the stacking rule in responsive.css, leaving a 320px rail or two ~90px
      columns on a phone: any inline fraction-based insight-row is one column */
   .insight-row[style*="fr "]{grid-template-columns:1fr !important}
+
+  /* two-column stat grids (the dashboard has five cards) leave an empty half-row when the count is odd: the last card takes the full width */
+  .kpi-row>:last-child:nth-child(odd),.eco-metric-row>:last-child:nth-child(odd){grid-column:1/-1}
   .btn-sm{height:34px}
 }
