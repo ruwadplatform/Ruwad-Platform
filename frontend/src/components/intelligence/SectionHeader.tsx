@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 export function SectionHeader({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div className="flex mb-16" style={{ justifyContent: "space-between", alignItems: "center" }}>
-      <h3 className="card-title" style={{ margin: 0 }}>{title}</h3>
+      <h3 className="fs-15" style={{ margin: 0 }}>{title}</h3>
       {action}
     </div>
   );

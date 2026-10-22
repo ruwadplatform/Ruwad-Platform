@@ -192,7 +192,7 @@ export function AdminStartupScoringPage({ id }: { id: string }) {
           return (
             <div className="panel panel-pad" key={key}>
               <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                <h3 className="card-title">{FACTOR_LABELS[key]}</h3>
+                <h3 className="fs-13">{FACTOR_LABELS[key]}</h3>
                 <span className="mono small">{f.score != null ? f.score.toFixed(1) : "—"} / 10</span>
               </div>
               <p className="small muted mt-8">{f.reason}</p>
@@ -204,7 +204,7 @@ export function AdminStartupScoringPage({ id }: { id: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="card-title">Feature Values &amp; Provenance</h3>
+        <h3 className="fs-13 mb-12">Feature Values &amp; Provenance</h3>
         {Object.keys(features.features).length === 0 ? (
           <p className="small muted">No structured scoring inputs reported for this startup yet.</p>
         ) : (
@@ -236,7 +236,7 @@ export function AdminStartupScoringPage({ id }: { id: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="card-title">Edit Scoring Inputs</h3>
+        <h3 className="fs-13 mb-12">Edit Scoring Inputs</h3>
         <p className="small muted mb-12">Every change is audited with a reason and never silently overwrites a value a founder or a verified document already reported at equal or higher confidence — an admin edit always applies.</p>
         {(Object.keys(FACTOR_LABELS) as ScoreFactorKey[]).map((factorKey) => (
           <div key={factorKey} className="mt-16">

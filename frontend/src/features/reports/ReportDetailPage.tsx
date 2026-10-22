@@ -168,7 +168,7 @@ export function ReportDetailPage({ report: r }: { report: Report }) {
                repeated here, when the report has more than one section. */}
             {(outlookSection ? r.sections.slice(0, -1) : r.sections).map((s) => (
               <div className="panel panel-pad" key={s.heading}>
-                <h3 className="card-title">{s.heading}</h3>
+                <h3 className="fs-14 mb-8">{s.heading}</h3>
                 <p className="fs-13" style={{ lineHeight: "var(--line-height-relaxed)", color: "var(--text)" }}>{s.body}</p>
               </div>
             ))}
@@ -184,7 +184,7 @@ export function ReportDetailPage({ report: r }: { report: Report }) {
             {outlookSection && (
               <div className="panel panel-pad">
                 <div className="eyebrow brand mb-8">Outlook</div>
-                <h3 className="card-title">{outlookSection.heading}</h3>
+                <h3 className="fs-14 mb-8">{outlookSection.heading}</h3>
                 <Gated loggedIn={loggedIn} hydrated={hydrated} title="Unlock the Full Outlook" body="Sign in to read this report's forward-looking analysis.">
                   <p className="fs-13" style={{ lineHeight: "var(--line-height-relaxed)", color: "var(--text)" }}>{outlookSection.body}</p>
                 </Gated>

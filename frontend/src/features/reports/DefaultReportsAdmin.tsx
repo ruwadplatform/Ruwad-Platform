@@ -42,7 +42,7 @@ const OUTCOME_LABEL: Record<LibraryReportOutcome["action"], string> = { created:
 function ConfirmGenerate({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
   return (
     <div className="modal-box-pad">
-      <h3 className="card-title">Generate Default RUWĀD Reports</h3>
+      <h3 className="fs-15">Generate Default RUWĀD Reports</h3>
       <p className="muted small mt-8">This will generate or update the default RUWĀD report library using current RUWĀD database statistics and verified external sources.</p>
       <ul className="small mt-12" style={{ paddingLeft: 18, display: "grid", gap: 4, margin: "12px 0 0" }}>
         {DEFAULT_REPORT_TITLES.map((t) => <li key={t}>{t}</li>)}
@@ -143,7 +143,7 @@ export function DefaultReportsAdmin({ onChanged }: { onChanged?: () => void }) {
 
   return (
     <div className="mb-24" aria-label="Default RUWĀD reports (admin)">
-      <h3 className="card-title" style={{ fontWeight: 700 }}>Default RUWĀD reports <span className="badge">Admin</span></h3>
+      <h3 className="fs-15" style={{ fontWeight: 700 }}>Default RUWĀD reports <span className="badge">Admin</span></h3>
       <p className="fs-12 muted mt-8">The six original RUWĀD reports, built from current RUWĀD statistics and verified public sources. Generating spends web searches only when new ones are needed (results are reused for 24 hours).</p>
       <div className="flex gap-8 mt-12" style={{ flexWrap: "wrap", alignItems: "center" }}>
         <button className="btn btn-primary" disabled={busy || (status === null && !statusError)} onClick={confirm}>

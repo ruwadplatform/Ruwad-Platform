@@ -149,7 +149,7 @@ export function LibraryReportView({ report: r }: { report: Report }) {
         </ol>
         {lib.furtherReading.length > 0 && (
           <div className="mt-24">
-            <h3 className="card-title" style={{ fontWeight: 700 }}>Further reading</h3>
+            <h3 className="fs-15 mb-8" style={{ fontWeight: 700 }}>Further reading</h3>
             <p className="fs-12 muted mb-12">Found with RUWĀD&apos;s web search for context. No figure in this report is taken from these pages.</p>
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 10 }}>
               {lib.furtherReading.map((s) => (

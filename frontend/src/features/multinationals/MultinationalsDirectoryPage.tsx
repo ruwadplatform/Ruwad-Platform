@@ -85,7 +85,7 @@ export function MultinationalsDirectoryPage() {
 
   return (
     <div className="multinationals-page">
-      <PageHeader title="Multinational Healthcare Companies" description="Global pharmaceutical, medical device, diagnostics and digital health companies active in Saudi &amp; MENA." />
+      <PageHeader variant="block" title="Multinational Healthcare Companies" description="Global pharmaceutical, medical device, diagnostics and digital health companies active in Saudi &amp; MENA." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search multinationals" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <button className="btn btn-outline" onClick={openFilters}><RuwadIcon name="filter" size={14} /> Filters</button>

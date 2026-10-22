@@ -92,7 +92,7 @@ export function InvestorsDirectoryPage() {
 
   return (
     <div className="investors-page">
-      <PageHeader title="Investors" description="VCs, corporate venture arms, sovereign vehicles and angel networks active in Saudi healthcare." />
+      <PageHeader variant="block" title="Investors" description="VCs, corporate venture arms, sovereign vehicles and angel networks active in Saudi healthcare." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search investors" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <button className="btn btn-outline" onClick={openFilters}><RuwadIcon name="filter" size={14} /> Filters</button>

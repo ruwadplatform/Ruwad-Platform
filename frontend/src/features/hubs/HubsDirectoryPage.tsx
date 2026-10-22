@@ -80,7 +80,7 @@ export function HubsDirectoryPage() {
 
   return (
     <div className="hubs-page">
-      <PageHeader title="Hubs &amp; Enablers" description="Accelerators, incubators, venture studios and programs supporting Saudi &amp; MENA healthcare startups." />
+      <PageHeader variant="block" title="Hubs &amp; Enablers" description="Accelerators, incubators, venture studios and programs supporting Saudi &amp; MENA healthcare startups." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search hubs &amp; enablers" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <button className="btn btn-outline" onClick={openFilters}><RuwadIcon name="filter" size={14} /> Filters</button>

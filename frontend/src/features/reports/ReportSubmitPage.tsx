@@ -160,12 +160,12 @@ export function ReportSubmitPage() {
   return (
     <div className="content-in" style={{ maxWidth: 820 }}>
       <nav className="fs-12 muted mb-16"><Link href="/reports">Reports</Link> / Publish a report</nav>
-      <div className="mb-16"><PageHeader title="Publish a report" description="Submit your report for publication on RUWĀD. A RUWĀD reviewer checks every submission; it stays private and is not shown on the Reports page until it is approved." /></div>
+      <PageHeader variant="block" className="mb-16" title="Publish a report" description="Submit your report for publication on RUWĀD. A RUWĀD reviewer checks every submission; it stays private and is not shown on the Reports page until it is approved." />
 
       {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
       <section className="panel panel-pad mb-16">
-        <h3 className="card-title" style={{ fontWeight: 700 }}>Report information</h3>
+        <h3 className="fs-15 mb-12" style={{ fontWeight: 700 }}>Report information</h3>
         <Field label="Report Title" required><input className="input" maxLength={200} placeholder="Saudi Digital Health Market Report 2026" value={title} onChange={(e) => setTitle(e.target.value)} /></Field>
         <div className="grid-2">
           <Field label="Report Type" required>
@@ -199,7 +199,7 @@ export function ReportSubmitPage() {
       </section>
 
       <section className="panel panel-pad mb-16">
-        <h3 className="card-title" style={{ fontWeight: 700 }}>Author / organization</h3>
+        <h3 className="fs-15 mb-12" style={{ fontWeight: 700 }}>Author / organization</h3>
         <div className="grid-2">
           <Field label="Author Name" required><input className="input" maxLength={120} value={authorName} onChange={(e) => setAuthorName(e.target.value)} /></Field>
           <Field label="Organization" required><input className="input" maxLength={160} value={organizationName} onChange={(e) => setOrganizationName(e.target.value)} /></Field>
@@ -210,7 +210,7 @@ export function ReportSubmitPage() {
       </section>
 
       <section className="panel panel-pad mb-16">
-        <h3 className="card-title" style={{ fontWeight: 700 }}>Report source</h3>
+        <h3 className="fs-15 mb-4" style={{ fontWeight: 700 }}>Report source</h3>
         <p className="fs-12 muted mb-12">Add a link to the report, upload a PDF, or both. An uploaded PDF stays private until the report is approved.</p>
         <Field label="Report URL"><input className="input" maxLength={500} placeholder="https://" value={reportUrl} onChange={(e) => setReportUrl(e.target.value)} /></Field>
         <div className="field">
@@ -228,7 +228,7 @@ export function ReportSubmitPage() {
       </section>
 
       <section className="panel panel-pad mb-16">
-        <h3 className="card-title" style={{ fontWeight: 700 }}>Sources / references</h3>
+        <h3 className="fs-15 mb-4" style={{ fontWeight: 700 }}>Sources / references</h3>
         <p className="fs-12 muted mb-12">If your report is based on external data, list where it comes from. This helps RUWĀD check its credibility.</p>
         {sources.map((s, i) => (
           <div key={i} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 10 }}>

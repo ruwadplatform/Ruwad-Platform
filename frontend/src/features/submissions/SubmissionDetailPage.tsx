@@ -58,7 +58,7 @@ export function SubmissionDetailPage({ id }: { id: string }) {
           <PayloadSummary schema={schema} payload={submission.payload} hideEmpty={submission.kind === "HUB"} />
         </div>
         <div className="panel panel-pad">
-          <h3 className="card-title">Review History</h3>
+          <h3 className="fs-13 mb-12">Review History</h3>
           <ReviewHistory events={events ?? []} />
         </div>
       </div>

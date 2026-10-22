@@ -48,7 +48,7 @@ export function MyListingsPage() {
       </div>
 
       <div className="mt-32">
-        <h3 className="card-title">My Submissions</h3>
+        <h3 className="fs-15 mb-16">My Submissions</h3>
         {!pending.length ? (
           <EmptyState icon="doc" title="You haven't submitted a listing yet." body="Start a submission from the Add Organization button above." />
         ) : (

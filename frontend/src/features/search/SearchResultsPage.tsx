@@ -44,7 +44,7 @@ export function SearchResultsPage() {
 
   return (
     <div>
-      <PageHeader title={<>Search results for &quot;{q}&quot;</>} description={<>{loading ? "Searching…" : `${totalResults} result${totalResults === 1 ? "" : "s"}`}</>} />
+      <PageHeader variant="block" title={<>Search results for &quot;{q}&quot;</>} description={<>{loading ? "Searching…" : `${totalResults} result${totalResults === 1 ? "" : "s"}`}</>} />
       {loading ? (
         <EmptyState icon="search" title="Searching…" body="" />
       ) : !Object.keys(groups).length ? (
@@ -54,7 +54,7 @@ export function SearchResultsPage() {
           const { shown, capped } = unlocked ? { shown: items, capped: false } : capForGuest(items, GUEST_SEARCH_CAPS[type] ?? 3, true);
           return (
             <div key={type}>
-              <div className="panel-head" style={{ border: "none", padding: "6px 0 10px" }}><h3 className="card-title">{type}</h3></div>
+              <div className="panel-head" style={{ border: "none", padding: "6px 0 10px" }}><h3 className="fs-14">{type}</h3></div>
               <div className="panel mb-24">
                 {shown.map((r) => (
                   <div key={r.route} className="event-item" style={{ cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start" }} onClick={() => router.push(r.route)}>

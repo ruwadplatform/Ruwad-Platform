@@ -40,7 +40,7 @@ function ReviewModal({ detail, onDone, onCancel }: { detail: ReviewDetail; onDon
   const planned = detail.plannedWrites;
   return (
     <div className="modal-box modal-box-pad">
-      <h3 className="card-title">Review historical entry</h3>
+      <h3 className="fs-14 mb-12">Review historical entry</h3>
       <dl className="kv-grid" style={{ gridTemplateColumns: "170px 1fr" }}>
         {rows.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}
       </dl>

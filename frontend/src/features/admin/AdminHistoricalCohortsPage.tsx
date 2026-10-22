@@ -95,7 +95,7 @@ export function AdminHistoricalCohortsPage() {
       />
 
       <div className="panel panel-pad mt-16">
-        <h3 className="card-title">New Cohort</h3>
+        <h3 className="fs-13 mb-12">New Cohort</h3>
         <div className="grid-2">
           <div className="field"><label>Name</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Saudi Digital Health 2022" /></div>
           <div className="field"><label>Region</label><input className="input" value={region} onChange={(e) => setRegion(e.target.value)} /></div>
@@ -105,7 +105,7 @@ export function AdminHistoricalCohortsPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="card-title">Cohorts</h3>
+        <h3 className="fs-13 mb-12">Cohorts</h3>
         {cohorts === null ? <p className="small muted">Loading…</p> : cohorts.length === 0 ? <p className="small muted">No cohorts yet.</p> : (
           <div className="scroll-x">
             <table className="data-table">
@@ -127,7 +127,7 @@ export function AdminHistoricalCohortsPage() {
 
       {selected && (
         <div className="panel panel-pad mt-16">
-          <h3 className="card-title">Members ({members.length})</h3>
+          <h3 className="fs-13 mb-12">Members ({members.length})</h3>
           <div className="flex gap-8 mb-12">
             <select className="select" style={{ width: "auto" }} value={addStartupId} onChange={(e) => setAddStartupId(e.target.value)}>
               <option value="">Select a startup…</option>

@@ -84,7 +84,7 @@ function Overview({ m }: { m: Multinational }) {
           <StatCard label="Saudi Operations" size={15} value={m.menaPresence.saudiOffice ? "Active" : "None"} />
         </div>
         <div className="panel panel-pad">
-          <h3 className="card-title">About</h3>
+          <h3 className="fs-13 mb-12">About</h3>
           <p className="db-text">{m.desc}</p>
         </div>
       </div>

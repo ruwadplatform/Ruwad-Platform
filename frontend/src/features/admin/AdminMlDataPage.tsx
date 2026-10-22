@@ -99,7 +99,7 @@ export function AdminMlDataPage() {
       <ReadinessV2Panel />
 
       <div className="panel panel-pad mt-16">
-        <h3 className="card-title">Dataset Overview</h3>
+        <h3 className="fs-13 mb-12">Dataset Overview</h3>
         <div className="stat-mini-row">
           <StatCard label="Published Startups" size={15} value={coverage.totalPublishedStartups} />
           <StatCard label="4+ Scoring Factors" size={15} value={coverage.with4PlusFactors} />
@@ -115,7 +115,7 @@ export function AdminMlDataPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="card-title">Feature Coverage</h3>
+        <h3 className="fs-13 mb-12">Feature Coverage</h3>
         <div className="scroll-x">
           <table className="data-table">
             <thead><tr><th>Feature</th><th>Coverage</th><th>Verified</th><th>Unique</th><th>Range / Distribution</th></tr></thead>
@@ -135,7 +135,7 @@ export function AdminMlDataPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="card-title">Target Coverage &amp; Class Balance</h3>
+        <h3 className="fs-13 mb-12">Target Coverage &amp; Class Balance</h3>
         <p className="small muted mb-8">Readiness V2 counts: training-eligible snapshots only. A negative needs attested outcome coverage; otherwise the row is Unknown.</p>
         <div className="scroll-x">
           <table className="data-table">
@@ -160,7 +160,7 @@ export function AdminMlDataPage() {
       {readiness && selectedBalance && (
         <div className="panel panel-pad mt-16">
           <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
-            <h3 className="card-title">Readiness{readiness.readinessVersion ? ` V${readiness.readinessVersion}` : ""} — {readiness.target}</h3>
+            <h3 className="fs-13">Readiness{readiness.readinessVersion ? ` V${readiness.readinessVersion}` : ""} — {readiness.target}</h3>
             <span className={`badge ${readiness.ready ? "badge-good" : "badge-warn"}`}>{readiness.ready ? "Ready" : "Not Ready"}</span>
           </div>
           <div className="stat-mini-row mt-12">
@@ -178,7 +178,7 @@ export function AdminMlDataPage() {
       )}
 
       <div className="panel panel-pad mt-16">
-        <h3 className="card-title">Data Quality Issues {issues.length > 0 && <span className="badge badge-warn">{issues.length}</span>}</h3>
+        <h3 className="fs-13 mb-12">Data Quality Issues {issues.length > 0 && <span className="badge badge-warn">{issues.length}</span>}</h3>
         {issues.length === 0 ? (
           <p className="small muted">No structural data-quality issues detected.</p>
         ) : (
@@ -196,7 +196,7 @@ export function AdminMlDataPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="card-title">Export Dataset</h3>
+        <h3 className="fs-13 mb-12">Export Dataset</h3>
         <p className="small muted mb-12">Admin-only. Excludes RUWĀD Score and any PII by construction. By default only training-eligible snapshots with defensible labels are exported: immature rows and analysis-only snapshots (such as outcome-aware legacy ones) are excluded unless explicitly included below.</p>
         <div className="grid-2">
           <div className="field">

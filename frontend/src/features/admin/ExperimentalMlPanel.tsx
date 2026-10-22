@@ -55,7 +55,7 @@ export function ExperimentalMlPanel({ startupId }: { startupId: string }) {
   return (
     <div className="panel panel-pad mt-16">
       <div className="flex" style={{ justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-        <h3 className="card-title">Experimental ML <span className="badge badge-warn">Experimental</span></h3>
+        <h3 className="fs-13">Experimental ML <span className="badge badge-warn">Experimental</span></h3>
         <button className="btn btn-outline btn-sm" disabled={busy || !view?.enabled} onClick={refresh}>Refresh estimate</button>
       </div>
       <p className="small muted mt-8">{EXPERIMENTAL_WARNING}</p>

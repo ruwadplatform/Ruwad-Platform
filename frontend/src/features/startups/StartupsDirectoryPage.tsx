@@ -133,7 +133,7 @@ export function StartupsDirectoryPage() {
 
   return (
     <div className="startups-page">
-      <PageHeader title="Startups" description="Saudi &amp; MENA healthcare, biotech and medtech startups." />
+      <PageHeader variant="block" title="Startups" description="Saudi &amp; MENA healthcare, biotech and medtech startups." />
       <div className="toolbar">
         <div className="toolbar-search">
           <RuwadIcon name="search" size={14} />

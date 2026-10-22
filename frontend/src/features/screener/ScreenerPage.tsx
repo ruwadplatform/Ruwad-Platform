@@ -76,7 +76,7 @@ export function ScreenerPage() {
 
   return (
     <div className="screener-page">
-      <PageHeader title="Screener" description="Search and filter startups, multinationals and investors together — one query across the whole ecosystem." />
+      <PageHeader variant="block" title="Screener" description="Search and filter startups, multinationals and investors together — one query across the whole ecosystem." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search by name" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
         <button className="btn btn-outline" onClick={openFilters}><RuwadIcon name="filter" size={14} /> Filters</button>

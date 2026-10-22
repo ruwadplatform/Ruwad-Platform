@@ -124,11 +124,11 @@ function Overview({ s, loggedIn, isOwner }: { s: Startup; loggedIn: boolean; isO
           <StatCard label="Founded" value={s.founded} />
         </div>
         <div className="panel panel-pad mb-16">
-          <h3 className="card-title">About</h3>
+          <h3 className="fs-13 mb-12">About</h3>
           <p className="db-text">{s.desc}</p>
         </div>
         <div className="panel panel-pad">
-          <h3 className="card-title">Key Information</h3>
+          <h3 className="fs-13 mb-12">Key Information</h3>
           <div className="stat-mini-row stat-mini-row--facts">
             <StatCard label="Legal Name" size={15} value={s.legalName} />
             <StatCard label="Headquarters" size={15} value={s.hq} />
@@ -246,7 +246,7 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
           <>
             {overview}
             <div className="panel panel-pad">
-              <h3 className="card-title">Funding History</h3>
+              <h3 className="fs-13 mb-16">Funding History</h3>
               <LockedTeaser title="Unlock Funding Intelligence" body="See round-by-round amounts, valuation, investor participation and complete funding history." blurLines={Math.min(5, Math.max(2, s.rounds.length))} cta="Unlock Funding Intelligence" />
             </div>
           </>
@@ -262,7 +262,7 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
             </div>
           </div>
           <div className="panel panel-pad">
-            <h3 className="card-title">Funding Timeline</h3>
+            <h3 className="fs-13 mb-16">Funding Timeline</h3>
             <div className="funding-timeline">
               {s.rounds.map((r, i) => (
                 <div className="ft-item" key={i}>

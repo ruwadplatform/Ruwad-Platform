@@ -23,7 +23,7 @@ function CreateStartupModal({ onCreate, onCancel }: { onCreate: (input: { catego
   const [stage, setStage] = useState("");
   return (
     <div className="modal-box modal-box-pad">
-      <h3 className="card-title">Create New Startup</h3>
+      <h3 className="fs-14 mb-12">Create New Startup</h3>
       <p className="small muted mb-12">Only fields RUWĀD treats as required are asked here — everything else stays unfilled rather than guessed.</p>
       <div className="grid-2">
         <div className="field"><label>Category</label><input className="input" value={category} onChange={(e) => setCategory(e.target.value)} /></div>
