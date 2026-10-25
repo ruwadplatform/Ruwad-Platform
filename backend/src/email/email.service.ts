@@ -87,6 +87,12 @@ export class EmailService {
     }
   }
 
+  /** A fully rendered email from another module (Advisory Services builds its own templates). Same contract as every send here: resolves true
+   * only when the provider accepted it, and never throws. Callers decide WHETHER to send; this only sends. */
+  async sendTransactional(to: string, subject: string, html: string): Promise<boolean> {
+    return this.send(to, subject, html);
+  }
+
   /** Startup submission received — always sent to ADMIN_NOTIFICATION_EMAIL,
    * regardless of the submitter's own notification preferences (this is an
    * administrative workflow notification, not a personal one). */

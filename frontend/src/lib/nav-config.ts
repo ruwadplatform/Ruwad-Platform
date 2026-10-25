@@ -58,6 +58,10 @@ export const TOP_NAV: NavGroup[] = [
     children: [
       { label: "Overview", icon: "dashboard", route: "/workspace", auth: true },
       { label: "My Startup", icon: "mystartup", route: "/workspace/startup", auth: true },
+      ...(ADVISORY_ENABLED ? [
+        { label: "My Consultations", icon: "calendar" as const, route: "/workspace/consultations", auth: true },
+        { label: "Advisor Dashboard", icon: "user" as const, route: "/workspace/advisor", auth: true },
+      ] : []),
       { label: "My Organizations", icon: "listings", route: "/my-organizations", auth: true },
       { label: "Submit a Listing", icon: "plus", route: "/submit", auth: true },
       { label: "My Reports", icon: "reports", route: "/my-reports", auth: true },
@@ -72,6 +76,7 @@ export const TOP_NAV: NavGroup[] = [
     children: [
       { label: "Company Submissions", icon: "reports", route: "/admin/submissions", auth: true },
       { label: "Listing Claims", icon: "check", route: "/admin/claims", auth: true },
+      ...(ADVISORY_ENABLED ? [{ label: "Advisory Management", icon: "calendar" as const, route: "/admin/advisory", auth: true }] : []),
       { label: "ML Data", icon: "bi", route: "/admin/ml-data", auth: true },
       { label: "ML Models", icon: "bi", route: "/admin/ml-models", auth: true },
       { label: "Historical Data", icon: "bi", route: "/admin/ml-data/historical", auth: true },

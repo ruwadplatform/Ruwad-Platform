@@ -32,6 +32,7 @@ import { DataRoomModule } from "./data-room/data-room.module";
 import { AnalyticsModule } from "./analytics/analytics.module";
 import { ScoringModule } from "./scoring/scoring.module";
 import { MlDataModule } from "./ml-data/ml-data.module";
+import { AdvisoryModule } from "./advisory/advisory.module";
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { MlDataModule } from "./ml-data/ml-data.module";
     InvestmentsModule,
     ScoringModule,
     MlDataModule,
+    AdvisoryModule,
     StartupsModule,
     InvestorsModule,
     HubsModule,

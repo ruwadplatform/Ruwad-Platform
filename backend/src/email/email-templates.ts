@@ -4,7 +4,7 @@
  * HTML-escaped since they include user-entered text (names, profile
  * titles, messages). */
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -13,7 +13,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function layout(heading: string, bodyHtml: string, cta?: { text: string; url: string }): string {
+export function layout(heading: string, bodyHtml: string, cta?: { text: string; url: string }): string {
   return `<!doctype html>
 <html>
   <body style="margin:0;padding:0;background:#F6F7FA;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#15201B;">
@@ -39,7 +39,7 @@ function layout(heading: string, bodyHtml: string, cta?: { text: string; url: st
 </html>`;
 }
 
-function detailsTable(rows: [string, string][]): string {
+export function detailsTable(rows: [string, string][]): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;font-size:13px;">
     ${rows.map(([label, value]) => `<tr><td style="padding:6px 0;color:#5C6B62;width:40%;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:6px 0;font-weight:600;">${escapeHtml(value)}</td></tr>`).join("")}
   </table>`;

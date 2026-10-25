@@ -26,7 +26,7 @@ const pg = new EmbeddedPostgres({
 
 async function main() {
   const fs = require("fs");
-  const initialized = fs.existsSync(path.join(__dirname, "..", ".pgdata", "PG_VERSION"));
+  const initialized = fs.existsSync(path.join(__dirname, "..", "..", ".pgdata", "PG_VERSION"));
   if (!initialized) {
     console.log("[pg] initialising data directory (first run)...");
     await pg.initialise();

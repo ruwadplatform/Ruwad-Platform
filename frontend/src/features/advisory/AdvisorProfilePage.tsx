@@ -41,7 +41,7 @@ export function AdvisorProfilePage({ advisorId }: { advisorId: string }) {
 
 function ProfileView({ advisor }: { advisor: AdvisorProfile }) {
   const [tab, setTab] = useState<Tab>("Overview");
-  const [serviceId, setServiceId] = useState(advisor.services[0]!.id);
+  const [serviceId, setServiceId] = useState(advisor.services[0]?.id ?? "");
   const [flash, setFlash] = useState(false);
   const bookingRef = useRef<HTMLElement>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);

@@ -103,3 +103,126 @@ export interface AdvisorProfile extends AdvisorSummary {
   publications: Publication[];
   reviews: AdvisorReview[];
 }
+
+// ---- Phase 3: bookings (the backend's shapes) ----------------------------------------------------------------------------------------------------
+
+export type BookingStatus = "PENDING" | "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED" | "RESCHEDULED" | "RESCHEDULE_PROPOSED";
+export type BookingParty = "FOUNDER" | "ADVISOR";
+
+export interface BookingView {
+  id: string;
+  reference: string;
+  status: BookingStatus;
+  /** ISO-8601 instants (UTC). Shown in Riyadh time and, where it differs, the viewer's own zone. */
+  startsAt: string;
+  endsAt: string;
+  minutes: number;
+  serviceId: string;
+  serviceName: string;
+  serviceTypeId: string;
+  startupId: string;
+  startupName: string;
+  description: string | null;
+  isDemo: boolean;
+  advisor: { id: string; slug: string; name: string; institution: string } | null;
+  requester: { name: string } | null;
+  decisionNote: string | null;
+  cancelledBy: string | null;
+  cancelReason: string | null;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  rescheduledFromId: string | null;
+  /** A proposed new time waiting for the other party. The booking stays CONFIRMED at its original time until it is accepted. */
+  pendingReschedule: { id: string; startsAt: string; endsAt: string; proposedBy: BookingParty } | null;
+}
+
+export interface BookingActions {
+  approve: boolean;
+  reject: boolean;
+  cancel: boolean;
+  complete: boolean;
+  proposeReschedule: boolean;
+  acceptReschedule: boolean;
+  declineReschedule: boolean;
+  withdrawReschedule: boolean;
+}
+
+export interface BookingHistoryEvent {
+  id: string;
+  type: string;
+  actorRole: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface BookingDetail {
+  booking: BookingView;
+  viewerRole: "FOUNDER" | "ADVISOR" | "ADMIN";
+  actions: BookingActions;
+  history: BookingHistoryEvent[];
+}
+
+export interface BookableStartup { id: string; name: string; role: string }
+export interface SlotOffer { time: string; startsAt: string; endsAt: string }
+
+export type AdvisorReviewStatus = "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "SUSPENDED";
+
+/** The signed-in person's own advisor profile, with its review status. */
+export interface MyAdvisorProfile {
+  status: AdvisorReviewStatus;
+  reviewNotes: string | null;
+  affiliationVerified: boolean;
+  profile: AdvisorProfile & { services: (AdvisorService & { active?: boolean })[] };
+}
+
+export interface AvailabilityState {
+  timeZone: string;
+  windows: { id: string; weekday: number; startTime: string; endTime: string }[];
+  timeOff: { id: string; date: string; startTime: string | null; endTime: string | null; reason: string | null }[];
+}
+
+export interface AdvisorApplication {
+  name: string;
+  institution: string;
+  institutionFull: string;
+  designation: string;
+  location: string;
+  specialization: string;
+  specializations: string[];
+  researchAreas: string[];
+  expertise: string;
+  about: string;
+  yearsExperience?: number;
+}
+
+export interface AdminAdvisorRow {
+  id: string;
+  slug: string;
+  name: string;
+  institution: string;
+  institutionFull: string;
+  designation: string;
+  location: string;
+  specialization: string;
+  expertise: string;
+  about: string;
+  yearsExperience: number | null;
+  status: AdvisorReviewStatus;
+  isDemo: boolean;
+  affiliationVerified: boolean;
+  reviewNotes: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  applicant: { name: string; email: string } | null;
+}
+
+export interface AdvisoryStats {
+  includesDemo: boolean;
+  generatedAt: string;
+  bookings: { total: number; last30Days: number; upcomingConfirmed: number; byStatus: Record<string, number> };
+  advisors: { byStatus: Record<string, number> };
+  topAdvisors: { id: string; name: string; isDemo: boolean; bookings: number }[];
+}
