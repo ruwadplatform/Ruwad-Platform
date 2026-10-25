@@ -41,14 +41,24 @@ export function AdvisoryServicesPage() {
   const [filters, setFilters] = useState<AdvisorFilters>(EMPTY_ADVISOR_FILTERS);
   const [sort, setSort] = useState<SortMode>("relevance");
   const [view, setView] = useState<ViewMode>("grid");
-  const [now] = useState(() => new Date());
+  const [now, setNow] = useState(() => new Date());
   const [filtersOpen, setFiltersOpen] = useState(false); // phones only: the four selects collapse behind a Filters button
   const ids = { search: useId(), spec: useId(), inst: useId(), type: useId(), avail: useId(), sort: useId(), grid: useId() };
 
+  // Load the directory, and reload it when the tab regains focus and every few minutes, so "Next available" (worked out by the server from live
+  // bookings) doesn't go stale while the page sits open. A failed background refresh keeps what is already on screen.
   useEffect(() => {
     let alive = true;
-    fetchAdvisors().then((a) => { if (alive) setAdvisors(a); }).catch(() => { if (alive) setError("The advisor list couldn't be loaded. Please try again in a moment."); });
-    return () => { alive = false; };
+    const load = (initial: boolean) =>
+      fetchAdvisors()
+        .then((a) => { if (alive) { setAdvisors(a); setNow(new Date()); setError(""); } })
+        .catch(() => { if (alive && initial) setError("The advisor list couldn't be loaded. Please try again in a moment."); });
+    void load(true);
+    const refresh = () => { if (document.visibilityState === "visible") void load(false); };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    const timer = setInterval(refresh, 5 * 60_000);
+    return () => { alive = false; document.removeEventListener("visibilitychange", refresh); window.removeEventListener("focus", refresh); clearInterval(timer); };
   }, []);
 
   const options = useMemo(() => filterOptions(advisors ?? []), [advisors]);

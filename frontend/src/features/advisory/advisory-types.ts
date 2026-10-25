@@ -50,6 +50,8 @@ export interface AdvisorSummary {
   availability: WeeklyAvailability[];
   /** True for the fictional demonstration profiles. They are always labelled as such in the UI. */
   isDemo: boolean;
+  /** The soonest slot actually open to book, worked out by the server (bookings, time off and notice already excluded). Null when none. */
+  nextAvailable: { startsAt: string; minutes: number } | null;
 }
 
 export type AvailabilityFilter = "any" | "today" | "week" | "twoWeeks";

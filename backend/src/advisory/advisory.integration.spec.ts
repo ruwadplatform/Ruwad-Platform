@@ -367,6 +367,47 @@ suite("Advisory Services — integration (local Postgres)", () => {
     expect((await api("admin").post(`/advisory/admin/bookings/${b2.id}/cancel`, { reason: "Policy" })).body).toMatchObject({ status: "CANCELLED", cancelledBy: "ADMIN" });
   });
 
+  // ---- the directory's Next Available -----------------------------------------------------------------------------------------------------
+
+  const directoryEntry = async (slug: string) => ((await api(null).get("/advisory/advisors")).body as { id: string; nextAvailable: { startsAt: string; minutes: number } | null }[]).find((a) => a.id === slug);
+
+  it("Next Available is the first slot the booking calendar really offers, and booking it moves it on (then cancelling gives it back)", async () => {
+    const first = (await directoryEntry(advSlug))!.nextAvailable!;
+    expect(first.minutes).toBe(30); // the advisor's shortest service
+    const dates = (await api(null).get(`/advisory/advisors/${advSlug}/dates?serviceId=${svc30}`)).body.dates as string[];
+    expect((await slots(advSlug, svc30, dates[0]!))[0]!.startsAt).toBe(first.startsAt);
+
+    const booked = await book("owner", startupA, first.startsAt);
+    expect(booked.status).toBe(201);
+    const after = (await directoryEntry(advSlug))!.nextAvailable!;
+    expect(new Date(after.startsAt).getTime()).toBeGreaterThan(new Date(first.startsAt).getTime());
+    expect(after.startsAt).not.toBe(first.startsAt);
+    const firstDayAfter = (await api(null).get(`/advisory/advisors/${advSlug}/dates?serviceId=${svc30}`)).body.dates[0] as string;
+    expect((await slots(advSlug, svc30, firstDayAfter))[0]!.startsAt).toBe(after.startsAt); // still agrees with the calendar
+
+    expect((await api("owner").post(`/advisory/bookings/${booked.body.id}/cancel`, {})).status).toBe(201);
+    expect((await directoryEntry(advSlug))!.nextAvailable!.startsAt).toBe(first.startsAt);
+  });
+
+  it("Next Available skips a day the advisor has taken off, and comes back when the time off is removed", async () => {
+    const first = (await directoryEntry(advSlug))!.nextAvailable!;
+    const firstDay = (await api(null).get(`/advisory/advisors/${advSlug}/dates?serviceId=${svc30}`)).body.dates[0] as string;
+    const off = await api("advisorUser").post("/advisory/advisor/availability/time-off", { date: firstDay, reason: "Conference" });
+    expect(off.status).toBe(201);
+    const moved = (await directoryEntry(advSlug))!.nextAvailable!;
+    expect(moved.startsAt).not.toBe(first.startsAt);
+    expect(new Date(moved.startsAt).getTime()).toBeGreaterThan(new Date(first.startsAt).getTime() + 3 * 3_600_000);
+    const entry = off.body.timeOff.find((t: { date: string }) => t.date === firstDay);
+    expect((await api("advisorUser").del(`/advisory/advisor/availability/time-off/${entry.id}`)).status).toBe(200);
+    expect((await directoryEntry(advSlug))!.nextAvailable!.startsAt).toBe(first.startsAt);
+  });
+
+  it("an advisor with no active service has no Next Available, and a suspended one isn't listed at all", async () => {
+    const other = (await db.query(`SELECT slug FROM advisory_advisors WHERE "userId" = $1`, [ids.otherAdvisorUser])).rows[0].slug as string;
+    expect((await directoryEntry(other))!.nextAvailable).toBeNull(); // approved, but nothing to book yet
+    expect((await directoryEntry("no-such-advisor"))).toBeUndefined();
+  });
+
   // ---- rescheduling by mutual agreement ----------------------------------------------------------------------------------------------------
 
   async function confirmed(dayN: number, idx = 0, serviceId = svc30, who = "owner", startup = startupA) {

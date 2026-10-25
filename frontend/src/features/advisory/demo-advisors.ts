@@ -19,7 +19,7 @@ const placeholderAbout = (name: string, areas: string) =>
   `This is a fictional demonstration profile. ${name} stands in for the kind of advisor RUWĀD will list: someone who can talk through ${areas}. ` +
   "Profiles of real advisors will describe their actual background, publications and credentials.";
 
-export const DEMO_ADVISOR_PROFILES: AdvisorProfile[] = [
+const RAW_PROFILES: Omit<AdvisorProfile, "nextAvailable">[] = [
   {
     id: "omar-al-harbi",
     name: "Dr. Omar Al-Harbi",
@@ -175,6 +175,8 @@ export const DEMO_ADVISOR_PROFILES: AdvisorProfile[] = [
     isDemo: true,
   },
 ];
+
+export const DEMO_ADVISOR_PROFILES: AdvisorProfile[] = RAW_PROFILES.map((p) => ({ ...p, nextAvailable: null }));
 
 /** The directory's view of the seed: the summary fields only. */
 export const DEMO_ADVISORS: AdvisorSummary[] = DEMO_ADVISOR_PROFILES.map((p) => {

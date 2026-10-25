@@ -4,6 +4,7 @@ import { In, MoreThan, Repository } from "typeorm";
 import { AdvisoryAdvisor, AdvisoryAvailabilityException, AdvisoryAvailabilityRule, AdvisoryBooking, AdvisoryService } from "./advisory.entities";
 import { AdvisorStatus, SLOT_HOLDING_STATUSES } from "./advisory.enums";
 import { MAX_BOOKING_DAYS, MIN_NOTICE_MINUTES, minutesOf, parseYmd } from "./advisory-time";
+import { NextAvailable, DIRECTORY_SEARCH_DAYS, nextAvailableFor } from "./advisory-next-available";
 import { AvailabilityInput, datesWithSlots, slotsForDate } from "./advisory-slots";
 import { cleanText } from "./advisory-text";
 import { AdvisorProfileDto, CreateServiceDto, SetAvailabilityDto, TimeOffDto, UpdateAdvisorProfileDto, UpdateServiceDto } from "./dto/advisory.dto";
@@ -22,6 +23,8 @@ export interface AdvisorSummaryView {
   consultationTypes: string[];
   availability: { weekday: number; windows: { start: string; end: string }[] }[];
   isDemo: boolean;
+  /** The soonest slot actually open to book (bookings and time off already excluded), or null. See advisory-next-available.ts. */
+  nextAvailable: NextAvailable | null;
 }
 
 export interface AdvisorProfileView extends AdvisorSummaryView {
@@ -53,12 +56,30 @@ export class AdvisoryAdvisorsService {
 
   // ---- public -----------------------------------------------------------------------------------------------------------------------------
 
-  async listPublic(): Promise<AdvisorSummaryView[]> {
+  /** The directory. `nextAvailable` is computed here, on the server, from the same data the booking calendar uses, for every advisor at once:
+   * four queries in total (rules, time off, held bookings, services), however many advisors there are. */
+  async listPublic(now = new Date()): Promise<AdvisorSummaryView[]> {
     const list = await this.advisors.find({ where: { status: AdvisorStatus.APPROVED }, order: { name: "ASC" } });
     if (!list.length) return [];
     const ids = list.map((a) => a.id);
-    const [rules, services] = await Promise.all([this.rules.find({ where: { advisorId: In(ids) } }), this.services.find({ where: { advisorId: In(ids), active: true } })]);
-    return list.map((a) => this.summary(a, rules.filter((r) => r.advisorId === a.id), services.filter((s) => s.advisorId === a.id)));
+    const horizon = new Date(now.getTime() + (DIRECTORY_SEARCH_DAYS + 2) * 86_400_000);
+    const [rules, services, timeOff, held] = await Promise.all([
+      this.rules.find({ where: { advisorId: In(ids) } }),
+      this.services.find({ where: { advisorId: In(ids), active: true } }),
+      this.exceptions.find({ where: { advisorId: In(ids) } }),
+      this.bookings.find({ where: { advisorId: In(ids), status: In(SLOT_HOLDING_STATUSES), endsAt: MoreThan(now) } }),
+    ]);
+    return list.map((a) => {
+      const aRules = rules.filter((r) => r.advisorId === a.id);
+      const aServices = services.filter((s) => s.advisorId === a.id);
+      const input: AvailabilityInput = {
+        rules: aRules.map((r) => ({ weekday: r.weekday, startTime: r.startTime, endTime: r.endTime })),
+        timeOff: timeOff.filter((t) => t.advisorId === a.id).map((t) => ({ date: String(t.date).slice(0, 10), startTime: t.startTime, endTime: t.endTime })),
+        busy: held.filter((b) => b.advisorId === a.id && b.startsAt < horizon).map((b) => ({ start: b.startsAt, end: b.endsAt })),
+      };
+      const shortest = aServices.length ? Math.min(...aServices.map((s) => s.minutes)) : null;
+      return { ...this.summary(a, aRules, aServices), nextAvailable: nextAvailableFor(input, shortest, now) };
+    });
   }
 
   async getPublicProfile(slug: string): Promise<AdvisorProfileView> {
@@ -74,6 +95,7 @@ export class AdvisoryAdvisorsService {
     ]);
     return {
       ...this.summary(advisor, rules, services.filter((s) => s.active)),
+      nextAvailable: null, // the profile page books from the live calendar, which is authoritative
       designation: advisor.designation,
       location: advisor.location,
       about: advisor.about,
@@ -85,7 +107,7 @@ export class AdvisoryAdvisorsService {
     };
   }
 
-  private summary(a: AdvisoryAdvisor, rules: AdvisoryAvailabilityRule[], services: AdvisoryService[]): AdvisorSummaryView {
+  private summary(a: AdvisoryAdvisor, rules: AdvisoryAvailabilityRule[], services: AdvisoryService[]): Omit<AdvisorSummaryView, "nextAvailable"> {
     const byDay = new Map<number, { start: string; end: string }[]>();
     for (const r of [...rules].sort((x, y) => x.weekday - y.weekday || x.startTime.localeCompare(y.startTime))) {
       byDay.set(r.weekday, [...(byDay.get(r.weekday) ?? []), { start: r.startTime, end: r.endTime }]);

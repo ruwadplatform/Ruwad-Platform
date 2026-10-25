@@ -3,9 +3,18 @@ import assert from "node:assert/strict";
 import { formatSlot, matchesAvailability, nextAvailableSlot, riyadhInstant } from "./advisory-availability.ts";
 import { filterAdvisors, filterOptions, normalize, searchScore, sortAdvisors } from "./advisory-filter.ts";
 import { DEMO_ADVISORS } from "./demo-advisors.ts";
-import { EMPTY_ADVISOR_FILTERS } from "./advisory-types.ts";
+import { EMPTY_ADVISOR_FILTERS, type AdvisorSummary } from "./advisory-types.ts";
 
-const all = DEMO_ADVISORS;
+// The server now supplies each advisor's `nextAvailable`; these are what it would send at SUNDAY_8AM for the demo advisors' weekly hours.
+const SERVER_NEXT: Record<string, [string, string]> = {
+  "omar-al-harbi": ["2026-01-04", "10:00"], "sara-al-qahtani": ["2026-01-05", "09:30"], "faisal-al-nasser": ["2026-01-04", "10:00"],
+  "reem-al-salem": ["2026-01-06", "09:00"], "khalid-al-mutairi": ["2026-01-04", "13:00"], "lina-al-rashid": ["2026-01-05", "09:00"],
+};
+const all: AdvisorSummary[] = DEMO_ADVISORS.map((a) => {
+  const [day, time] = SERVER_NEXT[a.id]!;
+  const [y, m, d] = day!.split("-").map(Number);
+  return { ...a, nextAvailable: { startsAt: riyadhInstant(y!, m!, d!, time!).toISOString(), minutes: 30 } };
+});
 const ids = (xs: { id: string }[]) => xs.map((a) => a.id);
 // Sunday 4 Jan 2026, 08:00 Riyadh time (= 05:00 UTC). Every advisor's rules are weekly, so the week is easy to reason about.
 const SUNDAY_8AM = riyadhInstant(2026, 1, 4, "08:00");
@@ -50,23 +59,39 @@ test("all the filters work together", () => {
   assert.equal(filterAdvisors(all, { ...f, specialization: "Medical AI" }, SUNDAY_8AM).length, 0);
 });
 
-test("the next available slot honours the weekly rules and the two-hour minimum notice", () => {
+test("the card shows the server's next available slot, in Riyadh time", () => {
   const omar = nextAvailableSlot(all[0]!, SUNDAY_8AM)!;
   assert.equal(omar.daysFromToday, 0);
-  assert.equal(omar.time, "10:00"); // 09:00 is less than two hours away
-  const reem = nextAvailableSlot(all.find((a) => a.id === "reem-al-salem")!, SUNDAY_8AM)!; // Tuesday and Wednesday only
+  assert.equal(omar.time, "10:00");
+  assert.equal(omar.date, "2026-01-04");
+  const reem = nextAvailableSlot(all.find((a) => a.id === "reem-al-salem")!, SUNDAY_8AM)!;
   assert.equal(reem.date, "2026-01-06");
   assert.equal(reem.daysFromToday, 2);
-  const lateSunday = riyadhInstant(2026, 1, 4, "23:00");
-  assert.equal(nextAvailableSlot(all[0]!, lateSunday)!.date, "2026-01-05"); // Omar also opens Mondays
+  assert.equal(reem.time, "09:00");
 });
 
-test("availability filters: today, within a week, within two weeks", () => {
+test("no next available from the server means none is shown (a fully booked advisor), and the browser never invents one", () => {
+  assert.equal(nextAvailableSlot({ nextAvailable: null }, SUNDAY_8AM), null);
+  assert.equal(nextAvailableSlot({ nextAvailable: undefined as never }, SUNDAY_8AM), null);
+});
+
+test("a slot that has slipped inside the two-hour notice since the page loaded is not promised", () => {
+  const soon = { nextAvailable: { startsAt: riyadhInstant(2026, 1, 4, "10:00").toISOString(), minutes: 30 } };
+  assert.ok(nextAvailableSlot(soon, SUNDAY_8AM)); // 08:00 now, 10:00 slot: exactly the notice, fine
+  assert.equal(nextAvailableSlot(soon, riyadhInstant(2026, 1, 4, "08:01")), null); // one minute later it is inside the notice
+});
+
+test("availability filters use the server's value: today, within a week, within two weeks", () => {
   const today = filterAdvisors(all, { ...EMPTY_ADVISOR_FILTERS, availability: "today" }, SUNDAY_8AM);
   assert.deepEqual(ids(today), ["omar-al-harbi", "faisal-al-nasser", "khalid-al-mutairi"]);
   assert.equal(filterAdvisors(all, { ...EMPTY_ADVISOR_FILTERS, availability: "week" }, SUNDAY_8AM).length, 6);
-  assert.equal(matchesAvailability({ availability: [] }, "twoWeeks", SUNDAY_8AM), false);
-  assert.equal(matchesAvailability({ availability: [] }, "any", SUNDAY_8AM), true);
+  assert.equal(matchesAvailability({ nextAvailable: null }, "twoWeeks", SUNDAY_8AM), false);
+  assert.equal(matchesAvailability({ nextAvailable: null }, "any", SUNDAY_8AM), true);
+});
+
+test("a booked-out advisor drops out of the availability filters (what the old browser-side calculation got wrong)", () => {
+  const bookedOut = all.map((a) => (a.id === "omar-al-harbi" ? { ...a, nextAvailable: null } : a));
+  assert.deepEqual(ids(filterAdvisors(bookedOut, { ...EMPTY_ADVISOR_FILTERS, availability: "today" }, SUNDAY_8AM)), ["faisal-al-nasser", "khalid-al-mutairi"]);
 });
 
 test("sorting: experience puts the most experienced first; relevance ranks the best match first and is stable otherwise", () => {
