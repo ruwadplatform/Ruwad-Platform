@@ -1,6 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-/** Advisory Services (Discover → Advisory Services): advisors, their services and availability, and consultation bookings with an audit trail.
+/** OPT-IN MIGRATION (lives in migrations-advisory/, only listed when ADVISORY_MIGRATIONS=true; see src/database/migration-sources.ts).
+ * Advisory Services (Discover → Advisory Services): advisors, their services and availability, and consultation bookings with an audit trail.
  * New tables and enum types only; nothing existing changes.
  *
  * Needs the `btree_gist` extension for the exclusion constraint that stops one advisor being double-booked. NOT yet approved for production:

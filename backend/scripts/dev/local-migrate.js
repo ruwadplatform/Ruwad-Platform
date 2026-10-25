@@ -17,6 +17,8 @@ if (!["run", "revert", "show"].includes(action)) {
 }
 
 const url = useLocalDatabase();
+// The advisory migrations are opt-in (see src/database/migration-sources.ts); local runs against the local database include them.
+process.env.ADVISORY_MIGRATIONS = "true";
 console.log(`[local-migrate] ${action} against ${describe(url)} (local embedded Postgres)`);
 
 // typeorm's own ts-node entry point (it registers ts-node for us). Run with node directly, no shell, so a path with spaces is fine.

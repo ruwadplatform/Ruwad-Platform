@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { config } from "dotenv";
 import { DataSource } from "typeorm";
+import { migrationSources } from "./migration-sources";
 
 config();
 
@@ -12,7 +13,8 @@ export const AppDataSource = new DataSource({
   url: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_SSL === "true" ? { rejectUnauthorized: false } : false,
   entities: [__dirname + "/../**/*.entity.{ts,js}"],
-  migrations: [__dirname + "/migrations/*.{ts,js}"],
+  // The advisory migrations are opt-in (ADVISORY_MIGRATIONS=true); see migration-sources.ts for why.
+  migrations: migrationSources(process.env, __dirname),
   synchronize: false,
   logging: false,
 });
