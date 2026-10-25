@@ -20,6 +20,7 @@ import "@/styles/landscape.css";
 import "@/styles/marketmap.css";
 import "@/styles/gating.css";
 import "@/styles/ai-summary.css";
+import "@/styles/advisory.css";
 import "@/styles/responsive.css";
 import "@/styles/standards.css";
 import { ModalProvider } from "@/components/shell/ModalProvider";

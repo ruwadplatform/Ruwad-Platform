@@ -7,3 +7,8 @@
  * sure the backend has its Google credentials (see backend/.env.example). Google must also have
  * verified the OAuth app (or the user must be a listed test user). */
 export const GOOGLE_CALENDAR_DIRECT = process.env.NEXT_PUBLIC_GOOGLE_CALENDAR_DIRECT === "true";
+
+/** ADVISORY_ENABLED — the Advisory Services section (Discover → Advisory Services, /discover/advisory-services…).
+ * OFF unless NEXT_PUBLIC_ADVISORY_ENABLED=true at BUILD time. While it is off the nav item is hidden and the routes answer 404, so the
+ * feature can live on a branch (and be built) without being reachable in production until it is complete and approved. */
+export const ADVISORY_ENABLED = process.env.NEXT_PUBLIC_ADVISORY_ENABLED === "true";

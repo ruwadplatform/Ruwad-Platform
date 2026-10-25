@@ -1,0 +1,108 @@
+/* ==========================================================================
+   RUWĀD — Advisory Services (Discover → Advisory Services)
+   Scoped under .advisory-page (and the .adv-how modal body), reusing the app's tokens and shared classes (.panel, .select, .toolbar-search,
+   .seg-tabs, .btn, .page-head). Same thin blue-tinted card border the other directory pages use. Breakpoints are the governed three:
+   1024px, 760px, 480px.
+   ========================================================================== */
+
+.advisory-page{max-width:1280px;margin:0 auto}
+.advisory-page .panel,
+.advisory-page .select,
+.advisory-page .toolbar-search{border-color:rgba(37,99,166,.4)}
+
+/* ---- breadcrumb ---- */
+.adv-crumbs{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:var(--fs-13);color:var(--muted);margin-bottom:16px}
+.adv-crumb{display:inline-flex;align-items:center;gap:6px}
+.adv-crumb svg{transform:rotate(-90deg);color:var(--faint)}
+.adv-crumb a{color:var(--muted);text-decoration:none}
+.adv-crumb a:hover{color:var(--text);text-decoration:underline}
+.adv-crumb [aria-current]{color:var(--text);font-weight:600}
+
+/* ---- header card ---- */
+.adv-hero{display:flex;align-items:center;gap:20px;padding:22px 24px;margin-bottom:16px}
+.adv-hero-icon{flex:none;width:72px;height:72px;border-radius:var(--radius-md);background:var(--info-tint);color:var(--info);display:flex;align-items:center;justify-content:center}
+.adv-hero-text{flex:1;min-width:0}
+.adv-hero .page-head{margin:0}
+.adv-hero .page-head h1{margin-bottom:6px}
+.adv-how-btn{flex:none}
+.adv-profile-name{font-size:var(--fs-24);font-weight:700;line-height:1.3;margin:0 0 4px}
+
+/* ---- search + filters ---- */
+.adv-filters{margin-bottom:16px}
+.adv-search{background:var(--bg-2);margin-bottom:18px;width:100%}
+.adv-filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.adv-field label{display:block;font-size:var(--fs-13);font-weight:600;color:var(--text);margin-bottom:8px}
+.adv-field .select{width:100%}
+
+/* ---- results bar ---- */
+.adv-results{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;margin-bottom:12px}
+.adv-count{display:flex;align-items:center;gap:6px;font-size:var(--fs-14)}
+.adv-count b{font-size:var(--fs-15)}
+.adv-results-controls{display:flex;align-items:center;gap:12px}
+.adv-sort{display:flex;align-items:center;gap:8px;font-size:var(--fs-13);color:var(--muted)}
+.adv-sort .select{width:auto;min-width:130px}
+.adv-view button{display:inline-flex;align-items:center;justify-content:center;width:38px;height:32px;padding:0}
+.adv-view button.active{background:var(--info);color:#fff}
+
+.adv-note{display:flex;align-items:flex-start;gap:8px;font-size:var(--fs-12);line-height:1.5;color:var(--muted);margin:0 0 16px}
+.adv-note svg{flex:none;margin-top:2px}
+
+/* ---- advisor cards ---- */
+.adv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(340px,100%),1fr));gap:16px}
+.adv-grid.is-list{grid-template-columns:1fr}
+.adv-card{display:flex;flex-direction:column;gap:12px;padding:20px}
+.adv-card-main{display:flex;align-items:flex-start;gap:16px;min-width:0}
+.adv-card-body{min-width:0}
+.adv-avatar{flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-md);background:var(--info-tint);color:var(--navy-900);font-weight:700;letter-spacing:.02em;user-select:none}
+.adv-card .adv-name{font-size:var(--fs-16);font-weight:700;line-height:1.3;margin:0 0 2px;color:var(--text)}
+.adv-inst{font-size:var(--fs-13);color:var(--muted);line-height:1.4}
+.adv-tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+.adv-tag{display:inline-block;background:var(--info-tint);color:var(--info);font-size:var(--fs-12);font-weight:600;padding:4px 10px;border-radius:var(--radius-xs);line-height:1.3}
+.adv-demo{display:inline-block;font-size:var(--fs-11);font-weight:600;color:var(--muted);background:var(--bg-2);border:1px dashed var(--border-strong);padding:3px 8px;border-radius:var(--radius-xs);line-height:1.3}
+.adv-expertise{font-size:var(--fs-13);line-height:1.5;color:var(--muted);flex:1;margin:0}
+.adv-avail{display:flex;align-items:center;gap:6px;font-size:var(--fs-12);line-height:1.4;color:var(--muted)}
+.adv-avail svg{flex:none}
+.adv-foot{display:flex;align-items:center;justify-content:space-between;gap:10px 12px;margin-top:auto}
+.adv-meta{display:flex;flex-direction:column;gap:4px;font-size:var(--fs-12);color:var(--muted);min-width:0}
+.adv-meta-item{display:inline-flex;align-items:center;gap:6px;line-height:1.4}
+.adv-meta-item svg{flex:none}
+.adv-avail.is-open{color:var(--good)}
+.adv-next{color:var(--muted)}
+.adv-cta{flex:none}
+
+/* list view: avatar+name | expertise | availability+button, one row per advisor */
+.adv-card.is-list{display:grid;grid-template-columns:minmax(260px,1.1fr) minmax(0,1.2fr) minmax(220px,auto);align-items:center;gap:20px}
+.adv-card.is-list .adv-expertise{flex:none}
+.adv-card.is-list .adv-foot{margin-top:0}
+
+/* ---- profile route stand-in ---- */
+.adv-soon{max-width:720px}
+
+/* ---- How It Works modal ---- */
+.adv-how-steps{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:14px}
+.adv-how-steps li{display:flex;gap:12px;align-items:flex-start}
+.adv-how-num{flex:none;width:28px;height:28px;border-radius:var(--radius-pill);background:var(--info-tint);color:var(--info);font-size:var(--fs-12);font-weight:700;display:inline-flex;align-items:center;justify-content:center}
+.adv-how-steps b{display:block;font-size:var(--fs-14);line-height:1.4}
+.adv-how-steps p{margin:2px 0 0;font-size:var(--fs-13);line-height:1.5;color:var(--muted)}
+
+@media(max-width:1024px){
+  .adv-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .adv-card.is-list{grid-template-columns:minmax(0,1fr) auto}
+  .adv-card.is-list .adv-expertise{grid-column:1/-1;order:3}
+}
+@media(max-width:760px){
+  .adv-hero{flex-wrap:wrap;padding:18px;gap:14px}
+  .adv-hero-icon{width:56px;height:56px}
+  .adv-hero-icon svg{width:24px;height:24px}
+  .adv-how-btn{width:100%;min-height:44px}
+  .adv-card.is-list{display:flex}
+  .adv-cta{min-height:44px}
+  .adv-view button{width:44px;height:36px}
+}
+@media(max-width:560px){
+  .adv-filter-grid{grid-template-columns:1fr}
+  .adv-results{flex-wrap:wrap}
+  .adv-results-controls{width:100%;justify-content:space-between}
+  .adv-foot{flex-wrap:wrap}
+  .adv-cta{flex:1 1 100%;justify-content:center}
+}

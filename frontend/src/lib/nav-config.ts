@@ -1,5 +1,6 @@
 import type { RuwadIconName } from "@/components/icons/ruwad-icon";
 import { categoriesFromParams, startupsUrl } from "@/lib/startup-category";
+import { ADVISORY_ENABLED } from "@/lib/feature-flags";
 
 export interface NavChild {
   label: string;
@@ -30,6 +31,7 @@ export const TOP_NAV: NavGroup[] = [
       { label: "Biotechnology", icon: "research", route: startupsUrl(["Biotechnology"]) },
       { label: "MedTech", icon: "settings", route: startupsUrl(["MedTech"]) },
       { label: "Digital Health", icon: "cloud", route: startupsUrl(["Digital Health"]) },
+      ...(ADVISORY_ENABLED ? [{ label: "Advisory Services", icon: "calendar" as const, route: "/discover/advisory-services" }] : []),
     ],
   },
   {
@@ -81,6 +83,7 @@ export const TOP_NAV: NavGroup[] = [
 
 const ROUTE_TO_NAV_GROUP: Record<string, string> = {
   dashboard: "dashboard",
+  discover: "discover",
   ecosystem: "discover", "market-map": "discover", sector: "discover", opportunities: "discover",
   investors: "explore", hubs: "explore", multinationals: "explore",
   research: "explore", screener: "explore",
