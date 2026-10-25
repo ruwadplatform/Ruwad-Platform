@@ -42,7 +42,8 @@ export function AdvisoryServicesPage() {
   const [sort, setSort] = useState<SortMode>("relevance");
   const [view, setView] = useState<ViewMode>("grid");
   const [now] = useState(() => new Date());
-  const ids = { search: useId(), spec: useId(), inst: useId(), type: useId(), avail: useId(), sort: useId() };
+  const [filtersOpen, setFiltersOpen] = useState(false); // phones only: the four selects collapse behind a Filters button
+  const ids = { search: useId(), spec: useId(), inst: useId(), type: useId(), avail: useId(), sort: useId(), grid: useId() };
 
   useEffect(() => {
     let alive = true;
@@ -54,6 +55,7 @@ export function AdvisoryServicesPage() {
   const results = useMemo(() => sortAdvisors(filterAdvisors(advisors ?? [], filters, now), sort, filters.query), [advisors, filters, sort, now]);
   const slots = useMemo(() => new Map((advisors ?? []).map((a) => [a.id, nextAvailableSlot(a, now)])), [advisors, now]);
   const filtersActive = filters.query.trim() !== "" || filters.specialization !== "" || filters.institution !== "" || filters.consultationType !== "" || filters.availability !== "any";
+  const activeFilterCount = [filters.specialization, filters.institution, filters.consultationType].filter(Boolean).length + (filters.availability !== "any" ? 1 : 0);
   const set = <K extends keyof AdvisorFilters>(k: K, v: AdvisorFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
 
   return (
@@ -82,7 +84,16 @@ export function AdvisoryServicesPage() {
             onChange={(e) => set("query", e.target.value)}
           />
         </div>
-        <div className="adv-filter-grid">
+        <button
+          type="button"
+          className="btn btn-outline adv-filter-toggle"
+          aria-expanded={filtersOpen}
+          aria-controls={ids.grid}
+          onClick={() => setFiltersOpen((o) => !o)}
+        >
+          Filters{activeFilterCount > 0 && <span className="adv-filter-badge" aria-label={`${activeFilterCount} active`}>{activeFilterCount}</span>}
+        </button>
+        <div id={ids.grid} className={`adv-filter-grid${filtersOpen ? " is-open" : ""}`}>
           <div className="adv-field">
             <label htmlFor={ids.spec}>Specialization</label>
             <select id={ids.spec} className="select" value={filters.specialization} onChange={(e) => set("specialization", e.target.value)}>

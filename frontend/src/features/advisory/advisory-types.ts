@@ -18,11 +18,16 @@ export const CONSULTATION_TYPES: ConsultationType[] = [
   { id: "advisory", label: "Technical Advisory", minutes: 60 },
 ];
 
+/** A stretch of the day an advisor is open for consultations, "HH:MM" 24-hour, Riyadh time. A consultation must fit inside one window. */
+export interface AvailabilityWindow {
+  start: string;
+  end: string;
+}
+
 /** One weekly availability rule, in Riyadh time (UTC+3, no daylight saving). Weekday 0 = Sunday … 6 = Saturday. */
 export interface WeeklyAvailability {
   weekday: number;
-  /** "HH:MM" start times, 24-hour, Riyadh time. */
-  times: string[];
+  windows: AvailabilityWindow[];
 }
 
 export interface AdvisorSummary {
@@ -60,3 +65,41 @@ export interface AdvisorFilters {
 }
 
 export const EMPTY_ADVISOR_FILTERS: AdvisorFilters = { query: "", specialization: "", institution: "", consultationType: "", availability: "any" };
+
+/** One consultation an advisor offers: a kind of consultation (which the directory filter uses) with its own name, description and length. */
+export interface AdvisorService {
+  id: string;
+  typeId: ConsultationTypeId;
+  name: string;
+  description: string;
+  minutes: number;
+}
+
+/** A publication an advisor has listed. Empty for demonstration advisors: none are invented. */
+export interface Publication {
+  title: string;
+  venue: string;
+  year: number;
+  url?: string;
+}
+
+/** A review of a completed consultation. Empty until real consultations exist: none are invented. */
+export interface AdvisorReview {
+  id: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+/** Everything the profile page shows: the directory summary plus the detail. */
+export interface AdvisorProfile extends AdvisorSummary {
+  designation: string;
+  location: string;
+  about: string;
+  /** Specializations the advisor lists (the first is the main one shown in the directory). */
+  specializations: string[];
+  researchAreas: string[];
+  services: AdvisorService[];
+  publications: Publication[];
+  reviews: AdvisorReview[];
+}

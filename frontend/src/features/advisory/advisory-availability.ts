@@ -1,24 +1,14 @@
+import { SLOT_STEP_MINUTES, slotsForDate } from "./advisory-slots.ts";
+import { MAX_BOOKING_DAYS, MIN_NOTICE_MINUTES, addDays, pad2, riyadhDate, riyadhInstant, ymdKey } from "./advisory-time.ts";
 import type { AdvisorSummary, AvailabilityFilter } from "./advisory-types.ts";
 
-/** Riyadh is UTC+3 all year (no daylight saving), so Riyadh wall-clock time is a fixed offset from UTC. */
-const RIYADH_OFFSET_MINUTES = 3 * 60;
-/** A slot that starts sooner than this from now is not offered. */
-export const MIN_NOTICE_MINUTES = 120;
+// Re-exported so existing imports keep working (the helpers now live in advisory-time.ts).
+export { MIN_NOTICE_MINUTES, riyadhInstant };
+
+/** Directory searches only look this far ahead for an advisor's next slot. */
 const SEARCH_DAYS = 21;
-
-const pad = (n: number) => String(n).padStart(2, "0");
-
-/** Riyadh calendar date and weekday for an instant, without any time-zone database. */
-function riyadhParts(instant: Date): { y: number; m: number; d: number; weekday: number } {
-  const shifted = new Date(instant.getTime() + RIYADH_OFFSET_MINUTES * 60_000);
-  return { y: shifted.getUTCFullYear(), m: shifted.getUTCMonth() + 1, d: shifted.getUTCDate(), weekday: shifted.getUTCDay() };
-}
-
-/** The instant a Riyadh date + "HH:MM" refers to. */
-export function riyadhInstant(y: number, m: number, d: number, time: string): Date {
-  const [hh, mm] = time.split(":").map(Number);
-  return new Date(Date.UTC(y, m - 1, d, hh, mm) - RIYADH_OFFSET_MINUTES * 60_000);
-}
+/** The directory shows the next slot of the shortest consultation. */
+const DIRECTORY_MINUTES = SLOT_STEP_MINUTES;
 
 export interface NextSlot {
   /** The slot's start as an instant. */
@@ -30,19 +20,14 @@ export interface NextSlot {
   time: string;
 }
 
-/** The soonest slot an advisor offers from `now`, honouring the minimum notice; null if there is none in the next three weeks. */
+/** The soonest slot an advisor offers from `now`, honouring the minimum notice; null if there is none in the next three weeks. It is computed
+ * with the same generator as the booking calendar, so the directory and the booking form always agree. */
 export function nextAvailableSlot(advisor: Pick<AdvisorSummary, "availability">, now: Date = new Date()): NextSlot | null {
-  const earliest = now.getTime() + MIN_NOTICE_MINUTES * 60_000;
-  for (let i = 0; i < SEARCH_DAYS; i++) {
-    const day = riyadhParts(new Date(now.getTime() + i * 86_400_000));
-    const rule = advisor.availability.find((a) => a.weekday === day.weekday);
-    if (!rule) continue;
-    const times = [...rule.times].sort();
-    for (const time of times) {
-      const at = riyadhInstant(day.y, day.m, day.d, time);
-      // Riyadh has a fixed UTC offset, so the i-th day after `now` is exactly i Riyadh calendar days after today.
-      if (at.getTime() >= earliest) return { at, daysFromToday: i, date: `${day.y}-${pad(day.m)}-${pad(day.d)}`, time };
-    }
+  const today = riyadhDate(now);
+  for (let i = 0; i < Math.min(SEARCH_DAYS, MAX_BOOKING_DAYS); i++) {
+    const day = addDays(today, i);
+    const first = slotsForDate(advisor, day, DIRECTORY_MINUTES, now)[0];
+    if (first) return { at: first.start, daysFromToday: i, date: ymdKey(day), time: first.time };
   }
   return null;
 }
@@ -59,8 +44,8 @@ export function matchesAvailability(advisor: Pick<AdvisorSummary, "availability"
 /** "Mon 26 Oct · 10:00 AM" in Riyadh time. */
 export function formatSlot(slot: NextSlot): string {
   const [y, m, d] = slot.date.split("-").map(Number);
-  const day = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y, m - 1, d)));
+  const day = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y!, m! - 1, d!)));
   const [hh, mm] = slot.time.split(":").map(Number);
-  const h12 = hh % 12 === 0 ? 12 : hh % 12;
-  return `${day} · ${pad(h12)}:${pad(mm)} ${hh < 12 ? "AM" : "PM"}`;
+  const h12 = hh! % 12 === 0 ? 12 : hh! % 12;
+  return `${day} · ${pad2(h12)}:${pad2(mm!)} ${hh! < 12 ? "AM" : "PM"}`;
 }
