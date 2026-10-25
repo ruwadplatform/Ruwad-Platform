@@ -16,7 +16,7 @@ import {
 import { AvailabilityEditor, ProfileForm, ServicesEditor } from "./AdvisorEditors";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
 import { NoteModal } from "./booking-modals";
-import { BookingStatusBadge, errText, formatWhen } from "./booking-format";
+import { BookingStatusBadge, errText, expiryLine, formatWhen } from "./booking-format";
 import type { AvailabilityState, BookingView, MyAdvisorProfile } from "./advisory-types";
 import { useAsync } from "./use-async";
 
@@ -154,6 +154,7 @@ function AdvisorRow({ b, tab, now, onChanged }: { b: BookingView; tab: Tab; now:
         <div className="adv-bookrow-title"><b>{b.serviceName}</b><BookingStatusBadge booking={b} />{b.isDemo && <span className="adv-demo">Demo</span>}</div>
         <div className="adv-bookrow-meta"><span>{b.startupName}</span>{b.requester && <span>Requested by {b.requester.name}</span>}</div>
         <div className="adv-bookrow-when"><RuwadIcon name="clock" size={13} /> {formatWhen(b.startsAt)} · {b.minutes} min <span className="muted small">Riyadh (UTC+3)</span></div>
+        {expiryLine(b) && <div className="adv-bookrow-flag"><RuwadIcon name="clock" size={13} /> Please answer by {expiryLine(b)}. It expires after that.</div>}
         {b.description && <div className="adv-bookrow-note muted small">“{b.description}”</div>}
         {needsAnswer && <div className="adv-bookrow-flag"><RuwadIcon name="info" size={13} /> The startup proposed a new time: {formatWhen(b.pendingReschedule!.startsAt)}. Your current time stays booked until you answer.</div>}
       </div>

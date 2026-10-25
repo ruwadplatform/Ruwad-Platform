@@ -3,21 +3,24 @@ import { BookingStatus } from "./advisory.enums";
 /** The booking life cycle. Same VALID_TRANSITIONS guard the submissions and model-registry services use: every status change goes through
  * `assertTransition`, so no code path can move a booking somewhere this table doesn't allow.
  *
+ *   PENDING ─no answer in time→ EXPIRED (scheduler only)
  *   PENDING ─approve→ CONFIRMED ─complete→ COMPLETED
  *      │ ╲reject→ REJECTED        │ ╲cancel→ CANCELLED
  *      ╰cancel→ CANCELLED         ╰ both sides accept a proposed time→ RESCHEDULED (and the proposal becomes CONFIRMED)
  *
  *   RESCHEDULE_PROPOSED ─accept→ CONFIRMED          (the original, still CONFIRMED until then, becomes RESCHEDULED)
  *                       ─decline→ REJECTED          (the other party said no; the original is untouched)
- *                       ─withdraw / original cancelled→ CANCELLED */
+ *                       ─withdraw / original cancelled→ CANCELLED
+ *                       ─no answer in time→ EXPIRED (the original stays CONFIRMED) */
 export const VALID_TRANSITIONS: Record<BookingStatus, BookingStatus[]> = {
-  [BookingStatus.PENDING]: [BookingStatus.CONFIRMED, BookingStatus.REJECTED, BookingStatus.CANCELLED],
+  [BookingStatus.PENDING]: [BookingStatus.CONFIRMED, BookingStatus.REJECTED, BookingStatus.CANCELLED, BookingStatus.EXPIRED],
   [BookingStatus.CONFIRMED]: [BookingStatus.COMPLETED, BookingStatus.CANCELLED, BookingStatus.RESCHEDULED],
-  [BookingStatus.RESCHEDULE_PROPOSED]: [BookingStatus.CONFIRMED, BookingStatus.REJECTED, BookingStatus.CANCELLED],
+  [BookingStatus.RESCHEDULE_PROPOSED]: [BookingStatus.CONFIRMED, BookingStatus.REJECTED, BookingStatus.CANCELLED, BookingStatus.EXPIRED],
   [BookingStatus.REJECTED]: [],
   [BookingStatus.CANCELLED]: [],
   [BookingStatus.COMPLETED]: [],
   [BookingStatus.RESCHEDULED]: [],
+  [BookingStatus.EXPIRED]: [],
 };
 
 export function canTransition(from: BookingStatus, to: BookingStatus): boolean {

@@ -10,7 +10,7 @@ import { useToast } from "@/components/shell/ToastProvider";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { useSession } from "@/hooks/use-store";
 import {
-  adminCancelBooking, createAdvisorService, fetchAdminAdvisor, fetchAdminAdvisors, fetchAdminBookings, fetchAdvisoryStats, reviewAdvisor, saveAdvisorAvailability, setAdvisorVerified, updateAdvisorService,
+  adminCancelBooking, createAdvisorService, fetchAutomationStatus, runAutomation, fetchAdminAdvisor, fetchAdminAdvisors, fetchAdminBookings, fetchAdvisoryStats, reviewAdvisor, saveAdvisorAvailability, setAdvisorVerified, updateAdvisorService,
 } from "@/lib/api/advisory";
 import { AvailabilityEditor, ServicesEditor } from "./AdvisorEditors";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
@@ -18,9 +18,10 @@ import { NoteModal } from "./booking-modals";
 import { BookingStatusBadge, errText, formatWhen, statusLabel } from "./booking-format";
 import type { AdminAdvisorRow, AdvisorReviewStatus, AvailabilityState, BookingStatus } from "./advisory-types";
 import { useAsync } from "./use-async";
+import type { AutomationReport } from "./advisory-types";
 
-type Tab = "advisors" | "bookings" | "stats";
-const TABS: { id: Tab; label: string }[] = [{ id: "advisors", label: "Advisors" }, { id: "bookings", label: "Bookings" }, { id: "stats", label: "Statistics" }];
+type Tab = "advisors" | "bookings" | "stats" | "automation";
+const TABS: { id: Tab; label: string }[] = [{ id: "advisors", label: "Advisors" }, { id: "bookings", label: "Bookings" }, { id: "stats", label: "Statistics" }, { id: "automation", label: "Automation" }];
 const ADVISOR_STATUS: Record<AdvisorReviewStatus, { label: string; cls: string }> = {
   DRAFT: { label: "Draft", cls: "adv-badge-muted" },
   PENDING_REVIEW: { label: "Pending review", cls: "adv-badge-warn" },
@@ -50,6 +51,7 @@ export function AdminAdvisoryPage() {
         {tab === "advisors" && <AdvisorsTab />}
         {tab === "bookings" && <BookingsTab />}
         {tab === "stats" && <StatsTab />}
+        {tab === "automation" && <AutomationTab />}
       </div>
     </div>
   );
@@ -166,7 +168,7 @@ function ManageAdvisor({ id, onChanged }: { id: string; onChanged: () => void })
   );
 }
 
-const BOOKING_STATUSES: BookingStatus[] = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED", "REJECTED", "RESCHEDULED"];
+const BOOKING_STATUSES: BookingStatus[] = ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED", "REJECTED", "RESCHEDULED", "EXPIRED"];
 
 function BookingsTab() {
   const toast = useToast();
@@ -272,6 +274,60 @@ function StatsTab() {
             </>
           )}
       </div>
+    </>
+  );
+}
+
+/** The scheduler's settings and a safe way to see what it would do. A dry run changes nothing; "Run now" does one real pass (still with mock email). */
+function AutomationTab() {
+  const toast = useToast();
+  const { openModal } = useModal();
+  const [tick, setTick] = useState(0);
+  const [result, setResult] = useState<AutomationReport | null>(null);
+  const [busy, setBusy] = useState(false);
+  const res = useAsync(`automation|${tick}`, fetchAutomationStatus);
+
+  async function run(dryRun: boolean) {
+    setBusy(true);
+    try { setResult(await runAutomation(dryRun)); if (!dryRun) setTick((t) => t + 1); } catch (e) { toast(errText(e)); } finally { setBusy(false); }
+  }
+
+  if (res.error) return <ErrorState title="Couldn't load the automation status" body={res.error} />;
+  if (!res.data) return <LoadingState title="Loading automation status…" />;
+  const s = res.data;
+  return (
+    <>
+      <div className="stat-mini-row">
+        <StatCard label="Scheduler" value={s.schedulerEnabled ? "On" : "Off"} />
+        <StatCard label="Request expiry" value={`${s.requestExpiryHours} h`} />
+        <StatCard label="Answer cutoff" value={`${s.cutoffMinutes} min before`} />
+        <StatCard label="Reminders" value={s.reminderHours.map((h) => `${h} h`).join(" + ")} />
+        <StatCard label="Auto-completion" value={s.autoComplete ? "On" : "Off"} />
+      </div>
+      <p className="muted small mt-8">
+        {s.schedulerEnabled ? `The scheduler runs every ${s.tickSeconds} seconds on this server.` : "The scheduler is off on this server. Nothing expires or is sent automatically; you can still dry-run it below."} Email is in mock mode unless it was explicitly switched to live, and demonstration bookings are never emailed.
+      </p>
+      <div className="adv-actions mt-16">
+        <button type="button" className="btn btn-outline" disabled={busy} onClick={() => run(true)}>{busy ? "Working…" : "Dry run (changes nothing)"}</button>
+        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => openModal(
+          <NoteModal title="Run one automation pass now?" body="This really expires overdue requests and records reminders. Email stays in mock mode unless it was switched to live." label="Note for the record" confirmLabel="Run now"
+            onSubmit={async () => { await run(false); toast("Pass complete"); }} />,
+        )}>Run now</button>
+      </div>
+      {result && (
+        <section className="panel panel-pad mt-16">
+          <h3 className="adv-sec-sub" style={{ marginTop: 0 }}>{result.dryRun ? "Dry run: what would happen" : "Pass complete"} <span className="muted small">{formatWhen(result.ranAt)}</span></h3>
+          <ul className="adv-bars is-simple">
+            <li><span>Requests that expire</span><b>{result.expired}</b></li>
+            <li><span>Reschedule proposals that expire</span><b>{result.proposalsExpired}</b></li>
+            <li><span>Expiry warnings</span><b>{result.expiryWarnings}</b></li>
+            <li><span>24-hour reminders</span><b>{result.reminders24h}</b></li>
+            <li><span>1-hour reminders</span><b>{result.reminders1h}</b></li>
+          </ul>
+          {result.references.length > 0 && <p className="muted small mt-8">Bookings: {[...new Set(result.references)].join(", ")}</p>}
+        </section>
+      )}
+      {s.lastError && <p className="adv-review-note adv-review-error mt-16" role="alert">Last scheduled pass failed: {s.lastError}</p>}
     </>
   );
 }

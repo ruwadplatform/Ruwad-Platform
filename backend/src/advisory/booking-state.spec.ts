@@ -5,13 +5,20 @@ const S = BookingStatus;
 
 describe("booking status machine", () => {
   it("allows exactly the documented moves", () => {
-    expect(VALID_TRANSITIONS[S.PENDING]).toEqual([S.CONFIRMED, S.REJECTED, S.CANCELLED]);
+    expect(VALID_TRANSITIONS[S.PENDING]).toEqual([S.CONFIRMED, S.REJECTED, S.CANCELLED, S.EXPIRED]);
     expect(VALID_TRANSITIONS[S.CONFIRMED]).toEqual([S.COMPLETED, S.CANCELLED, S.RESCHEDULED]);
-    expect(VALID_TRANSITIONS[S.RESCHEDULE_PROPOSED]).toEqual([S.CONFIRMED, S.REJECTED, S.CANCELLED]);
+    expect(VALID_TRANSITIONS[S.RESCHEDULE_PROPOSED]).toEqual([S.CONFIRMED, S.REJECTED, S.CANCELLED, S.EXPIRED]);
   });
 
-  it("REJECTED, CANCELLED, COMPLETED and RESCHEDULED are terminal", () => {
-    for (const s of [S.REJECTED, S.CANCELLED, S.COMPLETED, S.RESCHEDULED]) expect(VALID_TRANSITIONS[s]).toEqual([]);
+  it("REJECTED, CANCELLED, COMPLETED, RESCHEDULED and EXPIRED are terminal", () => {
+    for (const s of [S.REJECTED, S.CANCELLED, S.COMPLETED, S.RESCHEDULED, S.EXPIRED]) expect(VALID_TRANSITIONS[s]).toEqual([]);
+  });
+
+  it("only an unanswered request or proposal can expire; a CONFIRMED booking never does", () => {
+    expect(canTransition(S.PENDING, S.EXPIRED)).toBe(true);
+    expect(canTransition(S.RESCHEDULE_PROPOSED, S.EXPIRED)).toBe(true);
+    expect(canTransition(S.CONFIRMED, S.EXPIRED)).toBe(false);
+    expect(canTransition(S.EXPIRED, S.CONFIRMED)).toBe(false); // an expired request can't be approved late
   });
 
   it("a pending request can't jump to completed, and a confirmed one can't go back to pending", () => {

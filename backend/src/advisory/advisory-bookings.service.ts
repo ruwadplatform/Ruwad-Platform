@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID } from "crypto";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, EntityManager, In, Repository } from "typeorm";
 import { AuthUser } from "../common/decorators/current-user.decorator";
@@ -10,6 +11,8 @@ import { User } from "../users/user.entity";
 import { AdvisoryAdvisor, AdvisoryBooking, AdvisoryBookingEvent } from "./advisory.entities";
 import { AdvisorStatus, BookingActorRole, BookingParty, BookingStatus } from "./advisory.enums";
 import { AdvisoryAdvisorsService } from "./advisory-advisors.service";
+import { computeExpiresAt, computeProposalExpiresAt } from "./advisory-automation-rules";
+import { AdvisoryAutomationConfig, readAutomationConfig } from "./advisory-config";
 import { AdvisoryNotificationKind, AdvisoryNotifier } from "./advisory-notifier";
 import { datesWithSlots, isOfferedSlot } from "./advisory-slots";
 import { cleanText } from "./advisory-text";
@@ -45,7 +48,11 @@ export interface BookingView {
   createdAt: string;
   rescheduledFromId: string | null;
   /** The open proposal for a new time, if there is one. The booking itself stays CONFIRMED at its original time until it is accepted. */
-  pendingReschedule: { id: string; startsAt: string; endsAt: string; proposedBy: BookingParty } | null;
+  pendingReschedule: { id: string; startsAt: string; endsAt: string; proposedBy: BookingParty; expiresAt: string | null } | null;
+  /** For a PENDING request: when it expires if nobody answers. */
+  expiresAt: string | null;
+  needsReview: boolean;
+  attendanceOutcome: string | null;
 }
 
 export interface BookingActions {
@@ -77,6 +84,8 @@ function newReference(): string {
  * RESCHEDULED and the proposal becomes CONFIRMED. Nobody, an administrator included, can confirm a new time on the other side's behalf. */
 @Injectable()
 export class AdvisoryBookingsService {
+  private readonly automation: AdvisoryAutomationConfig;
+
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
     @InjectRepository(AdvisoryBooking) private readonly bookings: Repository<AdvisoryBooking>,
@@ -87,7 +96,10 @@ export class AdvisoryBookingsService {
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly advisorsSvc: AdvisoryAdvisorsService,
     private readonly notifier: AdvisoryNotifier,
-  ) {}
+    config: ConfigService,
+  ) {
+    this.automation = readAutomationConfig((k) => config.get<string>(k));
+  }
 
   // ---- permissions ------------------------------------------------------------------------------------------------------------------------
 
@@ -149,6 +161,7 @@ export class AdvisoryBookingsService {
         startsAt, endsAt: new Date(startsAt.getTime() + service.minutes * 60_000), minutes: service.minutes,
         serviceName: service.name, serviceTypeId: service.typeId, startupName: startup.name,
         description: cleanText(dto.description) || null, status: BookingStatus.PENDING, isDemo: advisor.isDemo,
+        expiresAt: computeExpiresAt(now, startsAt, this.automation),
       });
       try {
         await this.ds.transaction(async (m) => {
@@ -280,6 +293,7 @@ export class AdvisoryBookingsService {
       requestedByUserId: orig.requestedByUserId, startsAt, endsAt: new Date(startsAt.getTime() + orig.minutes * 60_000), minutes: orig.minutes, serviceName: orig.serviceName,
       serviceTypeId: orig.serviceTypeId, startupName: orig.startupName, description: orig.description, status: BookingStatus.RESCHEDULE_PROPOSED, rescheduledFromId: orig.id,
       proposedBy: side, decisionNote: cleanText(dto.note) || null, isDemo: orig.isDemo,
+      expiresAt: computeProposalExpiresAt(now, orig.startsAt, startsAt, this.automation),
     });
     try {
       await this.ds.transaction(async (m) => {
@@ -442,7 +456,9 @@ export class AdvisoryBookingsService {
         requester: u ? { name: `${u.firstName} ${u.lastName}`.trim() } : null,
         decisionNote: b.decisionNote, cancelledBy: b.cancelledBy, cancelReason: b.cancelReason, cancelledAt: b.cancelledAt?.toISOString() ?? null,
         completedAt: b.completedAt?.toISOString() ?? null, createdAt: b.createdAt.toISOString(), rescheduledFromId: b.rescheduledFromId,
-        pendingReschedule: p ? { id: p.id, startsAt: p.startsAt.toISOString(), endsAt: p.endsAt.toISOString(), proposedBy: p.proposedBy as BookingParty } : null,
+        pendingReschedule: p ? { id: p.id, startsAt: p.startsAt.toISOString(), endsAt: p.endsAt.toISOString(), proposedBy: p.proposedBy as BookingParty, expiresAt: p.expiresAt?.toISOString() ?? null } : null,
+        expiresAt: b.status === BookingStatus.PENDING ? b.expiresAt?.toISOString() ?? null : null,
+        needsReview: b.needsReview, attendanceOutcome: b.attendanceOutcome,
       };
     });
   }

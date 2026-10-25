@@ -28,6 +28,8 @@ export enum BookingStatus {
   /** A proposed new time for a CONFIRMED booking, waiting for the OTHER party to accept. Holds the proposed slot while the original stays
    * CONFIRMED, so the original reservation is never lost while the parties agree. */
   RESCHEDULE_PROPOSED = "RESCHEDULE_PROPOSED",
+  /** A request (or an unanswered reschedule proposal) that ran out of time without an answer. Terminal; holds no slot. Set only by the scheduler. */
+  EXPIRED = "EXPIRED",
 }
 
 /** Statuses that hold a time slot. Must match the WHERE clause of the exclusion constraint in the migration. */
@@ -35,4 +37,8 @@ export const SLOT_HOLDING_STATUSES: BookingStatus[] = [BookingStatus.PENDING, Bo
 
 /** Which side of a booking someone acts for. */
 export type BookingParty = "FOUNDER" | "ADVISOR";
+/** What actually happened at a consultation, recorded alongside the booking (there is deliberately no NO_SHOW status). */
+export type AttendanceOutcome = "ATTENDED_BOTH" | "FOUNDER_NO_SHOW" | "ADVISOR_NO_SHOW" | "BOTH_NO_SHOW" | "NO_OVERLAP" | "UNKNOWN";
+export const ATTENDANCE_OUTCOMES: AttendanceOutcome[] = ["ATTENDED_BOTH", "FOUNDER_NO_SHOW", "ADVISOR_NO_SHOW", "BOTH_NO_SHOW", "NO_OVERLAP", "UNKNOWN"];
+
 export type BookingActorRole = BookingParty | "ADMIN" | "SYSTEM";

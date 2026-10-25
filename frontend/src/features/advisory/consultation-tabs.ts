@@ -22,7 +22,7 @@ export function inTab(b: Bucketable, tab: ConsultationTab, now: Date = new Date(
     case "pending": return b.status === "PENDING";
     case "confirmed": return b.status === "CONFIRMED";
     case "completed": return b.status === "COMPLETED";
-    case "cancelled": return b.status === "CANCELLED" || b.status === "REJECTED";
+    case "cancelled": return b.status === "CANCELLED" || b.status === "REJECTED" || b.status === "EXPIRED";
     case "rescheduled": return b.status === "RESCHEDULED" || b.rescheduledFromId !== null;
   }
 }

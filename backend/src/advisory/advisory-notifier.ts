@@ -9,7 +9,10 @@ import { AdvisoryAdvisor, AdvisoryBooking, AdvisoryBookingEvent } from "./adviso
 import { BookingActorRole, BookingParty } from "./advisory.enums";
 import { formatRiyadh } from "./advisory-time";
 
-export type AdvisoryNotificationKind = "REQUESTED" | "CONFIRMED" | "REJECTED" | "CANCELLED" | "RESCHEDULE_PROPOSED" | "RESCHEDULE_ACCEPTED" | "RESCHEDULE_DECLINED";
+export type AdvisoryNotificationKind =
+  | "REQUESTED" | "CONFIRMED" | "REJECTED" | "CANCELLED" | "RESCHEDULE_PROPOSED" | "RESCHEDULE_ACCEPTED" | "RESCHEDULE_DECLINED"
+  // phase 4 (scheduler)
+  | "EXPIRED" | "EXPIRY_WARNING" | "REMINDER_24H" | "REMINDER_1H" | "RESCHEDULE_EXPIRED" | "NEEDS_REVIEW";
 export type EmailMode = "mock" | "live";
 
 /** Who gets an email for each event. `actor` is the side that caused it, who is never told about their own action. */
@@ -23,6 +26,12 @@ export function recipientsFor(kind: AdvisoryNotificationKind, actor: BookingActo
     case "RESCHEDULE_PROPOSED": return proposedBy ? other(proposedBy) : [];
     case "RESCHEDULE_ACCEPTED": return ["FOUNDER", "ADVISOR"];
     case "RESCHEDULE_DECLINED": return proposedBy ? [proposedBy] : [];
+    case "EXPIRED": return ["FOUNDER", "ADVISOR"];
+    case "EXPIRY_WARNING": return ["ADVISOR"];
+    case "REMINDER_24H": return ["FOUNDER", "ADVISOR"];
+    case "REMINDER_1H": return ["FOUNDER", "ADVISOR"];
+    case "RESCHEDULE_EXPIRED": return ["FOUNDER", "ADVISOR"];
+    case "NEEDS_REVIEW": return ["ADVISOR"];
   }
 }
 
@@ -108,6 +117,14 @@ export class AdvisoryNotifier {
       RESCHEDULE_PROPOSED: { subject: `New time proposed: ${b.serviceName}`, heading: "A new time was proposed", body: "A new time was proposed for your consultation. Your original time stays booked until you accept the new one." },
       RESCHEDULE_ACCEPTED: { subject: `Consultation rescheduled: ${b.serviceName}`, heading: "Your consultation was rescheduled", body: "Both sides agreed a new time." },
       RESCHEDULE_DECLINED: { subject: `New time declined: ${b.serviceName}`, heading: "The proposed time was declined", body: "The other side didn't accept the proposed time. Your original consultation is unchanged." },
+      EXPIRED: role === "ADVISOR"
+        ? { subject: `Request expired: ${b.serviceName}`, heading: "A request expired unanswered", body: `The request from ${escapeHtml(b.startupName)} wasn't answered in time, so it expired and the time was released.` }
+        : { subject: `Request expired: ${b.serviceName}`, heading: "Your request expired", body: `${escapeHtml(who)} didn't answer in time, so the request expired and the time was released. You can choose another time or another advisor.` },
+      EXPIRY_WARNING: { subject: `Please answer: ${b.serviceName} request expires soon`, heading: "A request is about to expire", body: `The request from ${escapeHtml(b.startupName)} will expire if it isn't approved or declined. Please answer it from your advisor dashboard.` },
+      REMINDER_24H: { subject: `Reminder: ${b.serviceName} tomorrow`, heading: "Your consultation is in about 24 hours", body: "A reminder of your upcoming online consultation." },
+      REMINDER_1H: { subject: `Starting soon: ${b.serviceName}`, heading: "Your consultation starts in about an hour", body: "You'll be able to join from RUWĀD shortly before the start time." },
+      RESCHEDULE_EXPIRED: { subject: `New time expired: ${b.serviceName}`, heading: "The proposed new time expired", body: "Nobody answered the proposed new time, so it was withdrawn. The original consultation time is unchanged." },
+      NEEDS_REVIEW: { subject: `Please confirm what happened: ${b.serviceName}`, heading: "Please record the outcome", body: `The consultation with ${escapeHtml(b.startupName)} has ended. Please confirm whether it took place, from your advisor dashboard.` },
     };
     const c = copy[kind];
     const path = role === "FOUNDER" ? `/workspace/consultations/${b.id}` : "/workspace/advisor";

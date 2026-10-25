@@ -11,7 +11,7 @@ import { useSession } from "@/hooks/use-store";
 import { acceptReschedule, adminCancelBooking, approveBooking, cancelBooking, completeBooking, declineReschedule, fetchBooking, rejectBooking, withdrawReschedule } from "@/lib/api/advisory";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
 import { NoteModal, RescheduleModal } from "./booking-modals";
-import { BookingStatusBadge, errText, formatWhen, localZoneIfDifferent } from "./booking-format";
+import { BookingStatusBadge, errText, expiryLine, formatWhen, localZoneIfDifferent } from "./booking-format";
 import type { BookingDetail, BookingHistoryEvent } from "./advisory-types";
 import { useAsync } from "./use-async";
 
@@ -26,6 +26,8 @@ function describeEvent(e: BookingHistoryEvent): string {
     case "REJECTED": return d.note ? `Declined: ${d.note}` : "Declined by the advisor";
     case "CANCELLED": return d.note ? `Cancelled: ${d.note}` : "Cancelled";
     case "COMPLETED": return "Marked as completed";
+    case "EXPIRED": return "Expired: nobody answered in time, so the time was released";
+    case "RESCHEDULE_EXPIRED": return "The proposed new time expired unanswered; the original time is unchanged";
     case "RESCHEDULE_PROPOSED": return `New time proposed: ${fmt(d.to)}${d.note ? ` (“${d.note}”)` : ""}`;
     case "RESCHEDULE_ACCEPTED": return d.to ? `New time accepted: ${fmt(d.to)}` : "New time accepted";
     case "RESCHEDULE_DECLINED": return d.note ? `Proposed time declined: ${d.note}` : "Proposed time declined";
@@ -93,6 +95,7 @@ function Detail({ detail, reload }: { detail: BookingDetail; reload: () => void 
     ["Format", "Online via RUWĀD"],
     ["Description", b.description || "Not provided"],
   ];
+  if (expiryLine(b)) facts.push(["Expires if unanswered", expiryLine(b)!]);
   if (b.decisionNote) facts.push(["Advisor's note", b.decisionNote]);
   if (b.cancelReason) facts.push(["Cancellation reason", `${b.cancelReason}${b.cancelledBy ? ` (by ${ACTOR[b.cancelledBy]?.toLowerCase() ?? b.cancelledBy.toLowerCase()})` : ""}`]);
 
@@ -111,7 +114,7 @@ function Detail({ detail, reload }: { detail: BookingDetail; reload: () => void 
         <section className="panel panel-pad adv-proposal" aria-label="Proposed new time">
           <h2 className="adv-sec-title">{pending.proposedBy === viewerRole ? "You proposed a new time" : `${pending.proposedBy === "ADVISOR" ? b.advisor?.name ?? "The advisor" : b.startupName} proposed a new time`}</h2>
           <p className="adv-about">{formatWhen(pending.startsAt)} <span className="muted small">Riyadh (UTC+3)</span></p>
-          <p className="muted small mt-8">Your consultation stays booked for {formatWhen(b.startsAt)} until the new time is accepted. Only {pending.proposedBy === "FOUNDER" ? "the advisor" : "the startup"} can accept it.</p>
+          <p className="muted small mt-8">{pending.expiresAt ? "If nobody answers by " + formatWhen(pending.expiresAt) + " the proposal expires. " : ""}Your consultation stays booked for {formatWhen(b.startsAt)} until the new time is accepted. Only {pending.proposedBy === "FOUNDER" ? "the advisor" : "the startup"} can accept it.</p>
           <div className="adv-actions mt-16">
             {actions.acceptReschedule && <button type="button" className="btn btn-primary" disabled={busy} onClick={() => run(() => acceptReschedule(b.id), "New time accepted")}>Accept new time</button>}
             {actions.declineReschedule && <button type="button" className="btn btn-outline" disabled={busy} onClick={decline}>Decline</button>}

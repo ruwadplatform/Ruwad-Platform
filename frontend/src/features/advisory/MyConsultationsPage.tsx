@@ -10,7 +10,7 @@ import { useSession } from "@/hooks/use-store";
 import { fetchMyBookings } from "@/lib/api/advisory";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
 import type { BookingView } from "./advisory-types";
-import { BookingStatusBadge, CONSULTATION_TABS, formatWhen, inTab, type ConsultationTab } from "./booking-format";
+import { BookingStatusBadge, CONSULTATION_TABS, expiryLine, formatWhen, inTab, type ConsultationTab } from "./booking-format";
 import { useAsync } from "./use-async";
 
 /** Workspace → My Consultations: the founder's bookings in six tabs. A booking can appear in more than one (a future confirmed booking is both
@@ -88,6 +88,7 @@ function ConsultationRow({ b }: { b: BookingView }) {
           <span>For {b.startupName}</span>
         </div>
         <div className="adv-bookrow-when"><RuwadIcon name="clock" size={13} /> {formatWhen(b.startsAt)} · {b.minutes} min <span className="muted small">Riyadh (UTC+3)</span></div>
+        {expiryLine(b) && <div className="adv-bookrow-note muted small">Waiting for {b.advisor?.name ?? "the advisor"} to answer. The request expires {expiryLine(b)} if nobody does.</div>}
         {needsYou && <div className="adv-bookrow-flag"><RuwadIcon name="info" size={13} /> The advisor proposed a new time: {formatWhen(b.pendingReschedule!.startsAt)}. Your current time stays booked until you answer.</div>}
         {b.decisionNote && b.status === "REJECTED" && <div className="adv-bookrow-note muted small">Advisor&apos;s note: {b.decisionNote}</div>}
       </div>

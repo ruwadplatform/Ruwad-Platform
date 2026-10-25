@@ -44,6 +44,32 @@ function booking(over: Partial<AdvisoryBooking> = {}): AdvisoryBooking {
   });
 }
 
+describe("who is told: the scheduler's emails", () => {
+  it("an expired request tells both sides; the warning goes to the advisor only", () => {
+    expect(recipientsFor("EXPIRED", "SYSTEM").sort()).toEqual(["ADVISOR", "FOUNDER"]);
+    expect(recipientsFor("EXPIRY_WARNING", "SYSTEM")).toEqual(["ADVISOR"]);
+  });
+  it("reminders go to both sides", () => {
+    expect(recipientsFor("REMINDER_24H", "SYSTEM").sort()).toEqual(["ADVISOR", "FOUNDER"]);
+    expect(recipientsFor("REMINDER_1H", "SYSTEM").sort()).toEqual(["ADVISOR", "FOUNDER"]);
+  });
+  it("an expired reschedule proposal tells both sides; a needs-review prompt goes to the advisor", () => {
+    expect(recipientsFor("RESCHEDULE_EXPIRED", "SYSTEM").sort()).toEqual(["ADVISOR", "FOUNDER"]);
+    expect(recipientsFor("NEEDS_REVIEW", "SYSTEM")).toEqual(["ADVISOR"]);
+  });
+  it("every kind composes a subject and a body for each role it is sent to", () => {
+    const n = new AdvisoryNotifier({ get: () => undefined } as unknown as ConfigService, {} as never, {} as never, {} as never, {} as never);
+    const kinds = ["EXPIRED", "EXPIRY_WARNING", "REMINDER_24H", "REMINDER_1H", "RESCHEDULE_EXPIRED", "NEEDS_REVIEW"] as const;
+    for (const kind of kinds) {
+      for (const role of recipientsFor(kind, "SYSTEM")) {
+        const { subject, html } = n.compose(kind, role, booking(), null, {});
+        expect(subject.length).toBeGreaterThan(5);
+        expect(html).toContain("RUWĀD");
+      }
+    }
+  });
+});
+
 describe("AdvisoryNotifier never sends in mock mode and never emails a demonstration booking", () => {
   const build = (mode: string | undefined) => {
     const send = jest.fn().mockResolvedValue(true);

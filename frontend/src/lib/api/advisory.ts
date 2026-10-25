@@ -1,5 +1,5 @@
 import type {
-  AdminAdvisorRow, AdvisorApplication, AdvisorProfile, AdvisorSummary, AdvisoryStats, AvailabilityState, BookableStartup, BookingDetail, BookingView, MyAdvisorProfile, SlotOffer,
+  AdminAdvisorRow, AdvisorApplication, AdvisorProfile, AdvisorSummary, AdvisoryStats, AutomationReport, AutomationStatus, AvailabilityState, BookableStartup, BookingDetail, BookingView, MyAdvisorProfile, SlotOffer,
 } from "@/features/advisory/advisory-types";
 import { api, isNotFound } from "./client";
 
@@ -87,3 +87,9 @@ export const fetchAdminBookings = (q: { status?: string; advisorId?: string; inc
 };
 export const adminCancelBooking = (id: string, reason?: string) => api.post<BookingView>(`/advisory/admin/bookings/${id}/cancel`, { reason });
 export const fetchAdvisoryStats = (includeDemo = false) => api.get<AdvisoryStats>(`/advisory/admin/stats${includeDemo ? "?includeDemo=true" : ""}`);
+
+// ---- automation (administrators) ---------------------------------------------------------------------------------------------------------------
+
+export const fetchAutomationStatus = () => api.get<AutomationStatus>("/advisory/admin/automation/status");
+/** One pass of the scheduler's rules. A dry run reports what would happen and changes nothing. */
+export const runAutomation = (dryRun: boolean) => api.post<AutomationReport>(`/advisory/admin/automation/run?dryRun=${dryRun ? "true" : "false"}`);

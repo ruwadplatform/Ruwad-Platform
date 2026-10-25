@@ -38,9 +38,13 @@ const STATUS: Record<BookingStatus, { label: string; tone: "good" | "warn" | "cr
   COMPLETED: { label: "Completed", tone: "muted" },
   RESCHEDULED: { label: "Rescheduled", tone: "info" },
   RESCHEDULE_PROPOSED: { label: "New time proposed", tone: "info" },
+  EXPIRED: { label: "Expired", tone: "muted" },
 };
 
 export const statusLabel = (s: BookingStatus) => STATUS[s].label;
+
+/** "Expires October 28, 2026 · 04:00 PM" for a pending request, or null when there is nothing to show. */
+export const expiryLine = (b: Pick<BookingView, "status" | "expiresAt">): string | null => (b.status === "PENDING" && b.expiresAt ? formatWhen(b.expiresAt) : null);
 
 export function BookingStatusBadge({ booking }: { booking: Pick<BookingView, "status" | "pendingReschedule"> }) {
   const s = STATUS[booking.status];

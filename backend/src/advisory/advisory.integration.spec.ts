@@ -1,14 +1,18 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import { randomUUID } from "crypto";
 import { INestApplication, ValidationPipe } from "@nestjs/common";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { Test } from "@nestjs/testing";
-import { TypeOrmModule } from "@nestjs/typeorm";
+import { TypeOrmModule, getRepositoryToken } from "@nestjs/typeorm";
+import { DataSource } from "typeorm";
 import request from "supertest";
 import { JwtStrategy } from "../auth/jwt.strategy";
 import { EmailService } from "../email/email.service";
+import { AdvisoryAutomationService, AdvisoryAutomationService as AutomationService } from "./advisory-automation.service";
+import { AdvisoryNotifier } from "./advisory-notifier";
+import { AdvisoryBooking } from "./advisory.entities";
 import { AdvisoryModule } from "./advisory.module";
 import { addDays, riyadhDate, ymdKey } from "./advisory-time";
 
@@ -692,6 +696,196 @@ suite("Advisory Services — integration (local Postgres)", () => {
     expect(st.bookings.total).toBeGreaterThan(0);
     expect(st.bookings.byStatus).toEqual(expect.objectContaining({ PENDING: expect.any(Number), CONFIRMED: expect.any(Number), CANCELLED: expect.any(Number), RESCHEDULED: expect.any(Number) }));
     expect(st.advisors.byStatus.APPROVED).toBeGreaterThan(0);
+  });
+
+  // ---- automation: expiry, warnings, reminders, proposal expiry (the scheduler, driven by hand at chosen moments) ---------------------------------
+
+  const automation = () => app.get(AdvisoryAutomationService);
+  const row = async (id: string) => (await db.query(`SELECT * FROM advisory_bookings WHERE id = $1`, [id])).rows[0] as Record<string, any>;
+  const history = async (id: string) => (await db.query(`SELECT type, details FROM advisory_booking_events WHERE "bookingId" = $1 ORDER BY "createdAt"`, [id])).rows as { type: string; details: { kind?: string; mode?: string; skipped?: string } | null }[];
+  const notified = async (id: string, kind: string) => (await history(id)).filter((h) => h.type === "NOTIFICATION" && h.details?.kind === kind);
+  const minutesAfter = (iso: Date | string, m: number) => new Date(new Date(iso).getTime() + m * 60_000);
+
+  it("the scheduler is off by default, and the admin status says so", async () => {
+    expect(automation().status()).toMatchObject({ schedulerEnabled: false, autoComplete: false, requestExpiryHours: 72, cutoffMinutes: 30, expiryWarningHours: 24 });
+    const res = await api("admin").get("/advisory/admin/automation/status");
+    expect(res.status).toBe(200);
+    expect(res.body.schedulerEnabled).toBe(false);
+    for (const who of ["owner", "advisorUser", "outsider"]) expect((await api(who).get("/advisory/admin/automation/status")).status).toBe(403);
+    expect((await api(null).post("/advisory/admin/automation/run")).status).toBe(401);
+  });
+
+  it("a request's expiry is 72 hours after it is made, or 30 minutes before it starts if that is sooner", async () => {
+    const far = (await slots(advSlug, svc30, day(50)))[0]!;
+    const farBooking = (await book("owner", startupA, far.startsAt)).body;
+    const farRow = await row(farBooking.id);
+    expect(Math.abs(new Date(farRow.expiresAt).getTime() - new Date(farRow.createdAt).getTime() - 72 * 3_600_000)).toBeLessThan(5_000); // the app's clock vs the database's now()
+    expect(farBooking.expiresAt).toBe(new Date(farRow.expiresAt).toISOString()); // the API shows it too
+
+    const soonSlots = await slots(advSlug, svc30, day(1));
+    const soon = soonSlots.at(-1)!;
+    const soonBooking = (await book("owner", startupA, soon.startsAt)).body;
+    const soonRow = await row(soonBooking.id);
+    expect(new Date(soonRow.expiresAt).getTime()).toBe(new Date(soon.startsAt).getTime() - 30 * 60_000);
+  });
+
+  it("a dry run reports what it would do and changes nothing; the admin can run it, nobody else", async () => {
+    const [s] = await slots(advSlug, svc30, day(51));
+    const b = (await book("owner", startupA, s!.startsAt)).body;
+    const expiresAt = (await row(b.id)).expiresAt as Date;
+    const dry = await automation().runOnce(minutesAfter(expiresAt, 5), { dryRun: true });
+    expect(dry.dryRun).toBe(true);
+    expect(dry.references).toContain(b.reference);
+    expect((await row(b.id)).status).toBe("PENDING"); // untouched
+    expect(sendTransactional).not.toHaveBeenCalled();
+    expect((await api("owner").post("/advisory/admin/automation/run")).status).toBe(403);
+    const viaAdmin = await api("admin").post("/advisory/admin/automation/run");
+    expect(viaAdmin.status).toBe(201);
+    expect(viaAdmin.body.dryRun).toBe(true); // a dry run unless ?dryRun=false is given
+  });
+
+  it("an unanswered request expires: the slot is released, both sides are told (mock), and a late approval is refused", async () => {
+    const [s] = await slots(advSlug, svc30, day(52));
+    const b = (await book("owner", startupA, s!.startsAt)).body;
+    const expiresAt = (await row(b.id)).expiresAt as Date;
+    expect((await slots(advSlug, svc30, day(52))).map((x) => x.startsAt)).not.toContain(s!.startsAt); // held while pending
+
+    // just before it expires: nothing happens
+    await automation().runOnce(minutesAfter(expiresAt, -1), { dryRun: false });
+    expect((await row(b.id)).status).toBe("PENDING");
+
+    const report = await automation().runOnce(minutesAfter(expiresAt, 1), { dryRun: false });
+    expect(report.expired).toBeGreaterThanOrEqual(1);
+    expect((await row(b.id)).status).toBe("EXPIRED");
+    expect((await slots(advSlug, svc30, day(52))).map((x) => x.startsAt)).toContain(s!.startsAt); // free again
+    const h = await history(b.id);
+    expect(h.map((e) => e.type)).toContain("EXPIRED");
+    const told = await notified(b.id, "EXPIRED");
+    expect(told).toHaveLength(1);
+    expect(told[0]!.details).toMatchObject({ mode: "mock", recipients: expect.arrayContaining(["FOUNDER", "ADVISOR"]) });
+    expect(sendTransactional).not.toHaveBeenCalled();
+    expect((await api("advisorUser").post(`/advisory/advisor/bookings/${b.id}/approve`)).status).toBe(409); // too late
+    expect((await api("owner").get("/advisory/bookings/mine")).body.find((x: { id: string }) => x.id === b.id).status).toBe("EXPIRED");
+    expect((await book("owner", startupA, s!.startsAt)).status).toBe(201); // the founder can request the freed time again
+
+    // running again does nothing more for it
+    const again = await automation().runOnce(minutesAfter(expiresAt, 2), { dryRun: false });
+    expect(again.references).not.toContain(b.reference);
+    expect((await notified(b.id, "EXPIRED"))).toHaveLength(1);
+  });
+
+  it("an answered request never expires: approving it first wins", async () => {
+    const [s] = await slots(advSlug, svc30, day(53));
+    const b = (await book("owner", startupA, s!.startsAt)).body;
+    expect((await api("advisorUser").post(`/advisory/advisor/bookings/${b.id}/approve`)).status).toBe(201);
+    const expiresAt = (await row(b.id)).expiresAt as Date;
+    await automation().runOnce(minutesAfter(expiresAt, 60), { dryRun: false });
+    expect((await row(b.id)).status).toBe("CONFIRMED");
+  });
+
+  it("the advisor is warned once, 24 hours before a request expires", async () => {
+    const [s] = await slots(advSlug, svc30, day(54));
+    const b = (await book("owner", startupA, s!.startsAt)).body;
+    const expiresAt = (await row(b.id)).expiresAt as Date;
+    const early = await automation().runOnce(minutesAfter(expiresAt, -25 * 60), { dryRun: false });
+    expect(early.references).not.toContain(b.reference); // 25 hours before: too early
+    const warned = await automation().runOnce(minutesAfter(expiresAt, -23 * 60), { dryRun: false });
+    expect(warned.expiryWarnings).toBeGreaterThanOrEqual(1);
+    expect(warned.references).toContain(b.reference);
+    expect((await row(b.id)).expiryWarningSentAt).not.toBeNull();
+    const notes = await notified(b.id, "EXPIRY_WARNING");
+    expect(notes).toHaveLength(1);
+    expect(notes[0]!.details).toMatchObject({ recipients: ["ADVISOR"] });
+    await automation().runOnce(minutesAfter(expiresAt, -22 * 60), { dryRun: false });
+    expect(await notified(b.id, "EXPIRY_WARNING")).toHaveLength(1); // not repeated
+    expect((await row(b.id)).status).toBe("PENDING");
+  });
+
+  it("reminders go out 24 hours and 1 hour before a confirmed consultation, once each, and not after it starts", async () => {
+    const [s] = await slots(advSlug, svc30, day(55));
+    const b = (await book("owner", startupA, s!.startsAt)).body;
+    expect((await api("advisorUser").post(`/advisory/advisor/bookings/${b.id}/approve`)).status).toBe(201);
+    const start = new Date(s!.startsAt);
+    const at = (minsBefore: number) => minutesAfter(start, -minsBefore);
+
+    expect((await automation().runOnce(at(24 * 60 + 5), { dryRun: false })).references).not.toContain(b.reference); // too early
+    expect((await automation().runOnce(at(23 * 60), { dryRun: false })).reminders24h).toBeGreaterThanOrEqual(1);
+    expect(await notified(b.id, "REMINDER_24H")).toHaveLength(1);
+    expect((await row(b.id)).reminder24hSentAt).not.toBeNull();
+    await automation().runOnce(at(20 * 60), { dryRun: false });
+    expect(await notified(b.id, "REMINDER_24H")).toHaveLength(1); // once
+    expect(await notified(b.id, "REMINDER_1H")).toHaveLength(0);
+
+    expect((await automation().runOnce(at(59), { dryRun: false })).reminders1h).toBeGreaterThanOrEqual(1);
+    expect(await notified(b.id, "REMINDER_1H")).toHaveLength(1);
+    await automation().runOnce(at(30), { dryRun: false });
+    expect(await notified(b.id, "REMINDER_1H")).toHaveLength(1);
+    expect((await notified(b.id, "REMINDER_1H"))[0]!.details).toMatchObject({ mode: "mock", recipients: expect.arrayContaining(["FOUNDER", "ADVISOR"]) });
+    expect(sendTransactional).not.toHaveBeenCalled();
+  });
+
+  it("a consultation confirmed after the 24-hour moment doesn't get a 24-hour reminder, but does get the 1-hour one", async () => {
+    const [s] = await slots(advSlug, svc30, day(56));
+    const b = (await book("owner", startupA, s!.startsAt)).body;
+    expect((await api("advisorUser").post(`/advisory/advisor/bookings/${b.id}/approve`)).status).toBe(201);
+    const start = new Date(s!.startsAt);
+    // pretend it was approved only 10 hours before the start
+    await db.query(`UPDATE advisory_bookings SET "decidedAt" = $1 WHERE id = $2`, [minutesAfter(start, -10 * 60), b.id]);
+    await automation().runOnce(minutesAfter(start, -9 * 60), { dryRun: false });
+    expect(await notified(b.id, "REMINDER_24H")).toHaveLength(0);
+    await automation().runOnce(minutesAfter(start, -59), { dryRun: false });
+    expect(await notified(b.id, "REMINDER_1H")).toHaveLength(1);
+  });
+
+  it("an unanswered reschedule proposal expires; the original stays CONFIRMED and the proposed time is released", async () => {
+    const b = await confirmed(57, 0);
+    const target = await slotOf("owner", b.id, 58, 2);
+    expect((await api("owner").post(`/advisory/bookings/${b.id}/reschedule`, { startsAt: target.startsAt })).status).toBe(201);
+    const proposal = (await db.query(`SELECT id, "expiresAt" FROM advisory_bookings WHERE "rescheduledFromId" = $1 AND status = 'RESCHEDULE_PROPOSED'`, [b.id])).rows[0];
+    expect(new Date(proposal.expiresAt).getTime()).toBeLessThanOrEqual(Date.now() + 72 * 3_600_000 + 5_000);
+    expect((await slots(advSlug, svc30, day(58))).map((x) => x.startsAt)).not.toContain(target.startsAt);
+
+    const report = await automation().runOnce(minutesAfter(proposal.expiresAt, 1), { dryRun: false });
+    expect(report.proposalsExpired).toBeGreaterThanOrEqual(1);
+    expect((await row(proposal.id)).status).toBe("EXPIRED");
+    const original = await api("owner").get(`/advisory/bookings/${b.id}`);
+    expect(original.body.booking).toMatchObject({ status: "CONFIRMED", startsAt: b.startsAt, pendingReschedule: null });
+    expect(original.body.history.map((h: { type: string }) => h.type)).toContain("RESCHEDULE_EXPIRED");
+    expect((await slots(advSlug, svc30, day(58))).map((x) => x.startsAt)).toContain(target.startsAt);
+    expect((await api("advisorUser").post(`/advisory/bookings/${b.id}/reschedule/accept`)).status).toBe(404); // nothing left to accept
+    expect((await api("owner").post(`/advisory/bookings/${b.id}/reschedule`, { startsAt: target.startsAt })).status).toBe(201); // and a new one can be proposed
+  });
+
+  it("two runners at once handle every booking exactly once: no double expiry, no double email", async () => {
+    const made: { id: string; reference: string }[] = [];
+    for (let i = 0; i < 4; i++) {
+      const s = (await slots(advSlug, svc30, day(60)))[i]!;
+      made.push((await book(i % 2 ? "owner" : "owner2", i % 2 ? startupA : startupB, s.startsAt)).body);
+    }
+    const expiresAt = (await row(made[0]!.id)).expiresAt as Date;
+    const second = new AutomationService(app.get(ConfigService), app.get(DataSource), app.get(getRepositoryToken(AdvisoryBooking)), app.get(AdvisoryNotifier));
+    const now = minutesAfter(expiresAt, 10);
+    const [a, b] = await Promise.all([automation().runOnce(now, { dryRun: false }), second.runOnce(now, { dryRun: false })]);
+    for (const m of made) expect((await row(m.id)).status).toBe("EXPIRED");
+    const mine = (r: { references: string[] }) => r.references.filter((ref) => made.some((m) => m.reference === ref));
+    expect([...mine(a), ...mine(b)].sort()).toEqual(made.map((m) => m.reference).sort()); // each one reported by exactly one runner
+    for (const m of made) {
+      const expiredEvents = (await db.query(`SELECT count(*)::int n FROM advisory_booking_events WHERE "bookingId" = $1 AND type = 'EXPIRED'`, [m.id])).rows[0].n;
+      expect(expiredEvents).toBe(1);
+      expect(await notified(m.id, "EXPIRED")).toHaveLength(1);
+    }
+  });
+
+  it("demonstration bookings expire like any other, but are never emailed", async () => {
+    const [s] = await slots(demoSlug, demoSvc, day(59));
+    const b = (await book("owner", startupA, s!.startsAt, demoSvc, demoSlug)).body;
+    const expiresAt = (await row(b.id)).expiresAt as Date;
+    await automation().runOnce(minutesAfter(expiresAt, 1), { dryRun: false });
+    expect((await row(b.id)).status).toBe("EXPIRED");
+    const told = await notified(b.id, "EXPIRED");
+    expect(told).toHaveLength(1);
+    expect(told[0]!.details?.skipped).toContain("demonstration");
+    expect(sendTransactional).not.toHaveBeenCalled();
   });
 
   // ---- the master switch ------------------------------------------------------------------------------------------------------------------

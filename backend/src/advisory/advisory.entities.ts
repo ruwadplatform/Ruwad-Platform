@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, PrimaryColumn, PrimaryGeneratedColumn } from "typeorm";
 import { BaseEntity } from "../common/base.entity";
 import { AdvisorStatus, BookingStatus, ConsultationTypeId } from "./advisory.enums";
 
@@ -219,6 +219,43 @@ export class AdvisoryBooking extends BaseEntity {
   @Index()
   @Column({ type: "boolean", default: false })
   isDemo!: boolean;
+
+  // ---- phase 4: expiry, reminders, meetings, attendance (migration 1794400000000) ----
+
+  /** When an unanswered PENDING request (or RESCHEDULE_PROPOSED proposal) expires: the earlier of created + 72h and 30 minutes before it starts. */
+  @Column({ type: "timestamptz", nullable: true })
+  expiresAt!: Date | null;
+
+  /** Set when the advisor was warned the request is about to expire (claimed by the scheduler, so it is sent once). */
+  @Column({ type: "timestamptz", nullable: true })
+  expiryWarningSentAt!: Date | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  reminder24hSentAt!: Date | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  reminder1hSentAt!: Date | null;
+
+  /** True when the consultation has ended and a person still has to say what happened (the Needs Review queue). */
+  @Column({ type: "boolean", default: false })
+  needsReview!: boolean;
+
+  /** What attendance showed, or what a person recorded. There is deliberately no NO_SHOW booking status. */
+  @Column({ type: "varchar", length: 24, nullable: true })
+  attendanceOutcome!: string | null;
+
+  /** "daily" or "mock" (a simulated room). Only the room NAME is stored, never a token or a URL. */
+  @Column({ type: "varchar", length: 10, nullable: true })
+  meetingProvider!: string | null;
+
+  @Column({ type: "varchar", length: 80, nullable: true })
+  meetingRoomName!: string | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  meetingRoomCreatedAt!: Date | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  meetingRoomClosedAt!: Date | null;
 }
 
 /** Append-only audit trail: one row per thing that happened to a booking. Never updated or deleted. */
@@ -254,4 +291,51 @@ export class AdvisoryBookingEvent {
 
   @CreateDateColumn({ type: "timestamptz" })
   createdAt!: Date;
+}
+
+/** One stretch of presence in a consultation's meeting room: who, when they joined and (once known) left, and where we learned it. */
+@Entity("advisory_meeting_attendance")
+@Index(["bookingId", "userId", "sessionKey"], { unique: true })
+export class AdvisoryMeetingAttendance {
+  @PrimaryGeneratedColumn("uuid")
+  id!: string;
+
+  @CreateDateColumn({ type: "timestamptz" })
+  createdAt!: Date;
+
+  @Column({ type: "uuid" })
+  bookingId!: string;
+
+  @Column({ type: "uuid" })
+  userId!: string;
+
+  @Column({ type: "varchar", length: 10 })
+  role!: "FOUNDER" | "ADVISOR";
+
+  /** The provider's session id for this stay (or a generated one for a simulated room), so a repeated event updates the same row. */
+  @Column({ type: "varchar", length: 80 })
+  sessionKey!: string;
+
+  @Column({ type: "timestamptz" })
+  joinedAt!: Date;
+
+  @Column({ type: "timestamptz", nullable: true })
+  leftAt!: Date | null;
+
+  /** WEBHOOK (Daily told us), MOCK (a simulated room) or POLL. */
+  @Column({ type: "varchar", length: 10 })
+  source!: string;
+}
+
+/** Provider webhook events already processed, so a redelivery is acknowledged and ignored. */
+@Entity("advisory_webhook_events")
+export class AdvisoryWebhookEvent {
+  @PrimaryColumn({ type: "varchar", length: 120 })
+  id!: string;
+
+  @Column({ type: "varchar", length: 60 })
+  type!: string;
+
+  @CreateDateColumn({ type: "timestamptz", name: "receivedAt" })
+  receivedAt!: Date;
 }

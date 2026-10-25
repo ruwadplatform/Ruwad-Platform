@@ -7,6 +7,7 @@ import { UserRole } from "../common/enums";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { AdvisoryAdminService } from "./advisory-admin.service";
 import { AdvisoryAdvisorsService } from "./advisory-advisors.service";
+import { AdvisoryAutomationService } from "./advisory-automation.service";
 import { AdvisoryBookingsService } from "./advisory-bookings.service";
 import { AdvisoryAdvisor } from "./advisory.entities";
 import { AdvisoryEnabledGuard, ApprovedAdvisorGuard, CurrentAdvisor } from "./advisory.guards";
@@ -99,7 +100,12 @@ export class AdvisoryAdvisorController {
 @UseGuards(AdvisoryEnabledGuard, JwtAuthGuard, RolesGuard)
 @Roles(UserRole.RUWAD_ADMIN, UserRole.SUPER_ADMIN)
 export class AdvisoryAdminController {
-  constructor(private readonly admin: AdvisoryAdminService, private readonly advisors: AdvisoryAdvisorsService, private readonly bookings: AdvisoryBookingsService) {}
+  constructor(
+    private readonly admin: AdvisoryAdminService,
+    private readonly advisors: AdvisoryAdvisorsService,
+    private readonly bookings: AdvisoryBookingsService,
+    private readonly automation: AdvisoryAutomationService,
+  ) {}
 
   @Get("advisors") listAdvisors(@Query("status") status?: string) { return this.admin.listAdvisors(status); }
   @Get("advisors/:id") getAdvisor(@Param("id", ParseUUIDPipe) id: string) { return this.admin.getAdvisor(id); }
@@ -116,6 +122,11 @@ export class AdvisoryAdminController {
   @Get("bookings/:id") booking(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.detail(u, id); }
   /** An administrator can cancel any booking. There is deliberately no admin approve, confirm or reschedule-accept: those belong to the two parties. */
   @Post("bookings/:id/cancel") cancel(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: ReasonDto) { return this.bookings.cancel(u, id, dto.reason); }
+
+  /** The scheduler's settings and its last pass. The scheduler itself is OFF unless ADVISORY_SCHEDULER_ENABLED=true. */
+  @Get("automation/status") automationStatus() { return this.automation.status(); }
+  /** One automation pass by hand. A DRY RUN by default (reports what it would do and changes nothing); pass ?dryRun=false to actually run it. */
+  @Post("automation/run") runAutomation(@Query("dryRun") dryRun?: string) { return this.automation.runOnce(new Date(), { dryRun: dryRun !== "false" }); }
 
   @Get("stats") stats(@Query("includeDemo") includeDemo?: string) { return this.admin.stats(includeDemo === "true"); }
 }

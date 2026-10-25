@@ -24,6 +24,7 @@ test("completed, and declined/cancelled, each have their own tab", () => {
   assert.deepEqual(tabsOf(b("COMPLETED", PAST)), ["completed"]);
   assert.deepEqual(tabsOf(b("CANCELLED")), ["cancelled"]);
   assert.deepEqual(tabsOf(b("REJECTED")), ["cancelled"]);
+  assert.deepEqual(tabsOf(b("EXPIRED")), ["cancelled"]); // an unanswered request that ran out of time
 });
 
 test("the original of an accepted reschedule and its replacement both appear under Rescheduled", () => {

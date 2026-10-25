@@ -108,7 +108,7 @@ export interface AdvisorProfile extends AdvisorSummary {
 
 // ---- Phase 3: bookings (the backend's shapes) ----------------------------------------------------------------------------------------------------
 
-export type BookingStatus = "PENDING" | "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED" | "RESCHEDULED" | "RESCHEDULE_PROPOSED";
+export type BookingStatus = "PENDING" | "CONFIRMED" | "REJECTED" | "CANCELLED" | "COMPLETED" | "RESCHEDULED" | "RESCHEDULE_PROPOSED" | "EXPIRED";
 export type BookingParty = "FOUNDER" | "ADVISOR";
 
 export interface BookingView {
@@ -136,7 +136,13 @@ export interface BookingView {
   createdAt: string;
   rescheduledFromId: string | null;
   /** A proposed new time waiting for the other party. The booking stays CONFIRMED at its original time until it is accepted. */
-  pendingReschedule: { id: string; startsAt: string; endsAt: string; proposedBy: BookingParty } | null;
+  pendingReschedule: { id: string; startsAt: string; endsAt: string; proposedBy: BookingParty; expiresAt: string | null } | null;
+  /** For a PENDING request: when it expires if nobody answers. */
+  expiresAt: string | null;
+  /** The consultation has ended and a person still has to say what happened (the Needs Review queue). */
+  needsReview: boolean;
+  /** What attendance showed or a person recorded: ATTENDED_BOTH, FOUNDER_NO_SHOW, ADVISOR_NO_SHOW, BOTH_NO_SHOW, NO_OVERLAP, UNKNOWN. */
+  attendanceOutcome: string | null;
 }
 
 export interface BookingActions {
@@ -227,4 +233,28 @@ export interface AdvisoryStats {
   bookings: { total: number; last30Days: number; upcomingConfirmed: number; byStatus: Record<string, number> };
   advisors: { byStatus: Record<string, number> };
   topAdvisors: { id: string; name: string; isDemo: boolean; bookings: number }[];
+}
+
+export interface AutomationStatus {
+  schedulerEnabled: boolean;
+  running: boolean;
+  tickSeconds: number;
+  requestExpiryHours: number;
+  cutoffMinutes: number;
+  expiryWarningHours: number;
+  reminderHours: number[];
+  autoComplete: boolean;
+  lastReport: AutomationReport | null;
+  lastError: string | null;
+}
+
+export interface AutomationReport {
+  ranAt: string;
+  dryRun: boolean;
+  expired: number;
+  proposalsExpired: number;
+  expiryWarnings: number;
+  reminders24h: number;
+  reminders1h: number;
+  references: string[];
 }
