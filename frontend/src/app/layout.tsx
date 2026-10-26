@@ -20,17 +20,17 @@ import "@/styles/landscape.css";
 import "@/styles/marketmap.css";
 import "@/styles/gating.css";
 import "@/styles/ai-summary.css";
+import "@/styles/home.css";
 import "@/styles/responsive.css";
 import "@/styles/standards.css";
 import { ModalProvider } from "@/components/shell/ModalProvider";
 import { FilterDrawerProvider } from "@/components/shell/FilterDrawerProvider";
 import { ToastProvider } from "@/components/shell/ToastProvider";
 import { AppBoot } from "@/components/shell/AppBoot";
+import { ROOT_METADATA } from "@/lib/seo/metadata";
 
-export const metadata: Metadata = {
-  title: "RUWĀD — Saudi Healthcare Innovation Ecosystem",
-  description: "Discover the Saudi & MENA healthcare innovation ecosystem.",
-};
+/** Site-wide search and sharing defaults (title template, canonical host, Open Graph, X card, and noindex everywhere except the real production site). Each page refines them. */
+export const metadata: Metadata = ROOT_METADATA;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

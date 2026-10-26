@@ -16,6 +16,11 @@ function backendOrigin(): string {
 }
 
 const nextConfig: NextConfig = {
+  // The older *.vercel.app addresses (and previews) serve the same pages as the real site. Search engines are told not to index them; the pages also carry canonical tags
+  // pointing at https://www.ruwad.studio, and robots.txt (src/app/robots.ts) leaves those addresses crawlable so the instruction can be seen.
+  async headers() {
+    return [{ source: "/:path*", has: [{ type: "host", value: ".*\\.vercel\\.app" }], headers: [{ key: "X-Robots-Tag", value: "noindex" }] }];
+  },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${backendOrigin()}/api/:path*` }];
   },
