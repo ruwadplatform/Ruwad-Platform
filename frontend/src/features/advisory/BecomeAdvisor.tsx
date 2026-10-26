@@ -66,7 +66,11 @@ export function BecomeAdvisorModal() {
         <div className="mt-12">
           <p className="adv-about">You have already applied to join RUWĀD Advisory Services, so there is nothing more to submit.</p>
           {me.data.advisor.application ? <ApplicationStatusCard application={me.data.advisor.application} compact /> : null}
-          <div className="adv-review-actions"><button type="button" className="btn btn-primary" onClick={goDashboard}>{me.data.advisor.status === "APPROVED" ? "Open Advisor Dashboard" : "View application status"}</button></div>
+          <div className="adv-review-actions">
+            {me.data.advisor.application?.canReapply
+              ? <button type="button" className="btn btn-primary" onClick={() => { closeModal(); router.push("/workspace/advisor?reapply=1"); }}>Edit &amp; Reapply</button>
+              : <button type="button" className="btn btn-primary" onClick={goDashboard}>{me.data.advisor.status === "APPROVED" ? "Open Advisor Dashboard" : "View application status"}</button>}
+          </div>
         </div>
       ) : (
         <>

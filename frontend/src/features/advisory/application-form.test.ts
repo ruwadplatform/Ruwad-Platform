@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DURATIONS, EMPTY_APPLICATION, FIELD_ORDER, checkFile, splitList, toPayload, validateApplication, type ApplicationValues } from "./application-form.ts";
+import { DURATIONS, EMPTY_APPLICATION, FIELD_ORDER, checkFile, splitList, toPayload, validateApplication, valuesFromApplication, type ApplicationValues } from "./application-form.ts";
 
 const valid = (): ApplicationValues => ({
   ...EMPTY_APPLICATION, name: "Dr. Layla Test", email: "layla@example.com", phone: "+966 55 123 4567", designation: "Professor", institution: "King Test University",
@@ -59,13 +59,14 @@ test("the declaration must be ticked", () => {
 test("file types and sizes", () => {
   assert.equal(checkFile("cv", { name: "cv.PDF", size: 10 }), null);
   assert.ok(checkFile("cv", { name: "cv.docx", size: 10 }));
-  assert.ok(checkFile("cv", { name: "cv.pdf", size: 5 * 1024 * 1024 + 1 }));
+  assert.ok(checkFile("cv", { name: "cv.pdf", size: 2 * 1024 * 1024 + 1 }));
+  assert.equal(checkFile("cv", { name: "cv.pdf", size: 2 * 1024 * 1024 }), null);
   assert.ok(checkFile("cv", { name: "cv.pdf", size: 0 }));
   assert.equal(checkFile("certificate", { name: "c.png", size: 10 }), null);
   assert.ok(checkFile("certificate", { name: "c.exe", size: 10 }));
   assert.equal(checkFile("photo", { name: "me.jpeg", size: 10 }), null);
   assert.ok(checkFile("photo", { name: "me.pdf", size: 10 }));
-  assert.ok(checkFile("photo", { name: "me.jpg", size: 2 * 1024 * 1024 + 1 }));
+  assert.ok(checkFile("photo", { name: "me.jpg", size: 1 * 1024 * 1024 + 1 }));
 });
 
 test("the form reports file problems against the right field", () => {
@@ -85,6 +86,30 @@ test("the payload trims, splits lists and leaves blank optional fields out", () 
   assert.equal(p.yearsExperience, 14);
   assert.equal(p.declaration, true);
   assert.equal(p.linkedinUrl, undefined);
+});
+
+test("an update can keep the CV already on file, and counts what is already there", () => {
+  const none = { cv: null, certificates: [], photo: null };
+  assert.ok(validateApplication(valid(), none).cv);
+  assert.equal(validateApplication(valid(), none, { cv: true, certificates: 2, bytes: 1000 }).cv, undefined);
+  const four = Array.from({ length: 4 }, (_, i) => ({ name: `c${i}.pdf`, size: 10 }));
+  assert.match(validateApplication(valid(), { ...none, certificates: four }, { cv: true, certificates: 2, bytes: 0 }).certificates ?? "", /at most 5 certificates in total/);
+  const big = validateApplication(valid(), { cv: { name: "cv.pdf", size: 1.9 * 1024 * 1024 }, certificates: [{ name: "c.pdf", size: 1.9 * 1024 * 1024 }], photo: null }, { cv: true, certificates: 0, bytes: 5 * 1024 * 1024 });
+  assert.match(big.certificates ?? "", /8 MB/);
+});
+
+test("Edit & Reapply is prefilled from the earlier submission, with the declaration unticked", () => {
+  const v = valuesFromApplication(
+    { name: "Dr. Layla", institution: "KTU", designation: "Prof", location: "Riyadh", specialization: "Cardiology", specializations: ["A", "B"], researchAreas: ["R"], about: "x".repeat(60), yearsExperience: 14 },
+    { email: "l@x.com", phone: "+966 55 123 4567", consultationServices: "Reviews", preferredMinutes: 45, linkedinUrl: null, websiteUrl: "https://s.example.org" },
+  );
+  assert.equal(v.specializations, "A, B");
+  assert.equal(v.yearsExperience, "14");
+  assert.equal(v.preferredMinutes, "45");
+  assert.equal(v.linkedinUrl, "");
+  assert.equal(v.declaration, false);
+  assert.deepEqual(validateApplication({ ...v, declaration: true }, { cv: null, certificates: [], photo: null }, { cv: true, certificates: 0, bytes: 100 }), {});
+  assert.deepEqual(toPayload(v, { removeDocumentIds: ["x"] }).removeDocumentIds, ["x"]);
 });
 
 test("splitList and the focus order", () => {

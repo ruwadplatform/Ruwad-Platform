@@ -187,8 +187,15 @@ export interface ApplicationStatus {
   submittedAt: string | null;
   decidedAt: string | null;
   rejectionReason: string | null;
-  documents: { kind: string; fileName: string; size: number }[];
-  timeline: { type: "SUBMITTED" | "APPROVED" | "REJECTED" | "SUSPENDED"; at: string }[];
+  /** How many times it has been submitted: 1, plus one per reapplication. */
+  attempts: number;
+  /** Every rejection so far, oldest first. Kept after a reapplication. */
+  rejections: { at: string; reason: string | null }[];
+  /** True only while the application is REJECTED: the applicant may Edit & Reapply. */
+  canReapply: boolean;
+  form: { email: string | null; phone: string | null; consultationServices: string | null; preferredMinutes: number | null; linkedinUrl: string | null; websiteUrl: string | null };
+  documents: { id: string; kind: string; fileName: string; size: number }[];
+  timeline: { type: "SUBMITTED" | "RESUBMITTED" | "APPROVED" | "REJECTED" | "SUSPENDED"; at: string }[];
 }
 
 export interface MyAdvisorProfile {
@@ -336,6 +343,7 @@ export interface ApplicationRow {
   email: string | null;
   submittedAt: string;
   status: AdvisorReviewStatus;
+  resubmissions: number;
 }
 
 export interface ApplicationList {

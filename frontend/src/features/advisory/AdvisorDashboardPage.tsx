@@ -16,6 +16,7 @@ import {
 import { AdvisorApplicationForm, type SubmittedApplication } from "./AdvisorApplicationForm";
 import { AvailabilityEditor, ProfileForm, ServicesEditor } from "./AdvisorEditors";
 import { SubmittedPanel, usePrefill } from "./BecomeAdvisor";
+import { valuesFromApplication } from "./application-form";
 import { ApplicationStatusCard } from "./ApplicationStatusCard";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
 import { ResolveOutcomeModal } from "./AttendanceParts";
@@ -75,8 +76,44 @@ function Apply({ onDone }: { onDone: () => void }) {
   );
 }
 
+/** Edit & Reapply for a REJECTED application: the form prefilled with what was submitted, with the documents on file listed. */
+function Reapply({ advisor, onDone, onCancel }: { advisor: MyAdvisorProfile; onDone: () => void; onCancel: () => void }) {
+  const app = advisor.application!;
+  const [done, setDone] = useState<SubmittedApplication | null>(null);
+  const prefill = useMemo(() => valuesFromApplication(advisor.profile, app.form), [advisor.profile, app.form]);
+  if (done) {
+    return (
+      <section className="panel panel-pad">
+        <div className="adv-submitted" role="status">
+          <span className="adv-submitted-icon" aria-hidden="true"><RuwadIcon name="check" size={28} /></span>
+          <h3 className="adv-sec-title">Application resubmitted</h3>
+          <p className="adv-about">Your updated application has been submitted for review. The RUWĀD team will review it again and notify you by email.</p>
+          <p className="adv-ref">Reference <b>{done.reference}</b></p>
+          <div className="adv-review-actions" style={{ justifyContent: "center" }}><button type="button" className="btn btn-primary" onClick={onDone}>View application status</button></div>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <section className="panel panel-pad">
+      <div className="adv-appstatus-head">
+        <h2 className="adv-sec-title">Edit &amp; Reapply</h2>
+        <button type="button" className="btn btn-outline btn-sm" onClick={onCancel}>Cancel</button>
+      </div>
+      {app.rejectionReason && <div className="adv-reason" role="note"><b>Reason from the RUWĀD team</b><p>{app.rejectionReason}</p></div>}
+      <p className="adv-about mt-16">Update anything you like, replace your CV or other documents if needed, confirm the declaration and submit it again. Your application stays at the same reference number.</p>
+      <div className="mt-16">
+        <AdvisorApplicationForm prefill={prefill} reapply={{ documents: app.documents }} onSubmitted={setDone} />
+      </div>
+    </section>
+  );
+}
+
 function ReviewStatus({ advisor, reload }: { advisor: MyAdvisorProfile; reload: () => void }) {
   const toast = useToast();
+  // Arriving with ?reapply=1 (from the Become an Advisor window) opens the form straight away. This only mounts after the session has loaded, so reading the address here is safe.
+  const [reapplying, setReapplying] = useState(() => typeof window !== "undefined" && window.location.search === "?reapply=1" && advisor.application?.canReapply === true);
+  if (reapplying && advisor.application?.canReapply) return <Reapply advisor={advisor} onDone={reload} onCancel={() => setReapplying(false)} />;
   const copy = {
     DRAFT: { title: "Your profile is a draft", body: "Finish your profile and submit it for review." },
     PENDING_REVIEW: { title: "Your application is being reviewed", body: "A RUWĀD administrator will review your profile. You'll be able to set your hours and receive requests as soon as it is approved. You can still edit your profile meanwhile." },
@@ -87,7 +124,7 @@ function ReviewStatus({ advisor, reload }: { advisor: MyAdvisorProfile; reload: 
     <>
       <section className="panel panel-pad">
         <h2 className="adv-sec-title">{advisor.application ? "Your advisor application" : copy.title}</h2>
-        {advisor.application ? <ApplicationStatusCard application={advisor.application} /> : <p className="adv-about">{copy.body}</p>}
+        {advisor.application ? <ApplicationStatusCard application={advisor.application} onReapply={() => setReapplying(true)} /> : <p className="adv-about">{copy.body}</p>}
         {advisor.reviewNotes && (!advisor.application || advisor.status === "SUSPENDED") && <p className="adv-review-note mt-16"><RuwadIcon name="info" size={14} /> Reviewer&apos;s note: {advisor.reviewNotes}</p>}
       </section>
       {(!advisor.application || advisor.status === "PENDING_REVIEW" || advisor.status === "DRAFT") && (

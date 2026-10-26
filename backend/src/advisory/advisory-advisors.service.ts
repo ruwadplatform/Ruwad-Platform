@@ -230,7 +230,8 @@ export class AdvisoryAdvisorsService {
     return this.advisors.save(Object.assign(advisor, patch));
   }
 
-  private profileFields(dto: AdvisorProfileDto) {
+  /** The profile columns a form's answers set; shared by a first application and a reapplication. */
+  profileFields(dto: AdvisorProfileDto) {
     return {
       name: clean(dto.name),
       institution: clean(dto.institution),

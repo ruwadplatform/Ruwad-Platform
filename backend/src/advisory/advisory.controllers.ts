@@ -22,6 +22,10 @@ import {
   SlotQueryDto, TimeOffDto, UpdateAdvisorProfileDto, UpdateServiceDto, VerificationDto,
 } from "./dto/advisory.dto";
 
+type ApplicationUploads = { cv?: Express.Multer.File[]; certificates?: Express.Multer.File[]; photo?: Express.Multer.File[] };
+/** Held in memory only long enough to be checked and stored. This stops an oversized upload early; the exact per-type limits are enforced by the service. */
+const APPLICATION_UPLOAD = FileFieldsInterceptor([{ name: "cv", maxCount: 2 }, { name: "certificates", maxCount: 8 }, { name: "photo", maxCount: 2 }], { limits: { fileSize: 2 * 1024 * 1024, files: 12, fields: 4, parts: 20 } });
+
 /** Public: the directory, profiles and open slots. No sign-in needed, exactly as the screens are public. */
 @ApiTags("advisory")
 @Controller("advisory/advisors")
@@ -76,9 +80,17 @@ export class AdvisoryAdvisorController {
    * only long enough to be checked and stored; the limits here stop an oversized upload early, the exact per-type limits are enforced by the service. */
   @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
   @Post("apply")
-  @UseInterceptors(FileFieldsInterceptor([{ name: "cv", maxCount: 2 }, { name: "certificates", maxCount: 8 }, { name: "photo", maxCount: 2 }], { limits: { fileSize: 5 * 1024 * 1024, files: 12, fields: 4, parts: 20 } }))
-  async apply(@CurrentUser() u: AuthUser, @Body() body: { data?: string }, @UploadedFiles() files: { cv?: Express.Multer.File[]; certificates?: Express.Multer.File[]; photo?: Express.Multer.File[] } = {}) {
+  @UseInterceptors(APPLICATION_UPLOAD)
+  async apply(@CurrentUser() u: AuthUser, @Body() body: { data?: string }, @UploadedFiles() files: ApplicationUploads = {}) {
     return this.applications.submit(u, body?.data, files ?? {});
+  }
+
+  /** Edit & Reapply: the owner of a REJECTED application updates it and submits it again (same multipart shape; the CV on file is kept unless a new one is attached). */
+  @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
+  @Post("reapply")
+  @UseInterceptors(APPLICATION_UPLOAD)
+  async reapply(@CurrentUser() u: AuthUser, @Body() body: { data?: string }, @UploadedFiles() files: ApplicationUploads = {}) {
+    return this.applications.resubmit(u, body?.data, files ?? {});
   }
 
   /** Null when the caller has no advisor profile (so the screen can offer "Apply"); otherwise the profile with its review status. */

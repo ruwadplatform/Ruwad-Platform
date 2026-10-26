@@ -2,11 +2,11 @@
 
 import { useId, useRef, useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
-import { submitAdvisorApplication } from "@/lib/api/advisory";
+import { resubmitAdvisorApplication, submitAdvisorApplication } from "@/lib/api/advisory";
 import { formatBytes } from "@/lib/api/data-room-files";
 import {
   DECLARATION_TEXT, DURATIONS, EMPTY_APPLICATION, FIELD_ORDER, MAX_CERTIFICATES, validateApplication, toPayload,
-  type ApplicationFiles, type ApplicationValues, type FieldErrors, type FieldKey,
+  type ApplicationFiles, type ApplicationValues, type FieldErrors, type FieldKey, type OnFile,
 } from "./application-form";
 import { errText } from "./booking-format";
 
@@ -65,10 +65,16 @@ function FilePick({ id, label, required, hint, accept, multiple, files, onAdd, o
 /** The "Become an Advisor" application. Validates as you go (on leaving a field, and everything on submit), keeps the typed text as a draft, and
  * can only be sent once: the button is disabled while sending and a second click while a request is in flight is ignored. The server re-checks
  * everything, including what is really inside each file. */
-export function AdvisorApplicationForm({ prefill, onSubmitted }: { prefill?: Partial<ApplicationValues>; onSubmitted: (r: SubmittedApplication) => void }) {
+export interface DocumentOnFile { id: string; kind: string; fileName: string; size: number }
+const KIND_LABEL: Record<string, string> = { CV: "CV or resume", CERTIFICATE: "Certificate", PHOTO: "Photograph" };
+
+/** `reapply` turns this into Edit & Reapply: the form arrives prefilled (`prefill`), the documents already on file are listed (the CV and photograph are replaced by attaching a new one;
+ * a certificate can be removed), and sending it submits the application for review again instead of creating one. */
+export function AdvisorApplicationForm({ prefill, onSubmitted, reapply }: { prefill?: Partial<ApplicationValues>; onSubmitted: (r: SubmittedApplication) => void; reapply?: { documents: DocumentOnFile[] } }) {
   const uid = useId().replace(/:/g, "");
   const idOf = (k: FieldKey) => `adv-app-${uid}-${k}`;
-  const [v, setV] = useState<ApplicationValues>(() => ({ ...EMPTY_APPLICATION, ...prefill, ...loadDraft() }));
+  const [v, setV] = useState<ApplicationValues>(() => (reapply ? { ...EMPTY_APPLICATION, ...prefill } : { ...EMPTY_APPLICATION, ...prefill, ...loadDraft() }));
+  const [removed, setRemoved] = useState<string[]>([]);
   const [cv, setCv] = useState<File | null>(null);
   const [certs, setCerts] = useState<File[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -79,14 +85,19 @@ export function AdvisorApplicationForm({ prefill, onSubmitted }: { prefill?: Par
   const sending = useRef(false);
 
   const filesOf = (c = cv, ce = certs, p = photo): ApplicationFiles => ({ cv: c, certificates: ce, photo: p });
-  const recheck = (next: ApplicationValues, f: ApplicationFiles, show: Partial<Record<FieldKey, boolean>> = touched) => {
-    const all = validateApplication(next, f);
+  // What an Edit & Reapply keeps: the CV and photograph unless replaced, and the certificates not removed.
+  const onFileFor = (f: ApplicationFiles, gone: string[] = removed): OnFile => {
+    const docs = (reapply?.documents ?? []).filter((d) => !gone.includes(d.id) && !(d.kind === "CV" && f.cv) && !(d.kind === "PHOTO" && f.photo));
+    return { cv: docs.some((d) => d.kind === "CV"), certificates: docs.filter((d) => d.kind === "CERTIFICATE").length, bytes: docs.reduce((n, d) => n + d.size, 0) };
+  };
+  const recheck = (next: ApplicationValues, f: ApplicationFiles, show: Partial<Record<FieldKey, boolean>> = touched, gone: string[] = removed) => {
+    const all = validateApplication(next, f, onFileFor(f, gone));
     setErrors(Object.fromEntries(Object.entries(all).filter(([k]) => show[k as FieldKey])) as FieldErrors);
   };
   const set = <K extends keyof ApplicationValues>(k: K, value: ApplicationValues[K]) => {
     const next = { ...v, [k]: value };
     setV(next);
-    saveDraft(next);
+    if (!reapply) saveDraft(next);
     recheck(next, filesOf());
   };
   const blur = (k: FieldKey) => { const show = { ...touched, [k]: true }; setTouched(show); recheck(v, filesOf(), show); };
@@ -106,12 +117,12 @@ export function AdvisorApplicationForm({ prefill, onSubmitted }: { prefill?: Par
     e.preventDefault();
     if (sending.current) return; // a double click or a second Enter must not send twice
     setFormError("");
-    const all = validateApplication(v, filesOf());
+    const all = validateApplication(v, filesOf(), onFileFor(filesOf()));
     setTouched(Object.fromEntries(FIELD_ORDER.map((k) => [k, true])));
     setErrors(all);
     const first = FIELD_ORDER.find((k) => all[k]);
-    if (first || !cv) {
-      const el = document.getElementById(idOf(first ?? "cv"));
+    if (first) {
+      const el = document.getElementById(idOf(first));
       el?.scrollIntoView({ block: "center", behavior: "smooth" });
       el?.focus({ preventScroll: true });
       return;
@@ -119,8 +130,10 @@ export function AdvisorApplicationForm({ prefill, onSubmitted }: { prefill?: Par
     sending.current = true;
     setBusy(true);
     try {
-      const res = await submitAdvisorApplication(toPayload(v), { cv, certificates: certs, photo });
-      clearDraft();
+      const res = reapply
+        ? await resubmitAdvisorApplication(toPayload(v, { removeDocumentIds: removed }), { cv, certificates: certs, photo })
+        : await submitAdvisorApplication(toPayload(v), { cv: cv!, certificates: certs, photo });
+      if (!reapply) clearDraft();
       onSubmitted(res);
     } catch (err) {
       setFormError(errText(err));
@@ -180,11 +193,32 @@ export function AdvisorApplicationForm({ prefill, onSubmitted }: { prefill?: Par
       <fieldset className="adv-fieldset">
         <legend>Supporting documents</legend>
         <p className="adv-hint-line adv-docs-note"><RuwadIcon name="lock" size={13} /> Your documents are private. They are visible only to RUWĀD administrators reviewing your application, and are never shown on your public profile.</p>
-        <FilePick id={idOf("cv")} label="CV or resume" required hint="PDF, up to 5 MB" accept=".pdf,application/pdf" files={cv ? [cv] : []} error={errors.cv}
+        {reapply && reapply.documents.length > 0 && (
+          <div className="adv-onfile">
+            <b>Already on file</b>
+            <ul className="adv-filelist">
+              {reapply.documents.map((d) => {
+                const replaced = (d.kind === "CV" && cv) || (d.kind === "PHOTO" && photo);
+                const gone = removed.includes(d.id);
+                return (
+                  <li key={d.id} className={gone || replaced ? "is-off" : ""}>
+                    <span className="adv-filename">{d.fileName}</span>
+                    <span className="muted adv-filesize">{KIND_LABEL[d.kind] ?? d.kind} · {formatBytes(d.size)}{replaced ? " · will be replaced" : gone ? " · will be removed" : " · kept"}</span>
+                    {d.kind !== "CV" && !replaced && (
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => { const next = gone ? removed.filter((x) => x !== d.id) : [...removed, d.id]; setRemoved(next); recheck(v, filesOf(), { ...touched, certificates: true }, next); }}>{gone ? "Keep" : "Remove"}</button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="adv-hint-line">Your current CV stays unless you attach a new one below. Anything you remove or replace is deleted when you resubmit.</p>
+          </div>
+        )}
+        <FilePick id={idOf("cv")} label={reapply ? "New CV or resume" : "CV or resume"} required={!reapply} hint="PDF, up to 2 MB" accept=".pdf,application/pdf" files={cv ? [cv] : []} error={errors.cv}
           onAdd={(f) => fileChange(f[0]!, certs, photo, "cv")} onRemove={() => fileChange(null, certs, photo, "cv")} />
-        <FilePick id={idOf("certificates")} label="Professional certificates" multiple hint={`PDF, PNG or JPG, up to 5 MB each, at most ${MAX_CERTIFICATES}`} accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" files={certs} error={errors.certificates}
+        <FilePick id={idOf("certificates")} label="Professional certificates" multiple hint={`PDF, PNG or JPG, up to 2 MB each, at most ${MAX_CERTIFICATES} in total`} accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" files={certs} error={errors.certificates}
           onAdd={(f) => fileChange(cv, [...certs, ...f], photo, "certificates")} onRemove={(i) => fileChange(cv, certs.filter((_, j) => j !== i), photo, "certificates")} />
-        <FilePick id={idOf("photo")} label="Profile photograph" hint="PNG or JPG, up to 2 MB" accept=".png,.jpg,.jpeg,image/png,image/jpeg" files={photo ? [photo] : []} error={errors.photo}
+        <FilePick id={idOf("photo")} label={reapply ? "New profile photograph" : "Profile photograph"} hint="PNG or JPG, up to 1 MB" accept=".png,.jpg,.jpeg,image/png,image/jpeg" files={photo ? [photo] : []} error={errors.photo}
           onAdd={(f) => fileChange(cv, certs, f[0]!, "photo")} onRemove={() => fileChange(cv, certs, null, "photo")} />
       </fieldset>
 
@@ -200,8 +234,8 @@ export function AdvisorApplicationForm({ prefill, onSubmitted }: { prefill?: Par
 
       {formError && <p className="adv-review-note adv-review-error" role="alert"><RuwadIcon name="info" size={14} /> {formError}</p>}
       <div className="adv-apply-actions">
-        <button type="submit" className="btn btn-primary btn-lg" disabled={busy}>{busy ? "Submitting…" : "Submit Application"}</button>
-        <p className="adv-hint-line">Fields marked <span className="adv-req">*</span> are required. Nothing is published until RUWĀD has reviewed your application.</p>
+        <button type="submit" className="btn btn-primary btn-lg" disabled={busy}>{busy ? (reapply ? "Resubmitting…" : "Submitting…") : reapply ? "Resubmit Application" : "Submit Application"}</button>
+        <p className="adv-hint-line">Fields marked <span className="adv-req">*</span> are required. {reapply ? "Your earlier application and the reason it wasn't approved stay on record. Nothing is published until RUWĀD has reviewed it again." : "Nothing is published until RUWĀD has reviewed your application."}</p>
       </div>
     </form>
   );

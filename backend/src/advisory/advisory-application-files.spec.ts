@@ -22,12 +22,12 @@ describe("application documents", () => {
 
   it("refuses an empty file and one over its size limit", () => {
     expect(checkFile("CV", { originalname: "cv.pdf", size: 0, buffer: Buffer.alloc(0) }).ok).toBe(false);
-    const big = checkFile("CV", { originalname: "cv.pdf", size: 5 * 1024 * 1024 + 1, buffer: pdf() });
+    const big = checkFile("CV", { originalname: "cv.pdf", size: 2 * 1024 * 1024 + 1, buffer: pdf() });
     expect(big.ok).toBe(false);
-    if (!big.ok) expect(big.error).toMatch(/larger than 5 MB/);
-    const photo = checkFile("PHOTO", { originalname: "me.jpg", size: 2 * 1024 * 1024 + 1, buffer: jpg });
+    if (!big.ok) expect(big.error).toMatch(/larger than 2 MB/);
+    const photo = checkFile("PHOTO", { originalname: "me.jpg", size: 1 * 1024 * 1024 + 1, buffer: jpg });
     expect(photo.ok).toBe(false);
-    if (!photo.ok) expect(photo.error).toMatch(/larger than 2 MB/);
+    if (!photo.ok) expect(photo.error).toMatch(/larger than 1 MB/);
   });
 
   it("takes PNG or JPG for the photograph and PDF or images for certificates, nothing executable", () => {
@@ -57,9 +57,15 @@ describe("application documents", () => {
     const six = Array.from({ length: 6 }, (_, i) => file(`c${i}.pdf`, pdf()));
     expect(checkApplicationFiles({ cv: [file("cv.pdf", pdf())], certificates: six }).errors.join(" ")).toMatch(/at most 5/);
     expect(checkApplicationFiles({ cv: [file("a.pdf", pdf()), file("b.pdf", pdf())] }).errors.join(" ")).toMatch(/at most 1/);
-    const heavy = Array.from({ length: 5 }, (_, i) => ({ originalname: `h${i}.pdf`, size: 4.9 * 1024 * 1024, buffer: pdf() }));
-    const r = checkApplicationFiles({ cv: [{ originalname: "cv.pdf", size: 4.9 * 1024 * 1024, buffer: pdf() }], certificates: heavy });
+    const heavy = Array.from({ length: 5 }, (_, i) => ({ originalname: `h${i}.pdf`, size: 1.9 * 1024 * 1024, buffer: pdf() }));
+    const r = checkApplicationFiles({ cv: [{ originalname: "cv.pdf", size: 1.9 * 1024 * 1024, buffer: pdf() }], certificates: heavy });
     expect(r.errors.join(" ")).toContain(`${MAX_TOTAL_APPLICATION_BYTES / 1024 / 1024} MB`);
+  });
+
+  it("an update that keeps the CV already on file doesn't need a new one", () => {
+    expect(checkApplicationFiles({}, { requireCv: false }).errors).toEqual([]);
+    expect(checkApplicationFiles({}).errors).toEqual(["Attach your CV or resume as a PDF."]);
+    expect(checkApplicationFiles({ certificates: [file("c.txt", pdf())] }, { requireCv: false }).errors).toHaveLength(1);
   });
 
   it("a complete, valid set passes with the CV required and the rest optional", () => {

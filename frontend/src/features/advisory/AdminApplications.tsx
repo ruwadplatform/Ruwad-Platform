@@ -57,7 +57,7 @@ export function ApplicationsTab({ onChanged }: { onChanged?: () => void }) {
                 <tbody>
                   {res.data.applications.map((a) => (
                     <tr key={a.id}>
-                      <td><div className="cell-main">{a.name}</div>{a.reference && <div className="muted small">{a.reference}</div>}</td>
+                      <td><div className="cell-main">{a.name}</div>{a.reference && <div className="muted small">{a.reference}</div>}{a.resubmissions > 0 && <span className="badge adv-badge-info adv-resub">Resubmitted</span>}</td>
                       <td className="small">{a.institution}</td>
                       <td className="small">{a.specialization}</td>
                       <td className="small adv-breakall">{a.email ?? "—"}</td>
@@ -84,12 +84,13 @@ const link = (url: string | null) => (url ? <a href={url} target="_blank" rel="n
 /** What an event in the history reads as, in plain words. Email attempts say plainly whether anything was actually sent. */
 export function historyText(e: ApplicationDetail["history"][number]): string {
   if (e.type === "SUBMITTED") return "Application submitted";
+  if (e.type === "RESUBMITTED") return `Application updated and resubmitted${(e.details as { attempt?: number } | null)?.attempt ? ` (submission ${(e.details as { attempt: number }).attempt})` : ""}`;
   if (e.type === "APPROVED") return "Approved";
   if (e.type === "REJECTED") return "Rejected";
   if (e.type === "SUSPENDED") return "Suspended";
   if (e.type === "NOTIFICATION") {
     const d = (e.details ?? {}) as { kind?: string; mode?: string; result?: string; subject?: string };
-    const who = d.kind === "ADMIN_NEW_APPLICATION" ? "Notification to RUWĀD" : d.kind === "APPLICANT_APPROVED" ? "Approval email to applicant" : d.kind === "APPLICANT_REJECTED" ? "Rejection email to applicant" : "Email";
+    const who = d.kind === "ADMIN_NEW_APPLICATION" ? "Notification to RUWĀD" : d.kind === "ADMIN_REAPPLICATION" ? "Resubmission notice to RUWĀD" : d.kind === "APPLICANT_APPROVED" ? "Approval email to applicant" : d.kind === "APPLICANT_REJECTED" ? "Rejection email to applicant" : "Email";
     const state = d.result === "sent" ? "sent" : d.result === "failed" ? "could not be sent" : d.result === "skipped" ? "not sent (demonstration profile)" : "not sent (mock mode)";
     return `${who}: ${state}`;
   }

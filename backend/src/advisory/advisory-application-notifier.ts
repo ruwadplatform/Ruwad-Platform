@@ -12,7 +12,7 @@ import { formatRiyadh } from "./advisory-time";
 /** Where a new application is announced unless ADVISORY_APPLICATIONS_EMAIL says otherwise. */
 export const DEFAULT_APPLICATIONS_INBOX = "ruwadplatform@gmail.com";
 
-export type ApplicationEmailKind = "ADMIN_NEW_APPLICATION" | "APPLICANT_APPROVED" | "APPLICANT_REJECTED";
+export type ApplicationEmailKind = "ADMIN_NEW_APPLICATION" | "ADMIN_REAPPLICATION" | "APPLICANT_APPROVED" | "APPLICANT_REJECTED";
 export interface ComposedEmail { subject: string; html: string }
 
 export interface NewApplicationFacts {
@@ -40,6 +40,24 @@ export function composeNewApplicationEmail(a: NewApplicationFacts, appUrl: strin
     html: layout(
       "New advisor application",
       `<p style="margin:0;">A new application to join RUWĀD Advisory Services is waiting for review.</p>${detailsTable(rows)}<p style="margin:16px 0 0;">Please log in to RUWĀD to review the application and its supporting documents. Documents are not attached to this email and are only available to signed-in administrators.</p>`,
+      { text: "Review in Admin Dashboard", url: link },
+    ),
+  };
+}
+
+/** The message to RUWĀD when a REJECTED applicant updates and resubmits. Same facts as a new application, plus what makes it a resubmission and what was said last time. */
+export function composeReapplicationEmail(a: NewApplicationFacts, attempt: number, previousReason: string | null, appUrl: string): ComposedEmail {
+  const rows: [string, string][] = [
+    ["Applicant", a.name], ["Email", a.email], ["Phone", a.phone], ["Institution", a.institution], ["Professional designation", a.designation], ["Specialization", a.specialization],
+    ["Years of experience", a.yearsExperience === null ? "Not stated" : String(a.yearsExperience)], ["Resubmitted", formatRiyadh(a.submittedAt)], ["Submission number", String(attempt)], ["Application reference", a.reference],
+  ];
+  if (previousReason) rows.push(["Previous rejection reason", previousReason]);
+  const link = `${appUrl}/admin/advisory?application=${encodeURIComponent(a.id)}`;
+  return {
+    subject: "Updated Advisor Application – RUWĀD Advisory Services",
+    html: layout(
+      "An advisor application was resubmitted",
+      `<p style="margin:0;">An applicant whose application was not approved has updated it and submitted it again for review.</p>${detailsTable(rows)}<p style="margin:16px 0 0;">Please log in to RUWĀD to review the updated application and its documents. Documents are not attached to this email and are only available to signed-in administrators.</p>`,
       { text: "Review in Admin Dashboard", url: link },
     ),
   };
@@ -112,6 +130,16 @@ export class AdvisoryApplicationNotifier {
       specialization: advisor.specialization, yearsExperience: advisor.yearsExperience, submittedAt: advisor.submittedAt ?? advisor.createdAt, reference: advisor.applicationReference ?? "",
     }, this.appUrl);
     await this.deliver(advisor, "ADMIN_NEW_APPLICATION", "ADMIN", () => this.inbox, composed);
+  }
+
+  /** Tells RUWĀD a rejected applicant resubmitted. `attempt` is the submission number (2 for the first reapplication). */
+  async reapplication(advisor: AdvisoryAdvisor, attempt: number): Promise<void> {
+    const last = await this.events.findOne({ where: { advisorId: advisor.id, type: "REJECTED" }, order: { createdAt: "DESC" } });
+    const composed = composeReapplicationEmail({
+      id: advisor.id, name: advisor.name, email: advisor.contactEmail ?? "", phone: advisor.phone ?? "", institution: advisor.institution, designation: advisor.designation,
+      specialization: advisor.specialization, yearsExperience: advisor.yearsExperience, submittedAt: advisor.submittedAt ?? advisor.createdAt, reference: advisor.applicationReference ?? "",
+    }, attempt, last?.note ?? null, this.appUrl);
+    await this.deliver(advisor, "ADMIN_REAPPLICATION", "ADMIN", () => this.inbox, composed);
   }
 
   async approved(advisor: AdvisoryAdvisor): Promise<void> {

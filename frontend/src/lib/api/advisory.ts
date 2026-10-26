@@ -65,8 +65,21 @@ export async function submitAdvisorApplication(payload: Record<string, unknown>,
   return res.json();
 }
 
+/** Edit & Reapply: the owner of a REJECTED application sends the updated form (and any new files) for review again. A CV on file is kept unless a new one is attached. */
+export async function resubmitAdvisorApplication(payload: Record<string, unknown>, files: { cv: File | null; certificates: File[]; photo: File | null }): Promise<{ reference: string; status: string; submittedAt: string; attempt: number }> {
+  const form = new FormData();
+  form.append("data", JSON.stringify(payload));
+  if (files.cv) form.append("cv", files.cv);
+  for (const c of files.certificates) form.append("certificates", c);
+  if (files.photo) form.append("photo", files.photo);
+  const res = await fetch(`${API_BASE}/advisory/advisor/reapply`, { method: "POST", credentials: "include", body: form });
+  if (!res.ok) throw await uploadError(res);
+  return res.json();
+}
+
 async function uploadError(res: Response): Promise<ApiError> {
-  if (res.status === 413) return new ApiError(413, "One of your files is too large. A CV or certificate can be up to 5 MB and a photograph up to 2 MB.");
+  if (res.status === 413) return new ApiError(413, "One of your files is too large. A CV or certificate can be up to 2 MB and a photograph up to 1 MB (8 MB in total).");
+  if (res.status === 502 || res.status === 503 || res.status === 504) return new ApiError(res.status, "The upload didn't reach RUWĀD (the connection dropped). Nothing was saved. Please try again, or use smaller files.");
   if (res.status === 429) return new ApiError(429, "Too many attempts. Please wait a little and try again.");
   let message = res.statusText || `Request failed (${res.status})`;
   try {

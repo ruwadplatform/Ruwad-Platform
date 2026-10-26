@@ -14,11 +14,12 @@ const PDF = { ".pdf": { mime: "application/pdf", kind: "pdf" as Kind } };
 const IMAGES = { ".png": { mime: "image/png", kind: "png" as Kind }, ".jpg": { mime: "image/jpeg", kind: "jpg" as Kind }, ".jpeg": { mime: "image/jpeg", kind: "jpg" as Kind } };
 
 export const DOC_RULES: Record<ApplicationDocKind, Rule> = {
-  CV: { label: "CV or resume", types: PDF, maxBytes: 5 * MB, maxCount: 1 },
-  CERTIFICATE: { label: "Professional certificate", types: { ...PDF, ...IMAGES }, maxBytes: 5 * MB, maxCount: 5 },
-  PHOTO: { label: "Profile photograph", types: IMAGES, maxBytes: 2 * MB, maxCount: 1 },
+  CV: { label: "CV or resume", types: PDF, maxBytes: 2 * MB, maxCount: 1 },
+  CERTIFICATE: { label: "Professional certificate", types: { ...PDF, ...IMAGES }, maxBytes: 2 * MB, maxCount: 5 },
+  PHOTO: { label: "Profile photograph", types: IMAGES, maxBytes: 1 * MB, maxCount: 1 },
 };
-export const MAX_TOTAL_APPLICATION_BYTES = 20 * MB;
+/** Deliberately modest: uploads travel browser -> Vercel -> the API host, and multi-megabyte bodies were seen to drop on that path (see the production-readiness notes). */
+export const MAX_TOTAL_APPLICATION_BYTES = 8 * MB;
 
 const niceTypes = (kind: ApplicationDocKind) => Object.keys(DOC_RULES[kind].types).map((e) => e.slice(1).toUpperCase()).filter((e, i, a) => a.indexOf(e) === i && !(e === "JPEG" && a.includes("JPG"))).join(", ");
 
@@ -38,12 +39,12 @@ export function checkFile(kind: ApplicationDocKind, file: UploadedFile): { ok: t
   return { ok: true, file: { kind, fileName: name, mimeType: type.mime, size: file.size, data: file.buffer } };
 }
 
-/** The whole upload: the CV is required, certificates and the photograph are optional. Collects every problem so the applicant can fix them in one go. */
-export function checkApplicationFiles(input: { cv?: UploadedFile[]; certificates?: UploadedFile[]; photo?: UploadedFile[] }): { files: CheckedFile[]; errors: string[] } {
+/** The whole upload: the CV is required (unless an update keeps the one already on file), certificates and the photograph are optional. Collects every problem so the applicant can fix them in one go. */
+export function checkApplicationFiles(input: { cv?: UploadedFile[]; certificates?: UploadedFile[]; photo?: UploadedFile[] }, opts: { requireCv?: boolean } = {}): { files: CheckedFile[]; errors: string[] } {
   const errors: string[] = [];
   const files: CheckedFile[] = [];
   const slots: [ApplicationDocKind, UploadedFile[]][] = [["CV", input.cv ?? []], ["CERTIFICATE", input.certificates ?? []], ["PHOTO", input.photo ?? []]];
-  if (!(input.cv ?? []).length) errors.push("Attach your CV or resume as a PDF.");
+  if ((opts.requireCv ?? true) && !(input.cv ?? []).length) errors.push("Attach your CV or resume as a PDF.");
   for (const [kind, list] of slots) {
     if (list.length > DOC_RULES[kind].maxCount) { errors.push(`You can attach at most ${DOC_RULES[kind].maxCount} ${DOC_RULES[kind].label.toLowerCase()} file${DOC_RULES[kind].maxCount === 1 ? "" : "s"}.`); continue; }
     for (const f of list) {

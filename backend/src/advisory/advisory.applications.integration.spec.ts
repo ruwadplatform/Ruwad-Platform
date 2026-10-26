@@ -56,6 +56,17 @@ suite("Become an Advisor: applications (local Postgres)", () => {
     return r;
   };
 
+  /** Edit & Reapply: same multipart shape as applying. */
+  const reapply = (who: string | null, data: object | string, files: Files = {}, server: INestApplication = app) => {
+    let r = auth(who, request(server.getHttpServer()).post("/api/advisory/advisor/reapply")).field("data", typeof data === "string" ? data : JSON.stringify(data));
+    if (files.cv) r = r.attach("cv", files.cv, files.cvName ?? "cv.pdf");
+    (files.certificates ?? []).forEach((c, i) => { r = r.attach("certificates", c, `cert-new-${i}.pdf`); });
+    if (files.photo) r = r.attach("photo", files.photo, files.photoName ?? "me.png");
+    return r;
+  };
+  const docsOf = async (advisorId: string) => (await db.query(`SELECT id, kind, "fileName", size, data FROM advisory_application_documents WHERE "advisorId" = $1 ORDER BY "createdAt", id`, [advisorId])).rows as { id: string; kind: string; fileName: string; size: number; data: Buffer }[];
+  const reject = (id: string, notes = "We could not verify your licence from the documents provided.") => post("admin", `/advisory/admin/advisors/${id}/reject`, { notes });
+
   async function makeUser(name: string, role = "USER") {
     const email = `app-it-${tag}-${name}@example.test`;
     const { rows } = await db.query(`INSERT INTO users ("firstName","lastName",email,"passwordHash",role) VALUES ($1,$2,$3,$4,$5) RETURNING id`, ["IT", name, email, "x", role]);
@@ -93,7 +104,7 @@ suite("Become an Advisor: applications (local Postgres)", () => {
     const built = await build();
     app = built.app;
     jwt = built.jwt;
-    for (const n of ["a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "bystander"]) await makeUser(n);
+    for (const n of ["a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "r1", "r2", "r3", "r4", "bystander"]) await makeUser(n);
     await makeUser("admin", "RUWAD_ADMIN");
     await makeUser("superAdmin", "SUPER_ADMIN");
   }, 120_000);
@@ -151,7 +162,7 @@ suite("Become an Advisor: applications (local Postgres)", () => {
     expect((fake.body.message as string[]).join(" ")).toMatch(/isn't a valid PDF/);
     const badPhoto = await apply("a1", form("Dr. Files"), { cv: pdf(), photo: pdf(), photoName: "me.pdf" });
     expect(badPhoto.status).toBe(400);
-    const huge = await apply("a1", form("Dr. Files"), { cv: Buffer.concat([pdf(), Buffer.alloc(5 * 1024 * 1024 + 10)]) });
+    const huge = await apply("a1", form("Dr. Files"), { cv: Buffer.concat([pdf(), Buffer.alloc(2 * 1024 * 1024 + 10)]) });
     expect(huge.status).toBe(413);
     expect(await advisorRow("a1")).toBeUndefined();
   });
@@ -238,7 +249,9 @@ suite("Become an Advisor: applications (local Postgres)", () => {
     expect(me.application).toMatchObject({ reference: a1Ref, stage: "PENDING_REVIEW", decidedAt: null, rejectionReason: null });
     expect(me.application.documents.map((d: { kind: string }) => d.kind).sort()).toEqual(["CERTIFICATE", "CERTIFICATE", "CV", "PHOTO"]);
     expect(me.application.timeline.map((t: { type: string }) => t.type)).toEqual(["SUBMITTED"]);
-    expect(JSON.stringify(me)).not.toMatch(/phone|contactEmail|declaration|\+966/);
+    // Their own answers come back (to prefill Edit & Reapply), but nothing the reviewers wrote and nothing internal.
+    expect(JSON.stringify(me)).not.toMatch(/declaration|reviewedBy|reviewedAt|contactEmail|actorUserId/);
+    expect(me.reviewNotes).toBeNull();
     expect((await get("bystander", "/advisory/advisor/me")).body).toEqual({ advisor: null });
   });
 
@@ -475,6 +488,186 @@ suite("Become an Advisor: applications (local Postgres)", () => {
     expect((await post("admin", `/advisory/admin/advisors/${id}/reject`, { notes: "Not a fit for the network at present." })).status).toBe(201);
   });
 
+  // ---- Edit & Reapply -----------------------------------------------------------------------------------------------------------------------
+
+  describe("Edit & Reapply", () => {
+    let r1Id = "";
+    let r1Ref = "";
+    const oldCv = pdf("r1-old-cv");
+    const newCv = pdf("r1-NEW-cv");
+    const reason1 = "We could not verify your licence from the documents provided.";
+
+    it("needs a signed-in owner of a REJECTED application: nobody else, nothing else", async () => {
+      expect((await reapply(null, form("Nobody"), { cv: pdf() })).status).toBe(401);
+      expect((await reapply("bystander", form("Nobody"), { cv: pdf() })).status).toBe(404); // no application at all
+    });
+
+    it("can't be used while an application is pending, or after it was approved", async () => {
+      expect((await apply("r1", form(`Dr. Reapply ${tag}`, { institution: "Old Institute" }), { cv: oldCv, certificates: [pdf("r1-cert-a"), pdf("r1-cert-b")], photo: png })).status).toBe(201);
+      const row = await advisorRow("r1");
+      r1Id = row.id;
+      r1Ref = row.applicationReference;
+      const pending = await reapply("r1", form("Dr. Too Early"), { cv: pdf() });
+      expect(pending.status).toBe(409);
+      expect(pending.body.message).toMatch(/already been submitted/);
+      // an approved advisor (a4, approved above) has nothing to reapply
+      expect((await reapply("a4", form("Dr. Approved Again"), { cv: pdf() })).status).toBe(409);
+    });
+
+    it("the rejected applicant sees the reason, may reapply, and has their answers and documents to edit", async () => {
+      expect((await reject(r1Id, reason1)).status).toBe(201);
+      const me = (await get("r1", "/advisory/advisor/me")).body.advisor;
+      const a = me.application;
+      expect(a).toMatchObject({ stage: "REJECTED", canReapply: true, rejectionReason: reason1, attempts: 1, reference: r1Ref });
+      expect(a.rejections).toHaveLength(1);
+      expect(a.form).toMatchObject({ email: `applicant-${tag}@example.test`, phone: "+966 55 123 4567", preferredMinutes: 45, consultationServices: "Clinical validation reviews", linkedinUrl: "https://www.linkedin.com/in/layla-test" });
+      expect(a.documents.map((d: { kind: string }) => d.kind).sort()).toEqual(["CERTIFICATE", "CERTIFICATE", "CV", "PHOTO"]);
+      expect(a.documents.every((d: { id: string }) => /^[0-9a-f-]{36}$/.test(d.id))).toBe(true);
+      expect(me.profile.institution).toBe("Old Institute");
+    });
+
+    it("refuses a bad update without changing anything: wrong files, someone else's document, no CV left, too many certificates, missing declaration", async () => {
+      const before = await docsOf(r1Id);
+      const cv = before.find((d) => d.kind === "CV")!;
+      const certs = before.filter((d) => d.kind === "CERTIFICATE");
+      const other = await advisorRow("a4");
+      const foreign = (await docsOf(other.id))[0]!;
+      const bad: [string, object, Files][] = [
+        ["wrong CV type", form("Dr. X"), { cv: pdf(), cvName: "cv.docx" }],
+        ["a fake PDF", form("Dr. X"), { cv: Buffer.from("MZ not a pdf"), cvName: "cv.pdf" }],
+        ["a foreign document id", { ...form("Dr. X"), removeDocumentIds: [foreign.id] }, {}],
+        ["removing the CV without a new one", { ...form("Dr. X"), removeDocumentIds: [cv.id] }, {}],
+        ["more than five certificates in total", form("Dr. X"), { certificates: [pdf("1"), pdf("2"), pdf("3"), pdf("4")] }],
+        ["declaration not ticked", { ...form("Dr. X"), declaration: false }, {}],
+        ["an invalid email", { ...form("Dr. X"), email: "nope" }, {}],
+        ["an unknown field (status)", { ...form("Dr. X"), status: "APPROVED" }, {}],
+      ];
+      for (const [label, data, files] of bad) {
+        const res = await reapply("r1", data, files);
+        expect({ label, status: res.status }).toEqual({ label, status: 400 });
+      }
+      const huge = await reapply("r1", form("Dr. X"), { cv: Buffer.concat([pdf(), Buffer.alloc(2 * 1024 * 1024 + 10)]) });
+      expect(huge.status).toBe(413);
+      expect(certs).toHaveLength(2);
+      expect((await advisorRow("r1")).status).toBe("REJECTED");
+      expect((await docsOf(r1Id)).map((d) => d.id)).toEqual(before.map((d) => d.id));
+      expect((await events(r1Id)).some((e) => e.type === "RESUBMITTED")).toBe(false);
+    });
+
+    it("an email failure doesn't lose the resubmission", async () => {
+      const spy = jest.spyOn(app.get(AdvisoryApplicationNotifier), "reapplication").mockRejectedValueOnce(new Error("mail server down"));
+      const before = await docsOf(r1Id);
+      const certA = before.find((d) => d.kind === "CERTIFICATE")!;
+      const res = await reapply("r1", { ...form(`Dr. Reapply ${tag}`, { institution: "New Institute", yearsExperience: 15, about: "Updated biography: fifteen years of clinical practice and research, now including regulatory work for device companies." }), removeDocumentIds: [certA.id] }, { cv: newCv });
+      spy.mockRestore();
+      expect(res.status).toBe(201);
+      expect(res.body).toMatchObject({ reference: r1Ref, status: "PENDING_REVIEW", attempt: 2 });
+      expect((await advisorRow("r1")).status).toBe("PENDING_REVIEW");
+    });
+
+    it("moves back to PENDING_REVIEW with the updates applied, documents replaced, and the history intact", async () => {
+      const row = await advisorRow("r1");
+      expect(row).toMatchObject({ status: "PENDING_REVIEW", reviewNotes: null, reviewedAt: null, reviewedByUserId: null, institution: "New Institute", yearsExperience: 15, applicationReference: r1Ref, affiliationVerified: false });
+      expect(row.about).toContain("Updated biography");
+
+      const docs = await docsOf(r1Id);
+      expect(docs.map((d) => d.kind).sort()).toEqual(["CERTIFICATE", "CV", "PHOTO"]); // one certificate removed, CV replaced, photo kept
+      expect(docs.find((d) => d.kind === "CV")!.data.equals(newCv)).toBe(true);
+      expect(docs.some((d) => d.data.equals(oldCv))).toBe(false); // the replaced CV is gone
+
+      const ev = await events(r1Id);
+      expect(ev.map((e) => e.type === "NOTIFICATION" ? `N:${(e.details as { kind: string }).kind}` : e.type)).toEqual([
+        "SUBMITTED", "N:ADMIN_NEW_APPLICATION", "REJECTED", "N:APPLICANT_REJECTED", "RESUBMITTED",
+      ]); // the failed email left no notification row, but the resubmission is there
+      const rejected = ev.find((e) => e.type === "REJECTED")!;
+      expect(rejected.note).toBe(reason1); // the earlier reason is untouched
+      const re = ev.find((e) => e.type === "RESUBMITTED")!;
+      expect(re).toMatchObject({ actorRole: "APPLICANT", actorUserId: idOf.get("r1"), fromStatus: "REJECTED", toStatus: "PENDING_REVIEW" });
+      expect(re.details).toMatchObject({ attempt: 2, reference: r1Ref });
+    });
+
+    it("the applicant's status shows it is under review again and keeps the earlier reason for reference", async () => {
+      const a = (await get("r1", "/advisory/advisor/me")).body.advisor.application;
+      expect(a).toMatchObject({ stage: "PENDING_REVIEW", canReapply: false, rejectionReason: null, attempts: 2, decidedAt: null });
+      expect(a.rejections).toEqual([{ at: expect.any(String), reason: reason1 }]);
+      expect(a.timeline.map((t: { type: string }) => t.type)).toEqual(["SUBMITTED", "REJECTED", "RESUBMITTED"]);
+      expect((await reapply("r1", form("Dr. Again"), { cv: pdf() })).status).toBe(409); // pending: no duplicate
+    });
+
+    it("tells the administrator (mock mode), who sees it flagged as resubmitted with the full history", async () => {
+      // the previous test's email failed on purpose; a second round proves the notification path
+      const id2 = await (async () => {
+        expect((await apply("r2", form(`Dr. Second ${tag}`), { cv: pdf("r2") })).status).toBe(201);
+        const id = (await advisorRow("r2")).id;
+        expect((await reject(id, "Please include evidence of clinical practice.")).status).toBe(201);
+        const res = await reapply("r2", form(`Dr. Second ${tag}`, { institution: "Second Institute" }), {});
+        expect(res.status).toBe(201);
+        return id;
+      })();
+      const n = await notifications(id2);
+      expect(n.map((x) => x.kind)).toEqual(["ADMIN_NEW_APPLICATION", "APPLICANT_REJECTED", "ADMIN_REAPPLICATION"]);
+      expect(n[2]).toEqual({ kind: "ADMIN_REAPPLICATION", mode: "mock", recipient: "ADMIN", subject: "Updated Advisor Application – RUWĀD Advisory Services", result: "mock" });
+      expect(sendTransactional).not.toHaveBeenCalled();
+
+      const list = (await get("admin", "/advisory/admin/applications?status=PENDING_REVIEW")).body.applications as { id: string; resubmissions: number }[];
+      expect(list.find((a) => a.id === id2)!.resubmissions).toBe(1);
+      expect(list.find((a) => a.id === r1Id)!.resubmissions).toBe(1);
+      const detail = (await get("admin", `/advisory/admin/applications/${id2}`)).body;
+      expect(detail.history.map((h: { type: string }) => h.type)).toEqual(["SUBMITTED", "NOTIFICATION", "REJECTED", "NOTIFICATION", "RESUBMITTED", "NOTIFICATION"]);
+      expect(detail.history.find((h: { type: string }) => h.type === "REJECTED").note).toBe("Please include evidence of clinical practice.");
+    });
+
+    it("the administrator can download the NEW CV (and the old one is no longer reachable)", async () => {
+      const d = (await get("admin", `/advisory/admin/applications/${r1Id}`)).body;
+      const cv = d.documents.find((x: { kind: string }) => x.kind === "CV");
+      const bin = (r: request.Test) => r.buffer(true).parse((res, cb) => { const chunks: Buffer[] = []; res.on("data", (c: Buffer) => chunks.push(c)); res.on("end", () => cb(null, Buffer.concat(chunks))); });
+      const got = await bin(get("admin", `/advisory/admin/applications/${r1Id}/documents/${cv.id}`));
+      expect(got.status).toBe(200);
+      expect((got.body as Buffer).equals(newCv)).toBe(true);
+      expect(d.documents).toHaveLength(3);
+      expect((await get("a1", `/advisory/admin/applications/${r1Id}/documents/${cv.id}`)).status).toBe(403);
+    });
+
+    it("two resubmissions at the same instant produce exactly one, and one email to the administrator", async () => {
+      expect((await apply("r3", form(`Dr. Third ${tag}`), { cv: pdf("r3") })).status).toBe(201);
+      const id = (await advisorRow("r3")).id;
+      expect((await reject(id, "Your biography needs more detail about your practice.")).status).toBe(201);
+      const results = await Promise.all([reapply("r3", form(`Dr. Third ${tag}`), {}), reapply("r3", form(`Dr. Third ${tag}`), {})]);
+      expect(results.map((r) => r.status).sort()).toEqual([201, 409]);
+      expect((await events(id)).filter((e) => e.type === "RESUBMITTED")).toHaveLength(1);
+      expect((await notifications(id)).filter((n) => n.kind === "ADMIN_REAPPLICATION")).toHaveLength(1);
+      expect((await advisorRow("r3")).status).toBe("PENDING_REVIEW");
+      expect((await db.query(`SELECT count(*)::int AS n FROM advisory_advisors WHERE "userId" = $1`, [idOf.get("r3")])).rows[0].n).toBe(1);
+    });
+
+    it("an administrator who approves the resubmission puts the updated advisor in the public directory", async () => {
+      expect((await get(null, "/advisory/advisors")).body.map((a: { id: string }) => a.id)).not.toContain((await advisorRow("r1")).slug); // not yet
+      const approve = await post("admin", `/advisory/admin/advisors/${r1Id}/approve`, { notes: "Updated documents verified." });
+      expect(approve.status).toBe(201);
+      const row = await advisorRow("r1");
+      expect(row.status).toBe("APPROVED");
+      const dir = (await get(null, "/advisory/advisors")).body as { id: string; institution: string; yearsExperience: number }[];
+      const listed = dir.find((a) => a.id === row.slug)!;
+      expect(listed).toMatchObject({ institution: "New Institute", yearsExperience: 15 });
+      expect((await notifications(r1Id)).filter((n) => n.kind === "APPLICANT_APPROVED")).toHaveLength(1);
+      const ev = (await events(r1Id)).filter((e) => e.type !== "NOTIFICATION").map((e) => e.type);
+      expect(ev).toEqual(["SUBMITTED", "REJECTED", "RESUBMITTED", "APPROVED"]);
+      // after approval, reapplying is no longer possible, and the applicant has the dashboard
+      expect((await reapply("r1", form("Dr. Late"), {})).status).toBe(409);
+      expect((await get("r1", "/advisory/advisor/bookings")).status).toBe(200);
+    });
+
+    it("a second rejection after reapplying works the same way, and the full chain of reasons is kept", async () => {
+      const id = (await advisorRow("r2")).id;
+      expect((await reject(id, "Still unable to confirm your clinical practice.")).status).toBe(201);
+      const a = (await get("r2", "/advisory/advisor/me")).body.advisor.application;
+      expect(a).toMatchObject({ stage: "REJECTED", canReapply: true, attempts: 2, rejectionReason: "Still unable to confirm your clinical practice." });
+      expect(a.rejections.map((r: { reason: string }) => r.reason)).toEqual(["Please include evidence of clinical practice.", "Still unable to confirm your clinical practice."]);
+      expect((await reapply("r2", form(`Dr. Second ${tag}`), {})).status).toBe(201);
+      expect((await advisorRow("r2")).status).toBe("PENDING_REVIEW");
+    });
+  });
+
   // ---- live mode (still with a fake provider) -------------------------------------------------------------------------------------------
 
   it("LIVE mode with a fake provider: RUWĀD's inbox gets the new-application email with a sign-in link and no documents", async () => {
@@ -504,5 +697,18 @@ suite("Become an Advisor: applications (local Postgres)", () => {
     expect(subject2).toBe("Update on Your RUWĀD Advisor Application");
     expect(html2).toContain("we need more evidence of clinical practice");
     expect((await notifications(row.id)).map((n) => `${n.kind}:${n.result}`)).toEqual(["ADMIN_NEW_APPLICATION:sent", "APPLICANT_REJECTED:sent"]);
+
+    // Reapplying: RUWĀD's inbox is told, with the earlier reason, and still no document in the email.
+    sendTransactional.mockClear();
+    const again = await reapply("liveApplicant", form(`Dr. Live ${tag}`, { email: `live-${tag}@example.test`, institution: "Live Institute 2" }), {}, live);
+    expect(again.status).toBe(201);
+    expect(sendTransactional).toHaveBeenCalledTimes(1);
+    const [to3, subject3, html3] = sendTransactional.mock.calls[0] as [string, string, string];
+    expect(to3).toBe("ruwadplatform@gmail.com");
+    expect(subject3).toBe("Updated Advisor Application – RUWĀD Advisory Services");
+    expect(html3).toContain("we need more evidence of clinical practice");
+    expect(html3).toContain(`https://app.ruwad.test/admin/advisory?application=${row.id}`);
+    expect(html3).not.toMatch(/\.pdf|\.png|documents\//);
+    expect((await notifications(row.id)).map((n) => `${n.kind}:${n.result}`)).toEqual(["ADMIN_NEW_APPLICATION:sent", "APPLICANT_REJECTED:sent", "ADMIN_REAPPLICATION:sent"]);
   });
 });

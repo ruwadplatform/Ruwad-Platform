@@ -485,3 +485,16 @@
   .adv-hero-actions{flex-direction:column}
   .adv-hero-actions .btn{flex:none;width:100%}
 }
+
+/* Edit & Reapply */
+.adv-onfile{margin-bottom:12px}
+.adv-onfile > b{display:block;font-size:var(--fs-13);margin-bottom:6px}
+.adv-filelist li.is-off .adv-filename{text-decoration:line-through;color:var(--muted)}
+.adv-filelist li .btn{flex:none}
+.adv-earlier{padding:12px 14px;border:1px dashed var(--border-strong);border-radius:var(--radius-sm);font-size:var(--fs-13)}
+.adv-earlier ul{list-style:none;margin:8px 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.adv-earlier li p{margin:2px 0 0;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.adv-resub{display:inline-block;margin-top:4px}
+@media(max-width:760px){.adv-filelist li{flex-wrap:wrap}.adv-filelist li .btn{min-height:40px}}
+
+.adv-appstatus-head + .adv-reason,.adv-appstatus-head ~ .adv-reason{margin-top:12px}

@@ -1,5 +1,5 @@
 import { ConfigService } from "@nestjs/config";
-import { AdvisoryApplicationNotifier, DEFAULT_APPLICATIONS_INBOX, composeApprovalEmail, composeNewApplicationEmail, composeRejectionEmail } from "./advisory-application-notifier";
+import { AdvisoryApplicationNotifier, DEFAULT_APPLICATIONS_INBOX, composeApprovalEmail, composeNewApplicationEmail, composeReapplicationEmail, composeRejectionEmail } from "./advisory-application-notifier";
 import { AdvisoryAdvisor } from "./advisory.entities";
 
 const facts = {
@@ -25,6 +25,22 @@ describe("the email to RUWĀD about a new application", () => {
     const links = [...mail.html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
     expect(links).toEqual(["https://app.ruwad.test/admin/advisory?application=5b0a3a52-7c1e-4d8e-9d5b-0a1b2c3d4e5f"]);
     expect(mail.html).not.toMatch(/documents\/|\.pdf|download/i);
+  });
+});
+
+describe("the email to RUWĀD about a resubmitted application", () => {
+  const mail = composeReapplicationEmail(facts, 2, "We could not verify your licence.", "https://app.ruwad.test");
+  it("has its own subject, so it is not mistaken for a first application", () => expect(mail.subject).toBe("Updated Advisor Application – RUWĀD Advisory Services"));
+  it("says it is a resubmission, with the submission number and the earlier reason", () => {
+    expect(mail.html).toMatch(/updated it and submitted it again/);
+    for (const t of ["Submission number", "ADV-2026-K7Q2MX", "Previous rejection reason", "We could not verify your licence."]) expect(mail.html).toContain(t);
+  });
+  it("links only to the Admin Dashboard, never to a document", () => {
+    expect([...mail.html.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(["https://app.ruwad.test/admin/advisory?application=5b0a3a52-7c1e-4d8e-9d5b-0a1b2c3d4e5f"]);
+    expect(mail.html).not.toMatch(/documents\/|\.pdf|download/i);
+  });
+  it("escapes the earlier reason", () => {
+    expect(composeReapplicationEmail(facts, 2, "<script>x</script>", "https://a").html).not.toContain("<script>x</script>");
   });
 });
 
@@ -70,11 +86,12 @@ describe("delivery", () => {
   function build(env: Record<string, string>, sendResult = true) {
     const saved: Record<string, unknown>[] = [];
     const send = jest.fn().mockResolvedValue(sendResult);
-    const events = { create: (x: Record<string, unknown>) => x, save: jest.fn(async (x: Record<string, unknown>) => { saved.push(x); return x; }) };
+    const state: { rejectedEvent: { note: string } | null } = { rejectedEvent: null };
+    const events = { create: (x: Record<string, unknown>) => x, save: jest.fn(async (x: Record<string, unknown>) => { saved.push(x); return x; }), findOne: jest.fn(async () => state.rejectedEvent) };
     const users = { findOne: jest.fn().mockResolvedValue({ id: "u-1", email: "account@example.com" }) };
     const config = { get: (k: string) => env[k] } as unknown as ConfigService;
     const notifier = new AdvisoryApplicationNotifier(config, { sendTransactional: send } as never, users as never, events as never);
-    return { notifier, send, saved, users };
+    return { notifier, send, saved, users, set rejectedEvent(v: { note: string } | null) { state.rejectedEvent = v; } };
   }
 
   it("sends to ruwadplatform@gmail.com by default", () => {
@@ -108,6 +125,20 @@ describe("delivery", () => {
     const { notifier, send } = build({ ADVISORY_EMAIL_MODE: "live" });
     await notifier.approved(advisor({ contactEmail: null }));
     expect(send.mock.calls[0]![0]).toBe("account@example.com");
+  });
+
+  it("a reapplication goes to RUWĀD's inbox (live, with a fake provider) and is recorded without addresses in mock mode", async () => {
+    const live = build({ ADVISORY_EMAIL_MODE: "live" });
+    live.rejectedEvent = { note: "Earlier reason." };
+    await live.notifier.reapplication(advisor(), 2);
+    expect(live.send.mock.calls[0]![0]).toBe("ruwadplatform@gmail.com");
+    expect(live.send.mock.calls[0]![1]).toBe("Updated Advisor Application – RUWĀD Advisory Services");
+    expect(live.send.mock.calls[0]![2]).toContain("Earlier reason.");
+    const mock = build({});
+    await mock.notifier.reapplication(advisor(), 2);
+    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.saved[0]!.details).toMatchObject({ kind: "ADMIN_REAPPLICATION", mode: "mock", recipient: "ADMIN", result: "mock", subject: "Updated Advisor Application – RUWĀD Advisory Services" });
+    expect(JSON.stringify(mock.saved)).not.toContain("@");
   });
 
   it("a provider failure is recorded and never thrown", async () => {

@@ -47,6 +47,12 @@ export class AdvisorApplicationDto {
   @Equals(true, { message: "You must confirm the declaration before submitting" }) declaration!: boolean;
 }
 
+/** "Edit & Reapply" after a rejection: the same form, plus which of the documents already on file to remove (a new CV or photograph replaces the old one
+ * by itself). Ids are checked against THIS application in the service. */
+export class ReapplicationDto extends AdvisorApplicationDto {
+  @IsOptional() @IsArray() @ArrayMaxSize(10) @IsUUID("all", { each: true }) removeDocumentIds?: string[];
+}
+
 export class UpdateAdvisorProfileDto {
   @IsOptional() @IsString() @Length(2, 120) name?: string;
   @IsOptional() @IsString() @Length(2, 160) institution?: string;
