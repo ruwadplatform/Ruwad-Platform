@@ -1,4 +1,6 @@
-import { Body, Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
+import { FileFieldsInterceptor } from "@nestjs/platform-express";
+import type { Response } from "express";
 import { Throttle } from "@nestjs/throttler";
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -8,6 +10,7 @@ import { UserRole } from "../common/enums";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { AdvisoryAdminService } from "./advisory-admin.service";
 import { AdvisoryAdvisorsService } from "./advisory-advisors.service";
+import { AdvisoryApplicationsService } from "./advisory-applications.service";
 import { AdvisoryAutomationService } from "./advisory-automation.service";
 import { AdvisoryBookingsService } from "./advisory-bookings.service";
 import { AdvisoryAttendanceService } from "./advisory-attendance.service";
@@ -15,7 +18,7 @@ import { AdvisoryMeetingService } from "./advisory-meeting.service";
 import { AdvisoryAdvisor } from "./advisory.entities";
 import { AdvisoryEnabledGuard, ApprovedAdvisorGuard, CurrentAdvisor } from "./advisory.guards";
 import {
-  AdvisorProfileDto, BookingListQueryDto, OutcomeDto, PresenceDto, CreateBookingDto, CreateServiceDto, DatesQueryDto, NoteDto, ProposeRescheduleDto, ReasonDto, ReviewAdvisorDto, SetAvailabilityDto,
+  BookingListQueryDto, OutcomeDto, PresenceDto, CreateBookingDto, CreateServiceDto, DatesQueryDto, NoteDto, ProposeRescheduleDto, ReasonDto, ReviewAdvisorDto, SetAvailabilityDto,
   SlotQueryDto, TimeOffDto, UpdateAdvisorProfileDto, UpdateServiceDto, VerificationDto,
 } from "./dto/advisory.dto";
 
@@ -66,12 +69,16 @@ export class AdvisoryBookingsController {
 @Controller("advisory/advisor")
 @UseGuards(AdvisoryEnabledGuard, JwtAuthGuard)
 export class AdvisoryAdvisorController {
-  constructor(private readonly advisors: AdvisoryAdvisorsService, private readonly bookings: AdvisoryBookingsService) {}
+  constructor(private readonly advisors: AdvisoryAdvisorsService, private readonly bookings: AdvisoryBookingsService, private readonly applications: AdvisoryApplicationsService) {}
 
+  /** The "Become an Advisor" application. Multipart: the form as JSON in `data`, plus files `cv` (required, PDF), `certificates` (up to 5) and `photo`.
+   * One application per account. The profile is created PENDING_REVIEW and stays invisible until an administrator approves it. Files are held in memory
+   * only long enough to be checked and stored; the limits here stop an oversized upload early, the exact per-type limits are enforced by the service. */
+  @Throttle({ default: { limit: 10, ttl: 3_600_000 } })
   @Post("apply")
-  async apply(@CurrentUser() u: AuthUser, @Body() dto: AdvisorProfileDto) {
-    const advisor = await this.advisors.apply(u.userId, dto);
-    return this.advisors.profileView(advisor, { includeInactiveServices: true }).then((profile) => ({ status: advisor.status, profile }));
+  @UseInterceptors(FileFieldsInterceptor([{ name: "cv", maxCount: 2 }, { name: "certificates", maxCount: 8 }, { name: "photo", maxCount: 2 }], { limits: { fileSize: 5 * 1024 * 1024, files: 12, fields: 4, parts: 20 } }))
+  async apply(@CurrentUser() u: AuthUser, @Body() body: { data?: string }, @UploadedFiles() files: { cv?: Express.Multer.File[]; certificates?: Express.Multer.File[]; photo?: Express.Multer.File[] } = {}) {
+    return this.applications.submit(u, body?.data, files ?? {});
   }
 
   /** Null when the caller has no advisor profile (so the screen can offer "Apply"); otherwise the profile with its review status. */
@@ -79,7 +86,7 @@ export class AdvisoryAdvisorController {
   async me(@CurrentUser() u: AuthUser) {
     const advisor = await this.advisors.findByUser(u.userId);
     if (!advisor) return { advisor: null };
-    return { advisor: { status: advisor.status, reviewNotes: advisor.reviewNotes, affiliationVerified: advisor.affiliationVerified, profile: await this.advisors.profileView(advisor, { includeInactiveServices: true }) } };
+    return { advisor: await this.myView(advisor) };
   }
 
   @Patch("me")
@@ -87,7 +94,18 @@ export class AdvisoryAdvisorController {
     const advisor = await this.advisors.findByUser(u.userId);
     if (!advisor) return { advisor: null };
     const saved = await this.advisors.updateProfile(advisor, dto);
-    return { advisor: { status: saved.status, reviewNotes: saved.reviewNotes, affiliationVerified: saved.affiliationVerified, profile: await this.advisors.profileView(saved, { includeInactiveServices: true }) } };
+    return { advisor: await this.myView(saved) };
+  }
+
+  /** The signed-in advisor's own record. `reviewNotes` is shown only when it was written for them (rejection, suspension); an approval note stays internal. */
+  private async myView(a: AdvisoryAdvisor) {
+    return {
+      status: a.status,
+      reviewNotes: a.status === "REJECTED" || a.status === "SUSPENDED" ? a.reviewNotes : null,
+      affiliationVerified: a.affiliationVerified,
+      application: await this.applications.statusFor(a),
+      profile: await this.advisors.profileView(a, { includeInactiveServices: true }),
+    };
   }
 
   @UseGuards(ApprovedAdvisorGuard) @Get("bookings") bookingsList(@CurrentAdvisor() a: AdvisoryAdvisor) { return this.bookings.listForAdvisor(a); }
@@ -117,7 +135,21 @@ export class AdvisoryAdminController {
     private readonly advisors: AdvisoryAdvisorsService,
     private readonly bookings: AdvisoryBookingsService,
     private readonly automation: AdvisoryAutomationService,
+    private readonly applications: AdvisoryApplicationsService,
   ) {}
+
+  /** Advisor applications: the list (filter by ?status=PENDING_REVIEW|APPROVED|REJECTED, none = all), one application in full, and its documents. Decisions use the advisor routes below. */
+  @Get("applications") listApplications(@Query("status") status?: string) { return this.applications.listForAdmin(status); }
+  @Get("applications/:id") application(@Param("id", ParseUUIDPipe) id: string) { return this.applications.detailForAdmin(id); }
+  /** Always a download (never rendered from this origin), never cached, and only for an administrator. */
+  @Get("applications/:id/documents/:docId") async document(@Param("id", ParseUUIDPipe) id: string, @Param("docId", ParseUUIDPipe) docId: string, @Res() res: Response) {
+    const f = await this.applications.documentFor(id, docId);
+    res.setHeader("Content-Type", f.mimeType);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Cache-Control", "private, no-store");
+    res.attachment(f.fileName);
+    res.send(f.data);
+  }
 
   @Get("advisors") listAdvisors(@Query("status") status?: string) { return this.admin.listAdvisors(status); }
   @Get("advisors/:id") getAdvisor(@Param("id", ParseUUIDPipe) id: string) { return this.admin.getAdvisor(id); }

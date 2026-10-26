@@ -7,6 +7,8 @@ import { Startup } from "../startups/startup.entity";
 import { User } from "../users/user.entity";
 import { AdvisoryAdminService } from "./advisory-admin.service";
 import { AdvisoryAdvisorsService } from "./advisory-advisors.service";
+import { AdvisoryApplicationNotifier } from "./advisory-application-notifier";
+import { AdvisoryApplicationsService } from "./advisory-applications.service";
 import { AdvisoryAttendanceService } from "./advisory-attendance.service";
 import { AdvisoryAutomationService } from "./advisory-automation.service";
 import { AdvisoryBookingsService } from "./advisory-bookings.service";
@@ -17,16 +19,16 @@ import { MockVideoProvider } from "./video/mock-video-provider";
 import { VIDEO_PROVIDER } from "./video/video-provider";
 import { readVideoConfig } from "./video/video-config";
 import { AdvisoryAdminController, AdvisoryAdvisorController, AdvisoryBookingsController, AdvisoryPublicController, AdvisoryWebhookController } from "./advisory.controllers";
-import { AdvisoryAdvisor, AdvisoryAvailabilityException, AdvisoryAvailabilityRule, AdvisoryBooking, AdvisoryBookingEvent, AdvisoryMeetingAttendance, AdvisoryService, AdvisoryWebhookEvent } from "./advisory.entities";
+import { AdvisoryAdvisor, AdvisoryAvailabilityException, AdvisoryApplicationDocument, AdvisoryApplicationEvent, AdvisoryAvailabilityRule, AdvisoryBooking, AdvisoryBookingEvent, AdvisoryMeetingAttendance, AdvisoryService, AdvisoryWebhookEvent } from "./advisory.entities";
 import { AdvisoryEnabledGuard, ApprovedAdvisorGuard } from "./advisory.guards";
 
 /** Advisory Services: advisors, their services and availability, and consultation bookings. Inert unless ADVISORY_ENABLED=true (every route 404s). */
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AdvisoryAdvisor, AdvisoryService, AdvisoryAvailabilityRule, AdvisoryAvailabilityException, AdvisoryBooking, AdvisoryBookingEvent, AdvisoryMeetingAttendance, AdvisoryWebhookEvent, EntityMembership, Startup, User]),
+    TypeOrmModule.forFeature([AdvisoryAdvisor, AdvisoryService, AdvisoryAvailabilityRule, AdvisoryAvailabilityException, AdvisoryBooking, AdvisoryBookingEvent, AdvisoryMeetingAttendance, AdvisoryWebhookEvent, AdvisoryApplicationDocument, AdvisoryApplicationEvent, EntityMembership, Startup, User]),
     EmailModule,
   ],
-  providers: [AdvisoryAdvisorsService, AdvisoryBookingsService, AdvisoryAdminService, AdvisoryAutomationService, AdvisoryAttendanceService, AdvisoryMeetingService, AdvisoryNotifier,
+  providers: [AdvisoryAdvisorsService, AdvisoryBookingsService, AdvisoryAdminService, AdvisoryAutomationService, AdvisoryAttendanceService, AdvisoryMeetingService, AdvisoryNotifier, AdvisoryApplicationsService, AdvisoryApplicationNotifier,
     {
       // Simulated rooms unless Daily was asked for AND has credentials. "daily" without credentials stays unusable (the meeting service reports it as not set up).
       provide: VIDEO_PROVIDER,

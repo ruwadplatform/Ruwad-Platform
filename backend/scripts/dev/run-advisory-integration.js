@@ -9,7 +9,7 @@ const { useLocalDatabase, describe } = require("./local-db-guard");
 const url = useLocalDatabase();
 console.log(`[test:advisory] running against ${describe(url)} (local embedded Postgres)`);
 const jest = path.join(path.dirname(require.resolve("jest/package.json", { paths: [path.join(__dirname, "..", "..")] })), "bin", "jest.js");
-const result = spawnSync(process.execPath, [jest, "--runInBand", "--testPathPattern", "advisory.integration", ...process.argv.slice(2)], {
+const result = spawnSync(process.execPath, [jest, "--runInBand", "--testPathPattern", "advisory.*integration", ...process.argv.slice(2)], {
   cwd: path.join(__dirname, "..", ".."),
   stdio: "inherit",
   env: { ...process.env, ADVISORY_INTEGRATION: "1" },

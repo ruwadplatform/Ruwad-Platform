@@ -1,5 +1,5 @@
-import { Type } from "class-transformer";
-import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { Transform, Type } from "class-transformer";
+import { ArrayMaxSize, Equals, IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUrl, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateNested } from "class-validator";
 import { ConsultationTypeId } from "../advisory.enums";
 import { HHMM_PATTERN, YMD_PATTERN } from "../advisory-time";
 
@@ -19,6 +19,32 @@ export class AdvisorProfileDto {
   @IsOptional() @IsArray() @ArrayMaxSize(12) @IsString({ each: true }) @MaxLength(60, { each: true }) expertiseTags?: string[];
   @IsString() @Length(20, 3000) about!: string;
   @IsOptional() @IsInt() @Min(0) @Max(70) yearsExperience?: number;
+}
+
+/** An empty optional box on the form arrives as "": treat it as "not provided" rather than as a value that then fails its own format check. */
+const blankToUndefined = Transform(({ value }) => (typeof value === "string" && value.trim() === "" ? undefined : value));
+const PHONE_PATTERN = /^(?=(?:\D*\d){7,15}\D*$)\+?[0-9 ()\-.]{7,25}$/;
+const LINKEDIN_PATTERN = /^https?:\/\/([a-z0-9-]+\.)*linkedin\.com(\/|$)/i;
+const URL_OPTIONS = { protocols: ["http", "https"], require_protocol: true, require_tld: true };
+
+/** The "Become an Advisor" form. Validated again here whatever the browser already checked. `declaration` must be exactly true. */
+export class AdvisorApplicationDto {
+  @IsString() @Length(2, 120) name!: string;
+  @IsEmail({}, { message: "email must be a valid email address" }) @MaxLength(254) email!: string;
+  @Matches(PHONE_PATTERN, { message: "phone must be a valid phone number, for example +966 5X XXX XXXX" }) phone!: string;
+  @IsString() @Length(2, 120) designation!: string;
+  @IsString() @Length(2, 160) institution!: string;
+  @IsString() @Length(2, 120) location!: string;
+  @IsString() @Length(2, 120) specialization!: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(12) @IsString({ each: true }) @MaxLength(80, { each: true }) specializations?: string[];
+  @IsInt() @Min(0) @Max(70) yearsExperience!: number;
+  @IsString() @Length(50, 3000, { message: "about (professional biography) must be between 50 and 3000 characters" }) about!: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(12) @IsString({ each: true }) @MaxLength(120, { each: true }) researchAreas?: string[];
+  @blankToUndefined @IsOptional() @IsString() @MaxLength(1500) consultationServices?: string;
+  @IsOptional() @IsIn([30, 45, 60], { message: "preferredMinutes must be 30, 45 or 60" }) preferredMinutes?: number;
+  @blankToUndefined @IsOptional() @IsString() @MaxLength(300) @Matches(LINKEDIN_PATTERN, { message: "linkedinUrl must be a linkedin.com address" }) linkedinUrl?: string;
+  @blankToUndefined @IsOptional() @IsString() @MaxLength(300) @IsUrl(URL_OPTIONS, { message: "websiteUrl must be a web address starting with http:// or https://" }) websiteUrl?: string;
+  @Equals(true, { message: "You must confirm the declaration before submitting" }) declaration!: boolean;
 }
 
 export class UpdateAdvisorProfileDto {

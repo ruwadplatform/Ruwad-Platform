@@ -70,6 +70,108 @@ export class AdvisoryAdvisor extends BaseEntity {
 
   @Column({ type: "text", nullable: true })
   reviewNotes!: string | null;
+
+  // ---- the "Become an Advisor" application (all null on profiles created before the form existed, and on demonstration advisors) ------------
+
+  /** Where decision emails go: the address typed on the form, which may differ from the sign-in address. Never shown publicly. */
+  @Column({ type: "varchar", length: 254, nullable: true })
+  contactEmail!: string | null;
+
+  @Column({ type: "varchar", length: 40, nullable: true })
+  phone!: string | null;
+
+  @Column({ type: "text", nullable: true })
+  consultationServices!: string | null;
+
+  /** 30, 45 or 60 (a database check enforces it). */
+  @Column({ type: "int", nullable: true })
+  preferredMinutes!: number | null;
+
+  @Column({ type: "varchar", length: 300, nullable: true })
+  linkedinUrl!: string | null;
+
+  @Column({ type: "varchar", length: 300, nullable: true })
+  websiteUrl!: string | null;
+
+  /** Quoted in emails and to the applicant, e.g. ADV-2026-K7Q2MX. Unique. */
+  @Column({ type: "varchar", length: 24, nullable: true })
+  applicationReference!: string | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  submittedAt!: Date | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  declarationAcceptedAt!: Date | null;
+}
+
+/** A supporting document sent with an application (CV, certificate, photograph). Private: the bytes are never selected by default and are only
+ * ever served as an attachment to an administrator. */
+@Entity("advisory_application_documents")
+export class AdvisoryApplicationDocument {
+  @PrimaryGeneratedColumn("uuid")
+  id!: string;
+
+  @CreateDateColumn({ type: "timestamptz" })
+  createdAt!: Date;
+
+  @Index()
+  @Column({ type: "uuid" })
+  advisorId!: string;
+
+  /** CV, CERTIFICATE or PHOTO. */
+  @Column({ type: "varchar", length: 12 })
+  kind!: string;
+
+  @Column({ type: "varchar", length: 150 })
+  fileName!: string;
+
+  @Column({ type: "varchar", length: 80 })
+  mimeType!: string;
+
+  @Column({ type: "int" })
+  size!: number;
+
+  @Column({ type: "bytea", select: false })
+  data!: Buffer;
+}
+
+/** Append-only history of an application: submitted, approved, rejected (with the reason), suspended, and each email attempt. Never updated or
+ * deleted. This is the audit record of who decided what, and when. */
+@Entity("advisory_application_events")
+@Index(["advisorId", "createdAt"])
+export class AdvisoryApplicationEvent {
+  @PrimaryGeneratedColumn("uuid")
+  id!: string;
+
+  @CreateDateColumn({ type: "timestamptz" })
+  createdAt!: Date;
+
+  @Column({ type: "uuid" })
+  advisorId!: string;
+
+  @Column({ type: "uuid", nullable: true })
+  actorUserId!: string | null;
+
+  /** APPLICANT, ADMIN or SYSTEM. */
+  @Column({ type: "varchar", length: 10 })
+  actorRole!: string;
+
+  /** SUBMITTED, APPROVED, REJECTED, SUSPENDED, NOTIFICATION. */
+  @Column({ type: "varchar", length: 16 })
+  type!: string;
+
+  @Column({ type: "varchar", length: 20, nullable: true })
+  fromStatus!: string | null;
+
+  @Column({ type: "varchar", length: 20, nullable: true })
+  toStatus!: string | null;
+
+  /** The administrator's review note, or the rejection reason. */
+  @Column({ type: "text", nullable: true })
+  note!: string | null;
+
+  @Column({ type: "jsonb", nullable: true })
+  details!: Record<string, unknown> | null;
 }
 
 /** One consultation an advisor offers. */

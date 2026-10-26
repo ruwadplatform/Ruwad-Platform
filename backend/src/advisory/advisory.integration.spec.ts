@@ -54,6 +54,14 @@ suite("Advisory Services — integration (local Postgres)", () => {
       put: (p: string, body: object = {}) => auth(base().put(`/api${p}`)).send(body),
       patch: (p: string, body: object = {}) => auth(base().patch(`/api${p}`)).send(body),
       del: (p: string) => auth(base().delete(`/api${p}`)),
+      /** The application endpoint: multipart, the form as JSON in `data`, plus optional files. */
+      apply: (form: object, files: { cv?: Buffer; certificates?: Buffer[]; photo?: Buffer } = {}, names: { cv?: string; photo?: string } = {}) => {
+        let r = auth(base().post("/api/advisory/advisor/apply")).field("data", JSON.stringify(form));
+        if (files.cv) r = r.attach("cv", files.cv, names.cv ?? "cv.pdf");
+        (files.certificates ?? []).forEach((c, i) => { r = r.attach("certificates", c, `cert-${i}.pdf`); });
+        if (files.photo) r = r.attach("photo", files.photo, names.photo ?? "me.png");
+        return r;
+      },
     };
   };
 
@@ -82,10 +90,14 @@ suite("Advisory Services — integration (local Postgres)", () => {
   const member = (userId: string, startupId: string, role: string) =>
     db.query(`INSERT INTO entity_memberships ("userId",kind,"entityId",role) VALUES ($1,'STARTUP',$2,$3)`, [userId, startupId, role]);
 
-  const profile = (name: string) => ({
-    name, institution: "Test Institute", institutionFull: "Test Institute of Integration Testing", designation: "Tester", location: "Riyadh, Saudi Arabia", specialization: "Testing",
-    specializations: ["Testing"], researchAreas: ["Integration testing"], expertise: "Integration testing.", about: "An integration-test advisor profile created by an automated test.",
+  /** A valid application through the real endpoint (multipart: the form as JSON plus a tiny but genuine PDF). */
+  const pdf = Buffer.from(["%PDF-1.4", "1 0 obj<<>>endobj", "trailer<<>>", "%%EOF", ""].join("\n"));
+  const application = (name: string, over: Record<string, unknown> = {}) => ({
+    name, email: `apply-${tag}@example.test`, phone: "+966 55 123 4567", designation: "Tester", institution: "Test Institute", location: "Riyadh, Saudi Arabia", specialization: "Testing",
+    specializations: ["Testing"], yearsExperience: 12, about: "An integration-test advisor profile created by an automated test, long enough to pass the biography check.",
+    researchAreas: ["Integration testing"], declaration: true, ...over,
   });
+  const applyAs = (who: string, name: string) => api(who).apply(application(name), { cv: pdf });
 
   let ids: Record<string, string> = {};
   let advSlug = "";
@@ -146,7 +158,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
     await member(ids.editor!, startupForEditor, "EDITOR");
 
     // The real onboarding flow, through the API: apply → administrator approves → advisor sets hours and services.
-    const applied = await api("advisorUser").post("/advisory/advisor/apply", profile(`Dr. Itest ${tag}`));
+    const applied = await applyAs("advisorUser", `Dr. Itest ${tag}`);
     expect(applied.status).toBe(201);
     advId = (await db.query(`SELECT id, slug FROM advisory_advisors WHERE "userId" = $1`, [ids.advisorUser])).rows[0].id;
     advSlug = (await db.query(`SELECT slug FROM advisory_advisors WHERE id = $1`, [advId])).rows[0].slug;
@@ -157,11 +169,11 @@ suite("Advisory Services — integration (local Postgres)", () => {
     svc30 = (await api("advisorUser").post("/advisory/advisor/services", { typeId: "specialist", name: "Itest 30", description: "thirty", minutes: 30 })).body.id;
     svc60 = (await api("advisorUser").post("/advisory/advisor/services", { typeId: "advisory", name: "Itest 60", description: "sixty", minutes: 60 })).body.id;
 
-    await api("otherAdvisorUser").post("/advisory/advisor/apply", profile(`Dr. Other ${tag}`));
+    await applyAs("otherAdvisorUser", `Dr. Other ${tag}`);
     const other = (await db.query(`SELECT id FROM advisory_advisors WHERE "userId" = $1`, [ids.otherAdvisorUser])).rows[0].id;
     created.advisors.push(other);
     await api("admin").post(`/advisory/admin/advisors/${other}/approve`, {});
-    await api("pendingAdvisorUser").post("/advisory/advisor/apply", profile(`Dr. Pending ${tag}`));
+    await applyAs("pendingAdvisorUser", `Dr. Pending ${tag}`);
     created.advisors.push((await db.query(`SELECT id FROM advisory_advisors WHERE "userId" = $1`, [ids.pendingAdvisorUser])).rows[0].id);
 
     // A demonstration advisor of our own (not the seeded six), flagged isDemo with no user account.
@@ -183,6 +195,8 @@ suite("Advisory Services — integration (local Postgres)", () => {
       await db.query(`DELETE FROM advisory_availability_exceptions WHERE "advisorId" = ANY($1)`, [adv]);
       await db.query(`DELETE FROM advisory_availability_rules WHERE "advisorId" = ANY($1)`, [adv]);
       await db.query(`DELETE FROM advisory_services WHERE "advisorId" = ANY($1)`, [adv]);
+      await db.query(`DELETE FROM advisory_application_documents WHERE "advisorId" = ANY($1)`, [adv]);
+      await db.query(`DELETE FROM advisory_application_events WHERE "advisorId" = ANY($1)`, [adv]);
       await db.query(`DELETE FROM advisory_advisors WHERE id = ANY($1)`, [adv]);
     }
     if (db) await db.query(`DELETE FROM advisory_webhook_events WHERE id LIKE $1`, [`${tag}-%`]);
@@ -633,7 +647,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
     expect(res.body.advisor.affiliationVerified).toBe(false);
     expect((await api("owner").patch("/advisory/advisor/me", { name: "Hacked" })).body).toEqual({ advisor: null });
     expect((await api("advisorUser").patch("/advisory/advisor/me", { status: "APPROVED" })).status).toBe(400); // can't set their own status
-    expect((await api("advisorUser").post("/advisory/advisor/apply", profile("Dr. Twice"))).status).toBe(409);
+    expect((await applyAs("advisorUser", "Dr. Twice")).status).toBe(409);
   });
 
   // ---- administrators ------------------------------------------------------------------------------------------------------------------------

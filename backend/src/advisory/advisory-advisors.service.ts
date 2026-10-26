@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, MoreThan, Repository } from "typeorm";
+import { EntityManager, In, MoreThan, Repository } from "typeorm";
 import { AdvisoryAdvisor, AdvisoryAvailabilityException, AdvisoryAvailabilityRule, AdvisoryBooking, AdvisoryService } from "./advisory.entities";
 import { AdvisorStatus, SLOT_HOLDING_STATUSES } from "./advisory.enums";
 import { MAX_BOOKING_DAYS, MIN_NOTICE_MINUTES, minutesOf, parseYmd } from "./advisory-time";
@@ -198,10 +198,11 @@ export class AdvisoryAdvisorsService {
 
   /** Any signed-in user may apply once. The profile is PENDING_REVIEW and invisible until an administrator approves it, and the claimed
    * affiliation is never shown as verified unless an administrator marks it so. */
-  async apply(userId: string, dto: AdvisorProfileDto): Promise<AdvisoryAdvisor> {
-    if (await this.findByUser(userId)) throw new ConflictException("You already have an advisor profile.");
-    const slug = await this.uniqueSlug(dto.name);
-    const advisor = this.advisors.create({
+  async apply(userId: string, dto: AdvisorProfileDto, extra: Partial<AdvisoryAdvisor> = {}, manager?: EntityManager): Promise<AdvisoryAdvisor> {
+    const repo = manager ? manager.getRepository(AdvisoryAdvisor) : this.advisors;
+    if (await repo.exists({ where: { userId } })) throw new ConflictException("You already have an advisor profile.");
+    const slug = await this.uniqueSlug(dto.name, repo);
+    const advisor = repo.create({
       userId,
       slug,
       ...this.profileFields(dto),
@@ -209,8 +210,9 @@ export class AdvisoryAdvisorsService {
       affiliationVerified: false,
       isDemo: false,
       status: AdvisorStatus.PENDING_REVIEW,
+      ...extra,
     });
-    return this.advisors.save(advisor);
+    return repo.save(advisor);
   }
 
   async updateProfile(advisor: AdvisoryAdvisor, dto: UpdateAdvisorProfileDto): Promise<AdvisoryAdvisor> {
@@ -244,11 +246,11 @@ export class AdvisoryAdvisorsService {
     };
   }
 
-  private async uniqueSlug(name: string): Promise<string> {
+  private async uniqueSlug(name: string, repo: Repository<AdvisoryAdvisor> = this.advisors): Promise<string> {
     const base = clean(name).toLowerCase().replace(/^(dr|prof)\.?\s+/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "advisor";
     for (let i = 0; i < 20; i++) {
       const slug = i === 0 ? base : `${base}-${i + 1}`;
-      if (!(await this.advisors.exists({ where: { slug } }))) return slug;
+      if (!(await repo.exists({ where: { slug } }))) return slug;
     }
     return `${base}-${Date.now().toString(36)}`;
   }

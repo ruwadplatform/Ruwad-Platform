@@ -14,7 +14,7 @@ export const MAX_FILE_BYTES = 10 * 1024 * 1024; // per document
 export const MAX_FILES = 50; // per Data Room
 export const MAX_TOTAL_BYTES = 100 * 1024 * 1024; // per Data Room, kept modest because files live in the database
 
-type Kind = "pdf" | "zip" | "ole" | "png" | "jpg" | "text";
+export type Kind = "pdf" | "zip" | "ole" | "png" | "jpg" | "text";
 const TYPES: Record<string, { mime: string; kind: Kind }> = {
   ".pdf": { mime: "application/pdf", kind: "pdf" },
   ".docx": { mime: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", kind: "zip" },
@@ -33,7 +33,7 @@ export const ALLOWED_EXTENSIONS = Object.keys(TYPES);
 const MSG_TYPE = `Upload a PDF, Word, Excel, PowerPoint, CSV, text, PNG or JPG file (${ALLOWED_EXTENSIONS.join(", ")}).`;
 
 /** The file's own leading bytes must match the type its extension claims, so a renamed file can never be stored as something it is not. */
-function signatureMatches(kind: Kind, b: Buffer): boolean {
+export function signatureMatches(kind: Kind, b: Buffer): boolean {
   switch (kind) {
     case "pdf": return b.length >= 5 && b.subarray(0, 5).toString("latin1") === "%PDF-";
     case "zip": return b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && (b[2] === 0x03 || b[2] === 0x05) && (b[3] === 0x04 || b[3] === 0x06);
