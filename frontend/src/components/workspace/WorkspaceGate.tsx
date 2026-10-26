@@ -16,7 +16,8 @@ export function WorkspaceGate({ title = "Sign in to access your Workspace", body
   const pathname = usePathname();
 
   function goTo(dest: "/login" | "/signup") {
-    stashReturnRoute(pathname);
+    // Keep the query too: a link such as /admin/advisory?application=… must open that very item after signing in.
+    stashReturnRoute(`${pathname}${typeof window === "undefined" ? "" : window.location.search}`);
     router.push(dest);
   }
 

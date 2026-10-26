@@ -14,16 +14,19 @@ Branch: `feature/advisory-services`. Features are off by default in code (`ADVIS
 | Video: Daily Prebuilt behind a provider interface; simulated rooms | Done; **real Daily never run live** (no account yet) |
 | Attendance, Needs Review queue, recording the outcome | Done; Daily webhook payload shapes **unverified** |
 | Automatic completion | Built but **off and not approved** |
+| Advisor applications ("Become an Advisor") | Done: form, private documents, admin review, history, emails; see section 7 |
 | Email | **Mock only** (`ADVISORY_EMAIL_MODE`), never for demonstration bookings |
 
 ## 2. Database
 
-Two migrations, both in `backend/src/database/migrations-advisory/` and both **opt-in**:
+Three migrations, all in `backend/src/database/migrations-advisory/` and all **opt-in**:
 
 1. `1794300000000-CreateAdvisoryServices`: new tables and enums; `CREATE EXTENSION IF NOT EXISTS btree_gist`; the exclusion constraint that makes double-booking impossible.
 2. `1794400000000-AdvisoryAutomationAndMeetings`: the `EXPIRED` enum value, expiry / reminder / review / meeting columns on `advisory_bookings`, and the `advisory_meeting_attendance` and `advisory_webhook_events` tables.
 
-Both only add; neither touches an existing table. Both were applied, reverted and re-applied on the local database. They have never been run anywhere else.
+3. `1794500000000-AdvisorApplications`: nullable application columns on `advisory_advisors` (contact email, phone, services, preferred duration, links, application reference, submitted and declaration times), plus the `advisory_application_documents` and `advisory_application_events` tables.
+
+They only add; none touches an existing table outside the advisory ones. All were applied, reverted and re-applied on the local database. They have never been run anywhere else.
 
 **Why opt-in:** Render still auto-deploys from `master` and runs pending migrations on start, and the AWS image runs them unless `RUN_MIGRATIONS=false`. Without the gate, merging this work would have applied it to Supabase as a side effect of an ordinary deploy. The CLI data source now lists the advisory folder only when `ADVISORY_MIGRATIONS=true` (`src/database/migration-sources.ts`). A normal deploy does not see these migrations.
 
@@ -35,7 +38,7 @@ ADVISORY_MIGRATIONS=true <the usual migration command, pointed at production>
 
 Notes:
 - `btree_gist` needs separate approval. It is a Supabase-supported extension.
-- The migrations are meant to be applied **together, in one window**.
+- The migrations are meant to be applied **together, in one window**. Revert newest first (`1794500000000`, then `1794400000000`, then `1794300000000`).
 - Revert is supported (`down()` drops the new tables, indexes and columns). The `EXPIRED` enum value stays, because PostgreSQL cannot drop a single enum value; an unused value is harmless.
 - Take or confirm a Supabase backup / point-in-time recovery point first.
 
@@ -47,7 +50,8 @@ Backend (set with `infra/aws/set-lightsail-env.js`; values are never printed):
 |---|---|---|
 | `ADVISORY_ENABLED` | off | `true` only after the migrations are applied |
 | `ADVISORY_MIGRATIONS` | off | set only for the migration command, never on the running service |
-| `ADVISORY_EMAIL_MODE` | `mock` | stays `mock` until live email is separately authorised |
+| `ADVISORY_EMAIL_MODE` | `mock` | stays `mock` until live email is separately authorised (it also governs the application emails) |
+| `ADVISORY_APPLICATIONS_EMAIL` | `ruwadplatform@gmail.com` | where "new advisor application" emails go; leave unset |
 | `ADVISORY_SCHEDULER_ENABLED` | off | `true` on **AWS only** (see section 5) |
 | `ADVISORY_AUTOCOMPLETE_ENABLED` | off | **leave off**: not approved |
 | `ADVISORY_REQUEST_EXPIRY_HOURS` / `_CUTOFF_MINUTES` / `_EXPIRY_WARNING_HOURS` | 72 / 30 / 24 | tunable |
@@ -92,7 +96,25 @@ Render and AWS both exist. The scheduler claims every row with `UPDATE ... FOR U
 - Live email needs authorisation and a deliverability check for the sending domain.
 - An unrelated `zod` advisory remains in the dependency tree (not part of this work).
 
-## 7. Local tooling (never touches production)
+## 7. Advisor applications ("Become an Advisor")
+
+An application **is** the advisor profile in `PENDING_REVIEW`, so there is one record to keep in step. It becomes public only when an administrator approves it.
+
+- **Submit:** `POST /api/advisory/advisor/apply` is multipart: the form as JSON in `data`, plus `cv` (required, PDF, 5 MB), `certificates` (up to 5; PDF, PNG or JPG; 5 MB each) and `photo` (PNG or JPG, 2 MB). The server validates every field and each file's real contents (signature check, as in the Data Room). The profile, its documents and the history entry are written in one transaction. One application per account: a second, or two at the same instant, is a 409. Throttled to 10 per hour.
+- **Documents** live in the database (`bytea`), are never selected by default, and are served only to administrators through `GET /api/advisory/admin/applications/:id/documents/:docId`, as an attachment with `Cache-Control: no-store` and `nosniff`. No public or applicant route returns the bytes. There is **no antivirus scan** (same as the Data Room).
+- **Decisions** reuse `POST /api/advisory/admin/advisors/:id/approve|reject`. Each is one conditional `UPDATE` (only from an allowed state), so a double click or two administrators cannot both succeed: the loser gets a 409 and no second email. A rejection **requires a reason** (at least 10 characters), which is emailed to the applicant. `advisory_application_events` records who decided what, and when. It is the audit trail; the platform has no other audit log.
+- **Emails** (mock unless `ADVISORY_EMAIL_MODE=live`): a new application goes to `ruwadplatform@gmail.com` (details, reference, a sign-in link to `/admin/advisory?application=<id>`, never a document), then the approval and the rejection (with the reason) go to the applicant's form address. A failed email is recorded and never undoes or hides the application or the decision. The history says plainly whether each email was sent, failed, or not sent (mock mode).
+- **Applicant view:** the Advisor Dashboard shows the application's progress. A rejection reason is returned only on the applicant's own `GET /advisory/advisor/me`; an approval note stays internal.
+- **Admin view:** Advisory Management → Applications (filters: Pending Review, Approved, Rejected, All) with the full application, its documents and history, and the two decisions.
+
+Before going live, also settle:
+
+- The browser sends the application through the site's own `/api` (the sign-in cookie belongs to the site). Confirm the Vercel proxy accepts a multipart body up to the largest allowed submission (about 12 MB with these limits). If it does not, lower the per-file limits. Verified locally only (a 4 MB CV through the local proxy).
+- Applicants' documents are personal data: include them in the data-protection and retention review, and decide how long a rejected applicant's documents are kept.
+- A rejected applicant cannot re-apply from the screen (the account already has a profile). An administrator can still approve a rejected application later.
+- Live email needs the same authorisation and deliverability check as the booking emails.
+
+## 8. Local tooling (never touches production)
 
 All of these refuse any database that is not on this machine (`backend/scripts/dev/local-db-guard.js`):
 

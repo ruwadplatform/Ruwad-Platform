@@ -10,10 +10,13 @@ import { useToast } from "@/components/shell/ToastProvider";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { useSession } from "@/hooks/use-store";
 import {
-  addMyTimeOff, applyAsAdvisor, approveBooking, completeBooking, createMyService, fetchAdvisorBookings, fetchMyAdvisorProfile, fetchMyAvailability, fetchMyServices, rejectBooking,
+  addMyTimeOff, approveBooking, completeBooking, createMyService, fetchAdvisorBookings, fetchMyAdvisorProfile, fetchMyAvailability, fetchMyServices, rejectBooking,
   removeMyTimeOff, saveMyAvailability, updateMyAdvisorProfile, updateMyService,
 } from "@/lib/api/advisory";
+import { AdvisorApplicationForm, type SubmittedApplication } from "./AdvisorApplicationForm";
 import { AvailabilityEditor, ProfileForm, ServicesEditor } from "./AdvisorEditors";
+import { SubmittedPanel, usePrefill } from "./BecomeAdvisor";
+import { ApplicationStatusCard } from "./ApplicationStatusCard";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
 import { ResolveOutcomeModal } from "./AttendanceParts";
 import { NoteModal } from "./booking-modals";
@@ -58,13 +61,15 @@ export function AdvisorDashboardPage() {
 }
 
 function Apply({ onDone }: { onDone: () => void }) {
-  const toast = useToast();
+  const prefill = usePrefill();
+  const [done, setDone] = useState<SubmittedApplication | null>(null);
+  if (done) return <section className="panel panel-pad"><SubmittedPanel reference={done.reference} onClose={onDone} onView={onDone} /></section>;
   return (
     <section className="panel panel-pad">
       <h2 className="adv-sec-title">Become an advisor</h2>
       <p className="adv-about">Tell founders who you are and what you can help with. A RUWĀD administrator reviews every application before a profile appears in the directory. Your institution is shown as <i>listed, not verified</i> until an administrator has checked it.</p>
       <div className="mt-16">
-        <ProfileForm submitLabel="Submit for review" onSubmit={async (v) => { await applyAsAdvisor(v); toast("Application submitted for review"); onDone(); }} />
+        <AdvisorApplicationForm prefill={prefill} onSubmitted={setDone} />
       </div>
     </section>
   );
@@ -81,18 +86,20 @@ function ReviewStatus({ advisor, reload }: { advisor: MyAdvisorProfile; reload: 
   return (
     <>
       <section className="panel panel-pad">
-        <h2 className="adv-sec-title">{copy.title}</h2>
-        <p className="adv-about">{copy.body}</p>
-        {advisor.reviewNotes && <p className="adv-review-note mt-16"><RuwadIcon name="info" size={14} /> Reviewer&apos;s note: {advisor.reviewNotes}</p>}
+        <h2 className="adv-sec-title">{advisor.application ? "Your advisor application" : copy.title}</h2>
+        {advisor.application ? <ApplicationStatusCard application={advisor.application} /> : <p className="adv-about">{copy.body}</p>}
+        {advisor.reviewNotes && (!advisor.application || advisor.status === "SUSPENDED") && <p className="adv-review-note mt-16"><RuwadIcon name="info" size={14} /> Reviewer&apos;s note: {advisor.reviewNotes}</p>}
       </section>
-      <section className="panel panel-pad mt-16">
-        <h3 className="adv-sec-sub" style={{ marginTop: 0 }}>Your profile</h3>
-        <ProfileForm
-          submitLabel="Save profile"
-          initial={{ ...advisor.profile, yearsExperience: advisor.profile.yearsExperience ?? undefined }}
-          onSubmit={async (v) => { await updateMyAdvisorProfile(v); toast("Profile saved"); reload(); }}
-        />
-      </section>
+      {(!advisor.application || advisor.status === "PENDING_REVIEW" || advisor.status === "DRAFT") && (
+        <section className="panel panel-pad mt-16">
+          <h3 className="adv-sec-sub" style={{ marginTop: 0 }}>Your profile</h3>
+          <ProfileForm
+            submitLabel="Save profile"
+            initial={{ ...advisor.profile, yearsExperience: advisor.profile.yearsExperience ?? undefined }}
+            onSubmit={async (v) => { await updateMyAdvisorProfile(v); toast("Profile saved"); reload(); }}
+          />
+        </section>
+      )}
     </>
   );
 }

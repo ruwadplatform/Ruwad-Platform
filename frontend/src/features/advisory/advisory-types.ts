@@ -179,9 +179,23 @@ export interface SlotOffer { time: string; startsAt: string; endsAt: string }
 export type AdvisorReviewStatus = "DRAFT" | "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "SUSPENDED";
 
 /** The signed-in person's own advisor profile, with its review status. */
+/** What an applicant sees about their own application. The reviewer's notes never appear here; only a rejection reason, which is written for them. */
+export type ApplicationStage = "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "SUSPENDED";
+export interface ApplicationStatus {
+  reference: string;
+  stage: ApplicationStage;
+  submittedAt: string | null;
+  decidedAt: string | null;
+  rejectionReason: string | null;
+  documents: { kind: string; fileName: string; size: number }[];
+  timeline: { type: "SUBMITTED" | "APPROVED" | "REJECTED" | "SUSPENDED"; at: string }[];
+}
+
 export interface MyAdvisorProfile {
   status: AdvisorReviewStatus;
   reviewNotes: string | null;
+  /** Null for profiles that didn't come through the application form. */
+  application: ApplicationStatus | null;
   affiliationVerified: boolean;
   profile: AdvisorProfile & { services: (AdvisorService & { active?: boolean })[] };
 }
@@ -307,4 +321,54 @@ export interface JoinInfo {
   tokenExpiresAt: string;
   recording: false;
   notice: string;
+}
+
+// ---- administrators: advisor applications ------------------------------------------------------------------------------------------------------
+
+export type ApplicationFilter = "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "ALL";
+
+export interface ApplicationRow {
+  id: string;
+  reference: string | null;
+  name: string;
+  institution: string;
+  specialization: string;
+  email: string | null;
+  submittedAt: string;
+  status: AdvisorReviewStatus;
+}
+
+export interface ApplicationList {
+  counts: Record<string, number>;
+  applications: ApplicationRow[];
+}
+
+export interface ApplicationDocument { id: string; kind: "CV" | "CERTIFICATE" | "PHOTO"; fileName: string; mimeType: string; size: number }
+
+export interface ApplicationDetail {
+  id: string;
+  reference: string | null;
+  status: AdvisorReviewStatus;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  designation: string;
+  institution: string;
+  location: string;
+  specialization: string;
+  specializations: string[];
+  yearsExperience: number | null;
+  about: string;
+  researchAreas: string[];
+  consultationServices: string | null;
+  preferredMinutes: number | null;
+  linkedinUrl: string | null;
+  websiteUrl: string | null;
+  submittedAt: string;
+  declarationAcceptedAt: string | null;
+  affiliationVerified: boolean;
+  account: { name: string; email: string } | null;
+  review: { at: string; by: string | null; note: string | null } | null;
+  documents: ApplicationDocument[];
+  history: { id: string; at: string; actorRole: "APPLICANT" | "ADMIN" | "SYSTEM"; type: string; fromStatus: string | null; toStatus: string | null; note: string | null; details: Record<string, unknown> | null }[];
 }

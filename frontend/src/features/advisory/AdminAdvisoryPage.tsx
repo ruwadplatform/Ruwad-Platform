@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { StatCard } from "@/components/shared/StatCard";
@@ -10,8 +10,9 @@ import { useToast } from "@/components/shell/ToastProvider";
 import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { useSession } from "@/hooks/use-store";
 import {
-  adminCancelBooking, createAdvisorService, fetchAutomationStatus, runAutomation, fetchAdminAdvisor, fetchAdminAdvisors, fetchAdminBookings, fetchAdvisoryStats, reviewAdvisor, saveAdvisorAvailability, setAdvisorVerified, updateAdvisorService,
+  adminCancelBooking, createAdvisorService, fetchAutomationStatus, runAutomation, fetchAdminAdvisor, fetchAdminAdvisors, fetchAdminApplications, fetchAdminBookings, fetchAdvisoryStats, reviewAdvisor, saveAdvisorAvailability, setAdvisorVerified, updateAdvisorService,
 } from "@/lib/api/advisory";
+import { ApplicationModal, ApplicationsTab, MIN_REJECTION_REASON } from "./AdminApplications";
 import { AvailabilityEditor, ServicesEditor } from "./AdvisorEditors";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
 import { ResolveOutcomeModal } from "./AttendanceParts";
@@ -21,8 +22,8 @@ import type { AdminAdvisorRow, AdvisorReviewStatus, AvailabilityState, BookingSt
 import { useAsync } from "./use-async";
 import type { AutomationReport } from "./advisory-types";
 
-type Tab = "advisors" | "bookings" | "review" | "stats" | "automation";
-const TABS: { id: Tab; label: string }[] = [{ id: "advisors", label: "Advisors" }, { id: "bookings", label: "Bookings" }, { id: "review", label: "Needs review" }, { id: "stats", label: "Statistics" }, { id: "automation", label: "Automation" }];
+type Tab = "advisors" | "applications" | "bookings" | "review" | "stats" | "automation";
+const TABS: { id: Tab; label: string }[] = [{ id: "advisors", label: "Advisors" }, { id: "applications", label: "Applications" }, { id: "bookings", label: "Bookings" }, { id: "review", label: "Needs review" }, { id: "stats", label: "Statistics" }, { id: "automation", label: "Automation" }];
 const ADVISOR_STATUS: Record<AdvisorReviewStatus, { label: string; cls: string }> = {
   DRAFT: { label: "Draft", cls: "adv-badge-muted" },
   PENDING_REVIEW: { label: "Pending review", cls: "adv-badge-warn" },
@@ -35,7 +36,22 @@ const ADVISOR_STATUS: Record<AdvisorReviewStatus, { label: string; cls: string }
  * numbers. An administrator can cancel a booking but cannot approve or reschedule one for either side. */
 export function AdminAdvisoryPage() {
   const { loggedIn, isAdmin, hydrated } = useSession();
+  const { openModal } = useModal();
   const [tab, setTab] = useState<Tab>("advisors");
+  const [tick, setTick] = useState(0);
+  const pending = useAsync(loggedIn && isAdmin ? `admpending|${tick}` : null, () => fetchAdminApplications("PENDING_REVIEW"));
+  const pendingCount = pending.data?.counts.PENDING_REVIEW;
+
+  // The link in the "new application" email is /admin/advisory?application=<id>: open that application straight away (after signing in, if needed).
+  useEffect(() => {
+    if (!hydrated || !loggedIn || !isAdmin) return;
+    const id = new URLSearchParams(window.location.search).get("application");
+    if (!id) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    queueMicrotask(() => setTab("applications")); // after the effect, so the screen settles in one pass
+    openModal(<ApplicationModal id={id} onChanged={() => setTick((t) => t + 1)} />, "xwide");
+  }, [hydrated, loggedIn, isAdmin, openModal]);
+
   if (!hydrated) return <LoadingState />;
   if (!loggedIn) return <WorkspaceGate title="Sign in as an administrator" body="Sign in with an administrator account to manage Advisory Services." />;
   if (!isAdmin) return <EmptyState icon="lock" title="Administrator access required" body="This area is limited to RUWĀD platform administrators." />;
@@ -45,11 +61,12 @@ export function AdminAdvisoryPage() {
       <PageHeader title="Advisory Management" description="Review advisors, manage their availability and services, and oversee consultation bookings." />
       <div className="profile-tabs-wrap adv-tabs-wrap mt-16">
         <div className="tabs" role="tablist" aria-label="Advisory Management">
-          {TABS.map((t) => <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} className={t.id === tab ? "active" : ""} onClick={() => setTab(t.id)}>{t.label}</button>)}
+          {TABS.map((t) => <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} className={t.id === tab ? "active" : ""} onClick={() => setTab(t.id)}>{t.label}{t.id === "applications" && pendingCount ? <span className="adv-tab-count" aria-label={`${pendingCount} pending`}>{pendingCount}</span> : null}</button>)}
         </div>
       </div>
       <div className="mt-16" role="tabpanel">
         {tab === "advisors" && <AdvisorsTab />}
+        {tab === "applications" && <ApplicationsTab key={tick} onChanged={() => setTick((t) => t + 1)} />}
         {tab === "bookings" && <BookingsTab />}
         {tab === "review" && <ReviewTab />}
         {tab === "stats" && <StatsTab />}
@@ -74,7 +91,7 @@ function AdvisorsTab() {
     catch (e) { toast(errText(e)); } finally { setBusyId(null); }
   }
   const withNote = (row: AdminAdvisorRow, action: "reject" | "suspend") => openModal(
-    <NoteModal title={`${action === "reject" ? "Reject" : "Suspend"} ${row.name}?`} body={action === "reject" ? "The application is closed. They can update their profile." : "The profile leaves the directory and can't take new bookings. Existing bookings are not cancelled."} label="Note for the record" confirmLabel={action === "reject" ? "Reject" : "Suspend"} danger
+    <NoteModal title={`${action === "reject" ? "Reject" : "Suspend"} ${row.name}?`} body={action === "reject" ? "The application is closed and the applicant is emailed this reason, so write it professionally. No one else sees it." : "The profile leaves the directory and can't take new bookings. Existing bookings are not cancelled."} label={action === "reject" ? "Reason for rejection" : "Note for the record"} confirmLabel={action === "reject" ? "Reject" : "Suspend"} danger required={action === "reject"} minLength={action === "reject" ? MIN_REJECTION_REASON : undefined}
       onSubmit={async (n) => { await reviewAdvisor(row.id, action, n); toast("Done"); reload(); }} />,
   );
 

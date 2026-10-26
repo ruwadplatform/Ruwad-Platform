@@ -6,8 +6,10 @@ import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { EmptyState, ErrorState, LoadingState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { useModal } from "@/components/shell/ModalProvider";
+import { useSession } from "@/hooks/use-store";
 import { fetchAdvisors } from "@/lib/api/advisory";
 import { AdvisorCard } from "./AdvisorCard";
+import { APPLY_QUERY, BecomeAdvisorModal, useBecomeAdvisor } from "./BecomeAdvisor";
 import { HowItWorksModal } from "./HowItWorksModal";
 import { nextAvailableSlot } from "./advisory-availability";
 import { filterAdvisors, filterOptions, sortAdvisors } from "./advisory-filter";
@@ -36,6 +38,8 @@ export function Breadcrumbs({ items }: { items: { label: string; href?: string }
 /** Discover → Advisory Services: the advisor directory. Search, four filters (they combine), sorting, and a grid or list view. */
 export function AdvisoryServicesPage() {
   const { openModal } = useModal();
+  const { loggedIn, hydrated } = useSession();
+  const becomeAdvisor = useBecomeAdvisor();
   const [advisors, setAdvisors] = useState<AdvisorSummary[] | null>(null);
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<AdvisorFilters>(EMPTY_ADVISOR_FILTERS);
@@ -61,6 +65,13 @@ export function AdvisoryServicesPage() {
     return () => { alive = false; document.removeEventListener("visibilitychange", refresh); window.removeEventListener("focus", refresh); clearInterval(timer); };
   }, []);
 
+  // Coming back from signing in to apply: the address carries ?apply=1, so the application opens by itself, once, and the marker is dropped from the address.
+  useEffect(() => {
+    if (!hydrated || !loggedIn || typeof window === "undefined" || window.location.search !== `?${APPLY_QUERY}`) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    openModal(<BecomeAdvisorModal />, "wide");
+  }, [hydrated, loggedIn, openModal]);
+
   const options = useMemo(() => filterOptions(advisors ?? []), [advisors]);
   const results = useMemo(() => sortAdvisors(filterAdvisors(advisors ?? [], filters, now), sort, filters.query), [advisors, filters, sort, now]);
   const slots = useMemo(() => new Map((advisors ?? []).map((a) => [a.id, nextAvailableSlot(a, now)])), [advisors, now]);
@@ -77,9 +88,14 @@ export function AdvisoryServicesPage() {
         <div className="adv-hero-text">
           <PageHeader variant="block" title="Advisory Services" description="Connect with specialized professors, scientists, and advisors from Saudi Arabia's leading research institutions." />
         </div>
-        <button type="button" className="btn btn-outline adv-how-btn" onClick={() => openModal(<HowItWorksModal />, "wide")}>
-          <RuwadIcon name="info" size={15} /> How It Works
-        </button>
+        <div className="adv-hero-actions">
+          <button type="button" className="btn btn-outline adv-how-btn" onClick={() => openModal(<HowItWorksModal />, "wide")}>
+            <RuwadIcon name="info" size={15} /> How It Works
+          </button>
+          <button type="button" className="btn btn-primary adv-become-btn" onClick={becomeAdvisor}>
+            <RuwadIcon name="plus" size={15} /> Become an Advisor
+          </button>
+        </div>
       </section>
 
       <section className="adv-filters panel panel-pad" aria-label="Search and filter advisors">

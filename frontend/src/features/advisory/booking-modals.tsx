@@ -10,13 +10,15 @@ import { errText, formatWhen, localZoneIfDifferent } from "./booking-format";
 import { useAsync } from "./use-async";
 
 /** A small "give a reason / add a note" confirmation, for cancel, decline and similar. The note is optional unless `required`. */
-export function NoteModal({ title, body, label, confirmLabel, danger, required, onSubmit }: {
+export function NoteModal({ title, body, label, confirmLabel, danger, required, minLength, onSubmit }: {
   title: string;
   body: string;
   label: string;
   confirmLabel: string;
   danger?: boolean;
   required?: boolean;
+  /** With `required`: the shortest note that counts as a real reason. */
+  minLength?: number;
   onSubmit: (note: string) => Promise<void>;
 }) {
   const { closeModal } = useModal();
@@ -42,7 +44,7 @@ export function NoteModal({ title, body, label, confirmLabel, danger, required, 
       <p className="muted small mt-8">{body}</p>
       <label className="adv-note-label" htmlFor="adv-note-input">{label}{required ? "" : " (optional)"}</label>
       <textarea id="adv-note-input" className="textarea" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
-      <div className="char-counter">{note.length}/500</div>
+      <div className="char-counter">{required && minLength && note.trim().length < minLength ? `At least ${minLength} characters · ` : ""}{note.length}/500</div>
       {error && <p className="adv-review-note adv-review-error" role="alert">{error}</p>}
       <div className="flex gap-8 mt-16">
         <button type="button" className="btn btn-outline" onClick={closeModal} disabled={busy}>Back</button>
@@ -51,7 +53,7 @@ export function NoteModal({ title, body, label, confirmLabel, danger, required, 
           className="btn btn-primary"
           style={danger ? { background: "var(--crit)", borderColor: "var(--crit)" } : undefined}
           onClick={submit}
-          disabled={busy || (required === true && !note.trim())}
+          disabled={busy || (required === true && note.trim().length < (minLength ?? 1))}
         >
           {busy ? "Working…" : confirmLabel}
         </button>

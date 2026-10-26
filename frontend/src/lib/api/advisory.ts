@@ -1,7 +1,7 @@
 import type {
-  AdminAdvisorRow, AdvisorApplication, AdvisorProfile, AdvisorSummary, AdvisoryStats, AutomationReport, AutomationStatus, AvailabilityState, BookableStartup, BookingDetail, BookingView, JoinInfo, ManualOutcome, MeetingStatus, MyAdvisorProfile, SlotOffer,
+  AdminAdvisorRow, AdvisorApplication, AdvisorProfile, ApplicationDetail, ApplicationDocument, ApplicationList, AdvisorSummary, AdvisoryStats, AutomationReport, AutomationStatus, AvailabilityState, BookableStartup, BookingDetail, BookingView, JoinInfo, ManualOutcome, MeetingStatus, MyAdvisorProfile, SlotOffer,
 } from "@/features/advisory/advisory-types";
-import { api, isNotFound } from "./client";
+import { API_BASE, ApiError, api, isNotFound } from "./client";
 
 /** Advisory Services data access — the one place the screens call the backend (`/api/advisory/...`).
  *
@@ -51,7 +51,32 @@ export const withdrawReschedule = (id: string) => api.post<BookingView>(`/adviso
 // ---- the advisor's dashboard -----------------------------------------------------------------------------------------------------------------------
 
 export const fetchMyAdvisorProfile = () => api.get<{ advisor: MyAdvisorProfile | null }>("/advisory/advisor/me");
-export const applyAsAdvisor = (body: AdvisorApplication) => api.post("/advisory/advisor/apply", body);
+
+/** The "Become an Advisor" application: the form as JSON plus the CV (required), certificates and photograph, sent as one multipart request straight to
+ * this site's own /api, like every other call, so the sign-in cookie (which belongs to this site) goes with it. Nothing is saved unless everything passes; the server re-checks every field and every file's real contents. */
+export async function submitAdvisorApplication(payload: Record<string, unknown>, files: { cv: File; certificates: File[]; photo: File | null }): Promise<{ reference: string; status: string; submittedAt: string }> {
+  const form = new FormData();
+  form.append("data", JSON.stringify(payload)); // text first, so it is parsed before the file streams
+  form.append("cv", files.cv);
+  for (const c of files.certificates) form.append("certificates", c);
+  if (files.photo) form.append("photo", files.photo);
+  const res = await fetch(`${API_BASE}/advisory/advisor/apply`, { method: "POST", credentials: "include", body: form });
+  if (!res.ok) throw await uploadError(res);
+  return res.json();
+}
+
+async function uploadError(res: Response): Promise<ApiError> {
+  if (res.status === 413) return new ApiError(413, "One of your files is too large. A CV or certificate can be up to 5 MB and a photograph up to 2 MB.");
+  if (res.status === 429) return new ApiError(429, "Too many attempts. Please wait a little and try again.");
+  let message = res.statusText || `Request failed (${res.status})`;
+  try {
+    const body = await res.json();
+    if (body?.message) message = Array.isArray(body.message) ? body.message.join(" ") : body.message;
+  } catch {
+    // no JSON body: keep the status text
+  }
+  return new ApiError(res.status, message);
+}
 export const updateMyAdvisorProfile = (body: Partial<AdvisorApplication>) => api.patch<{ advisor: MyAdvisorProfile | null }>("/advisory/advisor/me", body);
 export const fetchAdvisorBookings = () => api.get<BookingView[]>("/advisory/advisor/bookings");
 export const approveBooking = (id: string) => api.post<BookingView>(`/advisory/advisor/bookings/${id}/approve`);
@@ -73,6 +98,21 @@ export const updateMyService = (id: string, body: Partial<ServiceInput> & { acti
 
 export const fetchAdminAdvisors = (status?: string) => api.get<AdminAdvisorRow[]>(`/advisory/admin/advisors${status ? `?status=${encodeURIComponent(status)}` : ""}`);
 export const fetchAdminAdvisor = (id: string) => api.get<AdminAdvisorRow & { profile: AdvisorProfile & { services: ServiceRow[] }; availability: AvailabilityState }>(`/advisory/admin/advisors/${id}`);
+export const fetchAdminApplications = (status?: string) => api.get<ApplicationList>(`/advisory/admin/applications${status && status !== "ALL" ? `?status=${encodeURIComponent(status)}` : ""}`);
+export const fetchAdminApplication = (id: string) => api.get<ApplicationDetail>(`/advisory/admin/applications/${id}`);
+/** Fetches the file with the administrator's session and hands it to the browser as a download. The endpoint is never a public link. */
+export async function downloadApplicationDocument(applicationId: string, doc: Pick<ApplicationDocument, "id" | "fileName">): Promise<void> {
+  const res = await fetch(`${API_BASE}/advisory/admin/applications/${applicationId}/documents/${doc.id}`, { credentials: "include" });
+  if (!res.ok) throw await uploadError(res);
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = doc.fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
 export const reviewAdvisor = (id: string, action: "approve" | "reject" | "suspend", notes?: string) => api.post<AdminAdvisorRow>(`/advisory/admin/advisors/${id}/${action}`, { notes });
 export const setAdvisorVerified = (id: string, affiliationVerified: boolean) => api.patch<AdminAdvisorRow>(`/advisory/admin/advisors/${id}/verification`, { affiliationVerified });
 export const saveAdvisorAvailability = (id: string, windows: { weekday: number; startTime: string; endTime: string }[]) => api.put<AvailabilityState>(`/advisory/admin/advisors/${id}/availability`, { windows });
