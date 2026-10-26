@@ -177,6 +177,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
   afterAll(async () => {
     const adv = created.advisors;
     if (db && adv.length) {
+      await db.query(`DELETE FROM advisory_meeting_attendance WHERE "bookingId" IN (SELECT id FROM advisory_bookings WHERE "advisorId" = ANY($1))`, [adv]);
       await db.query(`DELETE FROM advisory_booking_events WHERE "bookingId" IN (SELECT id FROM advisory_bookings WHERE "advisorId" = ANY($1))`, [adv]);
       await db.query(`DELETE FROM advisory_bookings WHERE "advisorId" = ANY($1)`, [adv]);
       await db.query(`DELETE FROM advisory_availability_exceptions WHERE "advisorId" = ANY($1)`, [adv]);
