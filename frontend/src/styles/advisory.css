@@ -331,3 +331,39 @@
   .adv-toolbar .select{width:100% !important}
   .adv-form .input,.adv-bfield .input,.adv-bfield .select{min-height:44px}
 }
+
+/* ---- video meetings (phase 4) ---- */
+.adv-meeting-card{border-color:var(--info) !important}
+.adv-meeting-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.adv-meeting-head .adv-sec-title{display:inline-flex;align-items:center;gap:8px;margin:0}
+.adv-meeting-notice{display:flex;align-items:flex-start;gap:8px;margin:12px 0 0;font-size:var(--fs-13);line-height:1.5;color:var(--muted)}
+.adv-meeting-notice svg{flex:none;margin-top:2px}
+.adv-lobby-list{margin:12px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:var(--fs-14);line-height:1.5}
+.adv-room{margin-top:16px;display:flex;flex-direction:column;gap:12px}
+.adv-room-banner{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--radius-sm);background:var(--info-tint);color:var(--info);font-size:var(--fs-13)}
+.adv-room-stage{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;min-height:420px}
+.adv-room-stage.has-chat{grid-template-columns:minmax(0,1fr) 300px}
+.adv-room-tiles{position:relative;min-height:420px;border-radius:var(--radius-md);background:var(--navy-900);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.adv-tile{position:absolute;display:flex;align-items:center;justify-content:center;color:#fff}
+.adv-tile-main{inset:0;flex-direction:column;gap:12px}
+.adv-tile-avatar{width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,.14);display:inline-flex;align-items:center;justify-content:center;font-size:40px;font-weight:700}
+.adv-tile-name{font-size:var(--fs-13);font-weight:600}
+.adv-tile-badge{padding:4px 10px;border-radius:var(--radius-pill);background:var(--good);color:#fff;font-size:var(--fs-12);font-weight:600}
+.adv-tile-self{right:12px;bottom:12px;width:200px;height:120px;border-radius:var(--radius-sm);background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);padding:8px;text-align:center}
+.adv-room-chat{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid rgba(37,99,166,.4);border-radius:var(--radius-md);background:var(--bg-1,#fff)}
+.adv-room-chat ul{list-style:none;margin:0;padding:0;flex:1;display:flex;flex-direction:column;gap:6px;font-size:var(--fs-13);overflow-y:auto;max-height:340px}
+.adv-room-chat form{display:flex;gap:8px}
+.adv-room-chat form .input{flex:1;min-width:0}
+.adv-room-controls{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.adv-room-controls .btn.is-off{background:var(--crit-tint);color:var(--crit);border-color:var(--crit)}
+.adv-room-controls .btn.is-on{background:var(--info-tint);color:var(--info);border-color:var(--info)}
+.adv-danger-solid{background:var(--crit) !important;border-color:var(--crit) !important;color:#fff !important}
+.adv-room-daily .adv-room-frame{width:100%;height:min(75vh,720px);min-height:420px;border-radius:var(--radius-md);overflow:hidden;background:var(--navy-900)}
+@media(max-width:760px){
+  .adv-room-stage.has-chat{grid-template-columns:minmax(0,1fr)}
+  .adv-room-tiles{min-height:300px}
+  .adv-tile-self{width:140px;height:90px}
+  .adv-room-controls .btn{flex:1 1 40%;min-height:44px}
+  .adv-room-chat form .btn{min-height:44px}
+  .adv-room-daily .adv-room-frame{height:75vh}
+}

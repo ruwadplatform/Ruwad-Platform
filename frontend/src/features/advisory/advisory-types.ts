@@ -258,3 +258,33 @@ export interface AutomationReport {
   reminders1h: number;
   references: string[];
 }
+
+// ---- Phase 4: video meetings ---------------------------------------------------------------------------------------------------------------------
+
+export type MeetingState = "NOT_CONFIRMED" | "NOT_OPEN" | "OPEN" | "ENDED";
+
+export interface MeetingStatus {
+  state: MeetingState;
+  opensAt: string;
+  closesAt: string;
+  /** "simulated": a pretend room (local work and demonstration bookings). "daily": a real Daily room. */
+  mode: "daily" | "simulated";
+  /** False when real video was requested but isn't set up yet. */
+  available: boolean;
+  /** The caller may join right now (advisor, or a startup owner/admin, inside the join window). */
+  canJoin: boolean;
+  recording: false;
+  notice: string;
+}
+
+export interface JoinInfo {
+  mode: "daily" | "simulated";
+  roomUrl: string | null;
+  token: string;
+  userName: string;
+  opensAt: string;
+  closesAt: string;
+  tokenExpiresAt: string;
+  recording: false;
+  notice: string;
+}

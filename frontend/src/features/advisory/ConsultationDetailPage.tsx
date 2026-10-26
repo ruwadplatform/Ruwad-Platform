@@ -10,6 +10,7 @@ import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { useSession } from "@/hooks/use-store";
 import { acceptReschedule, adminCancelBooking, approveBooking, cancelBooking, completeBooking, declineReschedule, fetchBooking, rejectBooking, withdrawReschedule } from "@/lib/api/advisory";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
+import { MeetingCard } from "./MeetingPage";
 import { NoteModal, RescheduleModal } from "./booking-modals";
 import { BookingStatusBadge, errText, expiryLine, formatWhen, localZoneIfDifferent } from "./booking-format";
 import type { BookingDetail, BookingHistoryEvent } from "./advisory-types";
@@ -123,6 +124,8 @@ function Detail({ detail, reload }: { detail: BookingDetail; reload: () => void 
           </div>
         </section>
       )}
+
+      {b.status === "CONFIRMED" && <MeetingCard bookingId={b.id} />}
 
       <section className="panel panel-pad">
         <dl className="adv-facts">

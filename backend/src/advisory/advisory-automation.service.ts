@@ -5,6 +5,7 @@ import { DataSource, EntityManager, In, Repository } from "typeorm";
 import { AdvisoryBooking } from "./advisory.entities";
 import { AdvisoryNotificationKind, AdvisoryNotifier } from "./advisory-notifier";
 import { AdvisoryAutomationConfig, readAutomationConfig } from "./advisory-config";
+import { AdvisoryMeetingService } from "./advisory-meeting.service";
 
 export interface AutomationReport {
   ranAt: string;
@@ -16,9 +17,13 @@ export interface AutomationReport {
   expiryWarnings: number;
   reminders24h: number;
   reminders1h: number;
+  /** Meeting rooms deleted for consultations that ended long ago. */
+  roomsClosed: number;
   /** References of the bookings acted on (or, in a dry run, that WOULD be acted on). */
   references: string[];
 }
+
+type CountKey = "expired" | "proposalsExpired" | "expiryWarnings" | "reminders24h" | "reminders1h" | "roomsClosed";
 
 /** Rows handled per step per run; the next run picks up any more. */
 const BATCH = 200;
@@ -49,6 +54,7 @@ export class AdvisoryAutomationService implements OnModuleInit, OnModuleDestroy 
     @InjectDataSource() private readonly ds: DataSource,
     @InjectRepository(AdvisoryBooking) private readonly bookings: Repository<AdvisoryBooking>,
     private readonly notifier: AdvisoryNotifier,
+    private readonly meeting: AdvisoryMeetingService,
   ) {
     this.config = readAutomationConfig((k) => config.get<string>(k));
   }
@@ -99,12 +105,13 @@ export class AdvisoryAutomationService implements OnModuleInit, OnModuleDestroy 
     if (this.running) throw new ConflictException("An automation pass is already running.");
     this.running = true;
     try {
-      const report: AutomationReport = { ranAt: now.toISOString(), dryRun: opts.dryRun, expired: 0, proposalsExpired: 0, expiryWarnings: 0, reminders24h: 0, reminders1h: 0, references: [] };
+      const report: AutomationReport = { ranAt: now.toISOString(), dryRun: opts.dryRun, expired: 0, proposalsExpired: 0, expiryWarnings: 0, reminders24h: 0, reminders1h: 0, roomsClosed: 0, references: [] };
       await this.expirePending(now, opts.dryRun, report);
       await this.expireProposals(now, opts.dryRun, report);
       await this.warnExpiring(now, opts.dryRun, report);
       await this.remind(now, opts.dryRun, report, 24);
       await this.remind(now, opts.dryRun, report, 1);
+      await this.closeRooms(now, opts.dryRun, report);
       if (!opts.dryRun) this.lastReport = report;
       return report;
     } finally {
@@ -168,6 +175,20 @@ export class AdvisoryAutomationService implements OnModuleInit, OnModuleDestroy 
     await this.notifyAll(ids, hoursBefore === 24 ? "REMINDER_24H" : "REMINDER_1H", report, key);
   }
 
+  /** Delete the meeting room of a consultation that ended a while ago (the room has long since expired on the provider's side; this is tidying).
+   * If deleting fails, the claim is released so the next pass tries again. */
+  private async closeRooms(now: Date, dryRun: boolean, report: AutomationReport): Promise<void> {
+    const afterEnd = this.meeting.config.closesAfterMinutes + this.meeting.config.cleanupAfterMinutes;
+    const where = `"meetingRoomName" IS NOT NULL AND "meetingRoomClosedAt" IS NULL AND "endsAt" + ($2::numeric * interval '1 minute') <= $1`;
+    if (dryRun) return this.preview(where, [now, afterEnd], report, "roomsClosed");
+    const ids = await this.claimStamp(where, [now, afterEnd], "meetingRoomClosedAt", now);
+    if (!ids.length) return;
+    for (const b of await this.bookings.find({ where: { id: In(ids) } })) {
+      if (await this.meeting.closeRoom(b)) report.roomsClosed += 1;
+      else await this.bookings.update({ id: b.id }, { meetingRoomClosedAt: null });
+    }
+  }
+
   // ---- helpers ----------------------------------------------------------------------------------------------------------------------------
 
   /** Atomically stamps `column` on the matching rows and returns their ids: whoever's UPDATE gets a row owns it; a concurrent runner skips it. */
@@ -179,7 +200,7 @@ export class AdvisoryAutomationService implements OnModuleInit, OnModuleDestroy 
     return rows.map((r) => r.id);
   }
 
-  private async preview(where: string, params: unknown[], report: AutomationReport, key: "expired" | "proposalsExpired" | "expiryWarnings" | "reminders24h" | "reminders1h"): Promise<void> {
+  private async preview(where: string, params: unknown[], report: AutomationReport, key: CountKey): Promise<void> {
     const rows = await this.ds.query(`SELECT reference FROM advisory_bookings WHERE ${where} ORDER BY "startsAt" LIMIT ${BATCH}`, params);
     report[key] += rows.length;
     report.references.push(...rows.map((r: { reference: string }) => r.reference));
@@ -193,7 +214,7 @@ export class AdvisoryAutomationService implements OnModuleInit, OnModuleDestroy 
   }
 
   /** Email (mock by default) AFTER the database change is committed, so a notification problem can never undo or repeat it. */
-  private async notifyAll(ids: string[], kind: AdvisoryNotificationKind, report: AutomationReport, key: "expired" | "proposalsExpired" | "expiryWarnings" | "reminders24h" | "reminders1h"): Promise<void> {
+  private async notifyAll(ids: string[], kind: AdvisoryNotificationKind, report: AutomationReport, key: CountKey): Promise<void> {
     report[key] += ids.length;
     if (!ids.length) return;
     const rows = await this.bookings.find({ where: { id: In(ids) } });

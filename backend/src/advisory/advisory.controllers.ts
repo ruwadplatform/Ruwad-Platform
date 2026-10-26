@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { Throttle } from "@nestjs/throttler";
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { AuthUser, CurrentUser } from "../common/decorators/current-user.decorator";
@@ -9,6 +10,7 @@ import { AdvisoryAdminService } from "./advisory-admin.service";
 import { AdvisoryAdvisorsService } from "./advisory-advisors.service";
 import { AdvisoryAutomationService } from "./advisory-automation.service";
 import { AdvisoryBookingsService } from "./advisory-bookings.service";
+import { AdvisoryMeetingService } from "./advisory-meeting.service";
 import { AdvisoryAdvisor } from "./advisory.entities";
 import { AdvisoryEnabledGuard, ApprovedAdvisorGuard, CurrentAdvisor } from "./advisory.guards";
 import {
@@ -34,7 +36,7 @@ export class AdvisoryPublicController {
 @Controller("advisory")
 @UseGuards(AdvisoryEnabledGuard, JwtAuthGuard)
 export class AdvisoryBookingsController {
-  constructor(private readonly bookings: AdvisoryBookingsService) {}
+  constructor(private readonly bookings: AdvisoryBookingsService, private readonly meeting: AdvisoryMeetingService) {}
 
   @Get("my-startups") myStartups(@CurrentUser() u: AuthUser) { return this.bookings.myStartups(u.userId); }
   @Post("bookings") create(@CurrentUser() u: AuthUser, @Body() dto: CreateBookingDto) { return this.bookings.create(u, dto); }
@@ -46,6 +48,11 @@ export class AdvisoryBookingsController {
   @Post("bookings/:id/reschedule") propose(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: ProposeRescheduleDto) { return this.bookings.proposeReschedule(u, id, dto); }
   @Post("bookings/:id/reschedule/accept") accept(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.acceptReschedule(u, id); }
   @Post("bookings/:id/reschedule/decline") decline(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: NoteDto) { return this.bookings.declineReschedule(u, id, dto.note); }
+  /** The meeting room's state (not open yet / open / ended) and whether the caller can join now. Visible to the booking's participants and administrators. */
+  @Get("bookings/:id/meeting") meetingStatus(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.meeting.status(u, id); }
+  /** Join the meeting: returns a short-lived, single-room token. Only the advisor and the startup's owner/admin, only for a CONFIRMED booking, only inside the join window. */
+  @Throttle({ default: { limit: 12, ttl: 60_000 } })
+  @Post("bookings/:id/meeting/join") joinMeeting(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.meeting.join(u, id); }
   @Post("bookings/:id/reschedule/withdraw") withdraw(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.withdrawReschedule(u, id); }
 }
 

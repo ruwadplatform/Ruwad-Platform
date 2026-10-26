@@ -1,5 +1,5 @@
 import type {
-  AdminAdvisorRow, AdvisorApplication, AdvisorProfile, AdvisorSummary, AdvisoryStats, AutomationReport, AutomationStatus, AvailabilityState, BookableStartup, BookingDetail, BookingView, MyAdvisorProfile, SlotOffer,
+  AdminAdvisorRow, AdvisorApplication, AdvisorProfile, AdvisorSummary, AdvisoryStats, AutomationReport, AutomationStatus, AvailabilityState, BookableStartup, BookingDetail, BookingView, JoinInfo, MeetingStatus, MyAdvisorProfile, SlotOffer,
 } from "@/features/advisory/advisory-types";
 import { api, isNotFound } from "./client";
 
@@ -93,3 +93,9 @@ export const fetchAdvisoryStats = (includeDemo = false) => api.get<AdvisoryStats
 export const fetchAutomationStatus = () => api.get<AutomationStatus>("/advisory/admin/automation/status");
 /** One pass of the scheduler's rules. A dry run reports what would happen and changes nothing. */
 export const runAutomation = (dryRun: boolean) => api.post<AutomationReport>(`/advisory/admin/automation/run?dryRun=${dryRun ? "true" : "false"}`);
+
+// ---- video meetings --------------------------------------------------------------------------------------------------------------------------------
+
+export const fetchMeetingStatus = (id: string) => api.get<MeetingStatus>(`/advisory/bookings/${id}/meeting`);
+/** Asks the server for a short-lived, single-room token. Only the advisor and the startup's owner/admin, only for a confirmed consultation, only inside the join window. */
+export const joinMeeting = (id: string) => api.post<JoinInfo>(`/advisory/bookings/${id}/meeting/join`);

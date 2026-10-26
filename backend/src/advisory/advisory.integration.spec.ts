@@ -11,7 +11,11 @@ import request from "supertest";
 import { JwtStrategy } from "../auth/jwt.strategy";
 import { EmailService } from "../email/email.service";
 import { AdvisoryAutomationService, AdvisoryAutomationService as AutomationService } from "./advisory-automation.service";
+import { AdvisoryMeetingService } from "./advisory-meeting.service";
 import { AdvisoryNotifier } from "./advisory-notifier";
+import { MockVideoProvider } from "./video/mock-video-provider";
+import { VIDEO_PROVIDER } from "./video/video-provider";
+import * as http from "http";
 import { AdvisoryBooking } from "./advisory.entities";
 import { AdvisoryModule } from "./advisory.module";
 import { addDays, riyadhDate, ymdKey } from "./advisory-time";
@@ -98,10 +102,10 @@ suite("Advisory Services — integration (local Postgres)", () => {
   const book = (who: string, startupId: string, startsAt: string, serviceId = svc30, advisor = advSlug, extra: object = {}) =>
     api(who).post("/advisory/bookings", { advisor, serviceId, startupId, startsAt, ...extra });
 
-  async function buildApp(enabled: boolean) {
+  async function buildApp(enabled: boolean, extra: Record<string, string> = {}) {
     const moduleRef = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true, load: [() => ({ JWT_SECRET: SECRET, ADVISORY_ENABLED: enabled ? "true" : undefined, ADVISORY_EMAIL_MODE: "mock", NODE_ENV: "test" })] }),
+        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true, load: [() => ({ JWT_SECRET: SECRET, ADVISORY_ENABLED: enabled ? "true" : undefined, ADVISORY_EMAIL_MODE: "mock", NODE_ENV: "test", ...extra })] }),
         TypeOrmModule.forRoot({ type: "postgres", url: assertLocalDatabase(LOCAL_DATABASE_URL), ssl: false, autoLoadEntities: true, synchronize: false }),
         PassportModule,
         JwtModule.register({ secret: SECRET, signOptions: { expiresIn: "1h" } }),
@@ -863,7 +867,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
       made.push((await book(i % 2 ? "owner" : "owner2", i % 2 ? startupA : startupB, s.startsAt)).body);
     }
     const expiresAt = (await row(made[0]!.id)).expiresAt as Date;
-    const second = new AutomationService(app.get(ConfigService), app.get(DataSource), app.get(getRepositoryToken(AdvisoryBooking)), app.get(AdvisoryNotifier));
+    const second = new AutomationService(app.get(ConfigService), app.get(DataSource), app.get(getRepositoryToken(AdvisoryBooking)), app.get(AdvisoryNotifier), app.get(AdvisoryMeetingService));
     const now = minutesAfter(expiresAt, 10);
     const [a, b] = await Promise.all([automation().runOnce(now, { dryRun: false }), second.runOnce(now, { dryRun: false })]);
     for (const m of made) expect((await row(m.id)).status).toBe("EXPIRED");
@@ -886,6 +890,211 @@ suite("Advisory Services — integration (local Postgres)", () => {
     expect(told).toHaveLength(1);
     expect(told[0]!.details?.skipped).toContain("demonstration");
     expect(sendTransactional).not.toHaveBeenCalled();
+  });
+
+  // ---- video meetings: who may join, when, and with what ----------------------------------------------------------------------------------------
+
+  const mockVideo = () => app.get(VIDEO_PROVIDER) as MockVideoProvider;
+  const joinAs = (who: string, id: string) => api(who).post(`/advisory/bookings/${id}/meeting/join`);
+  /** Moves a booking's consultation to "starts in 5 minutes, lasts 30", so its meeting window is open right now. */
+  // Every "open now" booking holds the same real-time window for the same advisor, so each one is released (cancelled) after its test.
+  const opened: string[] = [];
+  const openNow = (id: string) => { opened.push(id); return db.query(`UPDATE advisory_bookings SET "startsAt" = now() + interval '5 minutes', "endsAt" = now() + interval '35 minutes' WHERE id = $1`, [id]); };
+  afterEach(async () => {
+    if (!opened.length) return;
+    await db.query(`UPDATE advisory_bookings SET status = 'CANCELLED' WHERE id = ANY($1)`, [opened]);
+    opened.length = 0;
+  });
+
+  it("a consultation that is far off isn't open yet: the status says so and joining is refused", async () => {
+    const b = await confirmed(41, 0);
+    const st = await api("owner").get(`/advisory/bookings/${b.id}/meeting`);
+    expect(st.status).toBe(200);
+    expect(st.body).toMatchObject({ state: "NOT_OPEN", canJoin: false, mode: "simulated", recording: false, available: true });
+    expect(st.body.notice).toMatch(/not recorded/i);
+    expect(new Date(st.body.opensAt).getTime()).toBe(new Date(b.startsAt).getTime() - 10 * 60_000);
+    expect((await joinAs("owner", b.id)).status).toBe(409);
+    expect((await joinAs("advisorUser", b.id)).status).toBe(409);
+  });
+
+  it("there is no meeting for a request nobody has approved, or one that was cancelled", async () => {
+    const [s] = await slots(advSlug, svc30, day(42));
+    const pending = (await book("owner", startupA, s!.startsAt)).body;
+    await openNow(pending.id);
+    expect((await api("owner").get(`/advisory/bookings/${pending.id}/meeting`)).body.state).toBe("NOT_CONFIRMED");
+    expect((await joinAs("owner", pending.id)).status).toBe(409);
+    expect((await joinAs("advisorUser", pending.id)).status).toBe(409);
+  });
+
+  it("when it is open, both the startup and the advisor get a short-lived single-room token; the advisor alone is owner", async () => {
+    const b = await confirmed(43, 0);
+    await openNow(b.id);
+    const st = await api("owner").get(`/advisory/bookings/${b.id}/meeting`);
+    expect(st.body).toMatchObject({ state: "OPEN", canJoin: true });
+
+    const mine = mockVideo().tokens.length;
+    const f = await joinAs("owner", b.id);
+    const a = await joinAs("advisorUser", b.id);
+    expect(f.status).toBe(201);
+    expect(a.status).toBe(201);
+    expect(f.body).toMatchObject({ mode: "simulated", roomUrl: null, recording: false });
+    expect(f.body.token).not.toBe(a.body.token);
+    expect(f.body.notice).toMatch(/not recorded/i);
+    expect(new Date(f.body.tokenExpiresAt).getTime()).toBe(new Date(f.body.closesAt).getTime());
+
+    const issued = mockVideo().tokens.slice(mine);
+    expect(issued).toHaveLength(2);
+    expect(new Set(issued.map((t) => t.roomName)).size).toBe(1); // one room for the consultation
+    expect(issued.find((t) => t.userId === ids.advisorUser)!.isOwner).toBe(true);
+    expect(issued.find((t) => t.userId === ids.owner)!.isOwner).toBe(false);
+    for (const t of issued) expect(t.expiresAt.getTime()).toBe(new Date(f.body.closesAt).getTime());
+
+    const stored = await row(b.id);
+    expect(stored.meetingRoomName).toBe(issued[0]!.roomName);
+    expect(stored.meetingRoomName).toMatch(/^ruwad-[a-z2-7]{20}$/);
+    expect(stored.meetingProvider).toBe("mock");
+    expect(JSON.stringify(stored)).not.toContain(f.body.token); // no token is ever stored
+    const kinds = (await history(b.id)).filter((h) => h.type === "JOIN_REQUESTED");
+    expect(kinds).toHaveLength(2);
+  });
+
+  it("only the advisor and the startup's owner/admin can join; members can look, strangers can't even see it", async () => {
+    const b = await confirmed(44, 0);
+    await openNow(b.id);
+    expect((await joinAs("adminMember", b.id)).status).toBe(201); // an ADMIN member of the startup
+    expect((await joinAs("editor", b.id)).status).toBe(403); // a member, but only an EDITOR
+    expect((await joinAs("outsider", b.id)).status).toBe(403);
+    expect((await joinAs("owner2", b.id)).status).toBe(403); // owns a different startup
+    expect((await joinAs("otherAdvisorUser", b.id)).status).toBe(403); // an approved advisor, but not this one
+    expect((await joinAs("admin", b.id)).status).toBe(403); // administrators oversee; they don't join
+    expect((await api(null).post(`/advisory/bookings/${b.id}/meeting/join`)).status).toBe(401);
+
+    expect((await api("editor").get(`/advisory/bookings/${b.id}/meeting`)).body).toMatchObject({ state: "OPEN", canJoin: false }); // can see, can't join
+    expect((await api("admin").get(`/advisory/bookings/${b.id}/meeting`)).body.canJoin).toBe(false);
+    expect((await api("outsider").get(`/advisory/bookings/${b.id}/meeting`)).status).toBe(404);
+    expect((await api("owner2").get(`/advisory/bookings/${b.id}/meeting`)).status).toBe(404);
+  });
+
+  it("the window closes: after the end plus the grace period the meeting is ENDED and can't be joined", async () => {
+    const b = await confirmed(45, 0);
+    opened.push(b.id);
+    await db.query(`UPDATE advisory_bookings SET "startsAt" = now() - interval '100 minutes', "endsAt" = now() - interval '70 minutes' WHERE id = $1`, [b.id]);
+    expect((await api("owner").get(`/advisory/bookings/${b.id}/meeting`)).body).toMatchObject({ state: "ENDED", canJoin: false });
+    expect((await joinAs("owner", b.id)).status).toBe(409);
+    // still inside the 15 minute grace after the end: open
+    await db.query(`UPDATE advisory_bookings SET "startsAt" = now() - interval '40 minutes', "endsAt" = now() - interval '10 minutes' WHERE id = $1`, [b.id]);
+    expect((await joinAs("owner", b.id)).status).toBe(201);
+  });
+
+  it("a cancelled consultation can't be joined", async () => {
+    const b = await confirmed(46, 0);
+    expect((await api("owner").post(`/advisory/bookings/${b.id}/cancel`, { reason: "No longer needed" })).status).toBe(201);
+    await openNow(b.id); // even with its time right now, a cancelled consultation has no meeting
+    expect((await api("owner").get(`/advisory/bookings/${b.id}/meeting`)).body.state).toBe("NOT_CONFIRMED");
+    expect((await joinAs("owner", b.id)).status).toBe(409);
+    expect((await joinAs("advisorUser", b.id)).status).toBe(409);
+  });
+
+  it("both parties joining at once still produce exactly one room", async () => {
+    const b = await confirmed(47, 0);
+    await openNow(b.id);
+    const before = mockVideo().rooms.size;
+    const results = await Promise.all(Array.from({ length: 8 }, (_, i) => joinAs(i % 2 ? "owner" : "advisorUser", b.id)));
+    expect(results.every((r) => r.status === 201)).toBe(true);
+    const name = (await row(b.id)).meetingRoomName as string;
+    expect([...mockVideo().rooms.keys()].filter((n) => n === name)).toHaveLength(1);
+    expect(mockVideo().rooms.size).toBe(before + 1);
+  });
+
+  it("a demonstration booking always gets a simulated room", async () => {
+    const [s] = await slots(demoSlug, demoSvc, day(58));
+    const d = (await book("owner", startupA, s!.startsAt, demoSvc, demoSlug)).body;
+    opened.push(d.id);
+    await db.query(`UPDATE advisory_bookings SET status = 'CONFIRMED', "startsAt" = now() + interval '5 minutes', "endsAt" = now() + interval '35 minutes' WHERE id = $1`, [d.id]);
+    const res = await joinAs("owner", d.id);
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ mode: "simulated", roomUrl: null });
+  });
+
+  it("the scheduler tidies up the room of a consultation that ended long ago (and a dry run changes nothing)", async () => {
+    const b = await confirmed(48, 0);
+    await openNow(b.id);
+    await joinAs("owner", b.id);
+    const name = (await row(b.id)).meetingRoomName as string;
+    const longAfter = new Date(Date.now() + 5 * 3_600_000);
+    const dry = await automation().runOnce(longAfter, { dryRun: true });
+    expect(dry.roomsClosed).toBeGreaterThanOrEqual(1);
+    expect((await row(b.id)).meetingRoomClosedAt).toBeNull();
+    expect(mockVideo().deleted).not.toContain(name);
+
+    const real = await automation().runOnce(longAfter, { dryRun: false });
+    expect(real.roomsClosed).toBeGreaterThanOrEqual(1);
+    expect((await row(b.id)).meetingRoomClosedAt).not.toBeNull();
+    expect(mockVideo().deleted).toContain(name);
+    const again = await automation().runOnce(minutesAfter(longAfter, 1), { dryRun: false });
+    expect(mockVideo().deleted.filter((n) => n === name)).toHaveLength(1); // not deleted twice
+    expect(again.roomsClosed).toBe(0);
+  });
+
+  it("with Daily requested but no credentials, a real booking can't start a meeting (it is NOT silently faked); a demo one still can", async () => {
+    const b = await confirmed(49, 0);
+    await openNow(b.id);
+    const s = await buildApp(true, { ADVISORY_VIDEO_PROVIDER: "daily" });
+    try {
+      const call = (path: string, id: string, method: "get" | "post" = "post") => request(s.app.getHttpServer())[method](`/api/advisory/bookings/${id}${path}`).set("Authorization", `Bearer ${tokenOf.get("owner")}`).send();
+      const st = await call("/meeting", b.id, "get");
+      expect(st.body).toMatchObject({ available: false, canJoin: false });
+      const j = await call("/meeting/join", b.id);
+      expect(j.status).toBe(503);
+      expect(JSON.stringify(j.body)).not.toMatch(/key|token|daily\.co/i);
+    } finally { await s.app.close(); }
+  });
+
+  it("with Daily configured (a fake Daily), a real booking gets a real-mode token and URL, and a demonstration booking never reaches Daily", async () => {
+    const seen: { method: string; url: string; body: any; auth?: string }[] = [];
+    const fake = http.createServer((req, res) => {
+      let raw = "";
+      req.on("data", (c) => (raw += c));
+      req.on("end", () => {
+        const body = raw ? JSON.parse(raw) : undefined;
+        seen.push({ method: req.method!, url: req.url!, body, auth: req.headers.authorization });
+        res.setHeader("content-type", "application/json");
+        if (req.url === "/v1/rooms") res.end(JSON.stringify({ name: body.name, url: `https://fake.daily.co/${body.name}` }));
+        else res.end(JSON.stringify({ token: "fake-daily-token" }));
+      });
+    });
+    await new Promise<void>((r) => fake.listen(0, "127.0.0.1", () => r()));
+    const base = `http://127.0.0.1:${(fake.address() as { port: number }).port}/v1`;
+    const real = await confirmed(2, 0);
+    await openNow(real.id);
+    const [ds] = await slots(demoSlug, demoSvc, day(57));
+    const demo = (await book("owner", startupA, ds!.startsAt, demoSvc, demoSlug)).body;
+    opened.push(demo.id);
+    await db.query(`UPDATE advisory_bookings SET status = 'CONFIRMED', "startsAt" = now() + interval '5 minutes', "endsAt" = now() + interval '35 minutes' WHERE id = $1`, [demo.id]);
+
+    const s = await buildApp(true, { ADVISORY_VIDEO_PROVIDER: "daily", DAILY_API_KEY: "fake-key-for-tests", DAILY_DOMAIN: "fakedomain", DAILY_API_BASE: base });
+    try {
+      const join = (id: string, who: string) => request(s.app.getHttpServer()).post(`/api/advisory/bookings/${id}/meeting/join`).set("Authorization", `Bearer ${tokenOf.get(who)}`).send();
+      const r = await join(real.id, "advisorUser");
+      expect(r.status).toBe(201);
+      expect(r.body).toMatchObject({ mode: "daily", token: "fake-daily-token", recording: false });
+      expect(r.body.roomUrl).toMatch(/^https:\/\/fake\.daily\.co\/ruwad-/);
+      expect(seen.map((x) => `${x.method} ${x.url}`)).toEqual(["POST /v1/rooms", "POST /v1/meeting-tokens"]);
+      expect(seen[0]!.auth).toBe("Bearer fake-key-for-tests");
+      expect(seen[0]!.body.privacy).toBe("private");
+      expect(seen[1]!.body.properties).toMatchObject({ is_owner: true, eject_at_token_exp: true });
+      expect(JSON.stringify(seen)).not.toMatch(/record|transcri/i);
+      expect((await row(real.id)).meetingProvider).toBe("daily");
+
+      const before = seen.length;
+      const d = await join(demo.id, "owner");
+      expect(d.status).toBe(201);
+      expect(d.body.mode).toBe("simulated"); // demo bookings never reach Daily, even when it is configured
+      expect(seen.length).toBe(before);
+    } finally {
+      await s.app.close();
+      await new Promise<void>((r) => fake.close(() => r()));
+    }
   });
 
   // ---- the master switch ------------------------------------------------------------------------------------------------------------------

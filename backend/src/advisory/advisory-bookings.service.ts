@@ -239,6 +239,20 @@ export class AdvisoryBookingsService {
     return { dates: datesWithSlots(input, booking.minutes, now), minutes: booking.minutes };
   }
 
+  /** For the meeting room: the booking and the side the caller may act as (advisor, or startup OWNER/ADMIN). With `readOnly`, any member or the
+   * requester, and administrators, may look; anyone else gets a 404 (it isn't revealed that the booking exists). */
+  async forMeeting(user: AuthUser, id: string, readOnly: boolean): Promise<{ booking: AdvisoryBooking; side: BookingActorRole; canAct: boolean }> {
+    const booking = await this.loadVisible(id);
+    const side = await this.sideOf(user, booking, readOnly);
+    if (!side) {
+      if (readOnly) throw new NotFoundException("Booking not found.");
+      throw new ForbiddenException("Only the advisor and the startup's owner or admin can join this consultation.");
+    }
+    // `canAct`: the caller could actually join (the advisor, or a startup OWNER/ADMIN). A read-only member (an EDITOR) or an administrator can look but not join.
+    const acting = readOnly ? await this.sideOf(user, booking, false) : side;
+    return { booking, side, canAct: acting === "FOUNDER" || acting === "ADVISOR" };
+  }
+
   // ---- advisor decisions --------------------------------------------------------------------------------------------------------------------
 
   async approve(user: AuthUser, id: string, now = new Date()): Promise<BookingView> {
