@@ -11,6 +11,7 @@ import request from "supertest";
 import { JwtStrategy } from "../auth/jwt.strategy";
 import { EmailService } from "../email/email.service";
 import { AdvisoryAutomationService, AdvisoryAutomationService as AutomationService } from "./advisory-automation.service";
+import { AdvisoryAttendanceService } from "./advisory-attendance.service";
 import { AdvisoryMeetingService } from "./advisory-meeting.service";
 import { AdvisoryNotifier } from "./advisory-notifier";
 import { MockVideoProvider } from "./video/mock-video-provider";
@@ -19,6 +20,7 @@ import * as http from "http";
 import { AdvisoryBooking } from "./advisory.entities";
 import { AdvisoryModule } from "./advisory.module";
 import { addDays, riyadhDate, ymdKey } from "./advisory-time";
+import { signDailyWebhook } from "./attendance-logic";
 
 const { assertLocalDatabase, LOCAL_DATABASE_URL } = require("../../scripts/dev/local-db-guard");
 // pg ships no type declarations and this repo has no @types/pg; these are only used for fixtures and raw SQL in this spec.
@@ -113,7 +115,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
       ],
       providers: [JwtStrategy],
     }).overrideProvider(EmailService).useValue({ sendTransactional }).compile();
-    const a = moduleRef.createNestApplication();
+    const a = moduleRef.createNestApplication({ rawBody: true });
     a.setGlobalPrefix("api");
     a.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true, transformOptions: { enableImplicitConversion: true } }));
     await a.init();
@@ -182,6 +184,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
       await db.query(`DELETE FROM advisory_services WHERE "advisorId" = ANY($1)`, [adv]);
       await db.query(`DELETE FROM advisory_advisors WHERE id = ANY($1)`, [adv]);
     }
+    if (db) await db.query(`DELETE FROM advisory_webhook_events WHERE id LIKE $1`, [`${tag}-%`]);
     if (db && created.users.length) await db.query(`DELETE FROM entity_memberships WHERE "userId" = ANY($1)`, [created.users]);
     if (db && created.startups.length) await db.query(`DELETE FROM startups WHERE id = ANY($1)`, [created.startups]);
     if (db && created.users.length) await db.query(`DELETE FROM users WHERE id = ANY($1)`, [created.users]);
@@ -706,7 +709,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
 
   const automation = () => app.get(AdvisoryAutomationService);
   const row = async (id: string) => (await db.query(`SELECT * FROM advisory_bookings WHERE id = $1`, [id])).rows[0] as Record<string, any>;
-  const history = async (id: string) => (await db.query(`SELECT type, details FROM advisory_booking_events WHERE "bookingId" = $1 ORDER BY "createdAt"`, [id])).rows as { type: string; details: { kind?: string; mode?: string; skipped?: string } | null }[];
+  const history = async (id: string) => (await db.query(`SELECT type, details FROM advisory_booking_events WHERE "bookingId" = $1 ORDER BY "createdAt"`, [id])).rows as { type: string; details: Record<string, any> | null }[];
   const notified = async (id: string, kind: string) => (await history(id)).filter((h) => h.type === "NOTIFICATION" && h.details?.kind === kind);
   const minutesAfter = (iso: Date | string, m: number) => new Date(new Date(iso).getTime() + m * 60_000);
 
@@ -739,7 +742,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
     const expiresAt = (await row(b.id)).expiresAt as Date;
     const dry = await automation().runOnce(minutesAfter(expiresAt, 5), { dryRun: true });
     expect(dry.dryRun).toBe(true);
-    expect(dry.references).toContain(b.reference);
+    expect(dry.references).toContain((await row(b.id)).reference);
     expect((await row(b.id)).status).toBe("PENDING"); // untouched
     expect(sendTransactional).not.toHaveBeenCalled();
     expect((await api("owner").post("/advisory/admin/automation/run")).status).toBe(403);
@@ -867,7 +870,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
       made.push((await book(i % 2 ? "owner" : "owner2", i % 2 ? startupA : startupB, s.startsAt)).body);
     }
     const expiresAt = (await row(made[0]!.id)).expiresAt as Date;
-    const second = new AutomationService(app.get(ConfigService), app.get(DataSource), app.get(getRepositoryToken(AdvisoryBooking)), app.get(AdvisoryNotifier), app.get(AdvisoryMeetingService));
+    const second = new AutomationService(app.get(ConfigService), app.get(DataSource), app.get(getRepositoryToken(AdvisoryBooking)), app.get(AdvisoryNotifier), app.get(AdvisoryMeetingService), app.get(AdvisoryAttendanceService));
     const now = minutesAfter(expiresAt, 10);
     const [a, b] = await Promise.all([automation().runOnce(now, { dryRun: false }), second.runOnce(now, { dryRun: false })]);
     for (const m of made) expect((await row(m.id)).status).toBe("EXPIRED");
@@ -1095,6 +1098,236 @@ suite("Advisory Services — integration (local Postgres)", () => {
       await s.app.close();
       await new Promise<void>((r) => fake.close(() => r()));
     }
+  });
+
+  // ---- attendance, Needs Review, and recording what happened -------------------------------------------------------------------------------------
+
+  const WHSEC = Buffer.from("integration-test-webhook-secret-not-real").toString("base64");
+  /** A CONFIRMED consultation that ended `hoursAgo` hours ago (30 minutes long). Distinct offsets keep the advisor's past bookings from overlapping. */
+  const ended = async (dayN: number, hoursAgo: number) => {
+    const b = await confirmed(dayN, 0);
+    await db.query(`UPDATE advisory_bookings SET "startsAt" = now() - ($2::numeric * interval '1 hour'), "endsAt" = now() - ($2::numeric * interval '1 hour') + interval '30 minutes' WHERE id = $1`, [b.id, hoursAgo]);
+    return b;
+  };
+  const presence = (id: string, userId: string, role: "FOUNDER" | "ADVISOR", joinedMinAfterStart: number, leftMinAfterStart: number | null) =>
+    db.query(
+      `INSERT INTO advisory_meeting_attendance ("bookingId", "userId", role, "sessionKey", "joinedAt", "leftAt", source)
+       SELECT $1, $2, $3, 'it-' || gen_random_uuid()::text, "startsAt" + ($4::numeric * interval '1 minute'), CASE WHEN $5::numeric IS NULL THEN NULL ELSE "startsAt" + ($5::numeric * interval '1 minute') END, 'WEBHOOK' FROM advisory_bookings WHERE id = $1`,
+      [id, userId, role, joinedMinAfterStart, leftMinAfterStart]);
+  const attendanceOf = async (id: string) => (await db.query(`SELECT * FROM advisory_meeting_attendance WHERE "bookingId" = $1 ORDER BY "joinedAt"`, [id])).rows as Record<string, any>[];
+  const sign = (body: string, ts = String(Math.floor(Date.now() / 1000)), secret = WHSEC) => ({ "x-webhook-timestamp": ts, "x-webhook-signature": signDailyWebhook(secret, ts, body), "content-type": "application/json" });
+  const post = (a: INestApplication, body: string, headers: Record<string, string>) => request(a.getHttpServer()).post("/api/advisory/webhooks/daily").set(headers).send(body);
+
+  it("a simulated room records who joined and left; the status shows who is in the room and who attended", async () => {
+    const b = await confirmed(41, 0);
+    await openNow(b.id);
+    expect((await api("owner").post(`/advisory/bookings/${b.id}/meeting/presence`, { event: "joined" })).status).toBe(201);
+    expect((await api("owner").post(`/advisory/bookings/${b.id}/meeting/presence`, { event: "joined" })).status).toBe(201); // again: still one open stay
+    expect((await attendanceOf(b.id)).filter((r) => r.userId === ids.owner)).toHaveLength(1);
+    let st = (await api("advisorUser").get(`/advisory/bookings/${b.id}/meeting`)).body.attendance;
+    expect(st.founder).toMatchObject({ present: true, hasRecord: true });
+    expect(st.advisor.hasRecord).toBe(false);
+    expect((await api("advisorUser").post(`/advisory/bookings/${b.id}/meeting/presence`, { event: "joined" })).status).toBe(201);
+    expect((await api("owner").post(`/advisory/bookings/${b.id}/meeting/presence`, { event: "left" })).status).toBe(201);
+    st = (await api("owner").get(`/advisory/bookings/${b.id}/meeting`)).body.attendance;
+    expect(st.founder.present).toBe(false);
+    expect(st.founder.lastLeftAt).not.toBeNull();
+    expect(st.advisor.present).toBe(true);
+    expect((await api("owner").post(`/advisory/bookings/${b.id}/meeting/presence`, { event: "left" })).status).toBe(201); // leaving twice is harmless
+    expect((await attendanceOf(b.id)).every((r) => r.source === "MOCK")).toBe(true);
+  });
+
+  it("presence reports are accepted only from the two parties, only while the meeting is open, and never for a real (Daily) meeting", async () => {
+    const b = await confirmed(42, 0);
+    expect((await api("owner").post(`/advisory/bookings/${b.id}/meeting/presence`, { event: "joined" })).status).toBe(409); // not open yet
+    await openNow(b.id);
+    for (const who of ["outsider", "editor", "owner2", "otherAdvisorUser", "admin"]) expect((await api(who).post(`/advisory/bookings/${b.id}/meeting/presence`, { event: "joined" })).status).toBe(403);
+    expect((await api(null).post(`/advisory/bookings/${b.id}/meeting/presence`, { event: "joined" })).status).toBe(401);
+    expect((await api("owner").post(`/advisory/bookings/${b.id}/meeting/presence`, { event: "arrived" })).status).toBe(400);
+    expect(await attendanceOf(b.id)).toHaveLength(0);
+
+    const s = await buildApp(true, { ADVISORY_VIDEO_PROVIDER: "daily", DAILY_API_KEY: "fake-key-for-tests", DAILY_DOMAIN: "fakedomain" });
+    try {
+      const r = await request(s.app.getHttpServer()).post(`/api/advisory/bookings/${b.id}/meeting/presence`).set("Authorization", `Bearer ${tokenOf.get("owner")}`).send({ event: "joined" });
+      expect(r.status).toBe(409); // a browser can't claim attendance at a real meeting
+      expect(await attendanceOf(b.id)).toHaveLength(0);
+    } finally { await s.app.close(); }
+  });
+
+  it("Daily's webhook: 404 unless a secret is configured; unsigned, mis-signed and stale requests are refused and record nothing", async () => {
+    const body = JSON.stringify({ id: "evt-x", type: "participant.joined", payload: { room: "r", user_id: ids.owner } });
+    expect((await post(app, body, sign(body))).status).toBe(404); // the main test app has no webhook secret
+    const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
+    try {
+      expect((await post(s.app, body, { "content-type": "application/json" })).status).toBe(401); // no signature
+      expect((await post(s.app, body, sign(body, undefined, Buffer.from("another secret").toString("base64")))).status).toBe(401); // wrong secret
+      expect((await post(s.app, body.replace("evt-x", "evt-y"), sign(body))).status).toBe(401); // body changed after signing
+      expect((await post(s.app, body, sign(body, String(Math.floor(Date.now() / 1000) - 3600)))).status).toBe(401); // an hour old: replay
+      expect((await db.query(`SELECT count(*)::int n FROM advisory_webhook_events WHERE id IN ('evt-x','evt-y')`)).rows[0].n).toBe(0);
+      const ping = JSON.stringify({ test: "test" });
+      const ok = await post(s.app, ping, sign(ping));
+      expect(ok.status).toBe(200);
+      expect(ok.body).toEqual({ status: "test" });
+    } finally { await s.app.close(); }
+  });
+
+  it("signed joined/left events are recorded against the right person; duplicates, strangers and unknown rooms change nothing; out-of-order events still add up", async () => {
+    const b = await confirmed(43, 0);
+    await openNow(b.id);
+    await joinAs("owner", b.id); // gives the booking its (unguessable) room name
+    const room = (await row(b.id)).meetingRoomName as string;
+    const start = new Date((await row(b.id)).startsAt).getTime();
+    const sec = (min: number) => Math.floor((start + min * 60_000) / 1000);
+    const evt = (id: string, type: string, userId: string, session: string, extra: Record<string, unknown> = {}, roomName = room) =>
+      JSON.stringify({ id, type, event_ts: extra.event_ts ?? sec(1), payload: { room: roomName, user_id: userId, session_id: session, ...extra } });
+
+    const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
+    try {
+      const send = async (body: string) => (await post(s.app, body, sign(body))).body.status as string;
+      expect(await send(evt(`${tag}-e1`, "participant.joined", ids.owner!, "sess-f", { joined_at: sec(2), event_ts: sec(2) }))).toBe("processed");
+      expect(await send(evt(`${tag}-e1`, "participant.joined", ids.owner!, "sess-f", { joined_at: sec(2), event_ts: sec(2) }))).toBe("duplicate"); // Daily redelivered it
+      expect(await send(evt(`${tag}-e2`, "participant.left", ids.owner!, "sess-f", { joined_at: sec(2), duration: 20 * 60, event_ts: sec(22) }))).toBe("processed");
+      // the advisor's LEAVE arrives before their JOIN (out of order)
+      expect(await send(evt(`${tag}-e3`, "participant.left", ids.advisorUser!, "sess-a", { joined_at: sec(0), duration: 28 * 60, event_ts: sec(28) }))).toBe("processed");
+      expect(await send(evt(`${tag}-e4`, "participant.joined", ids.advisorUser!, "sess-a", { joined_at: sec(0), event_ts: sec(0) }))).toBe("processed");
+      // not recorded: a stranger, an EDITOR member, an unknown room, other event types
+      expect(await send(evt(`${tag}-e5`, "participant.joined", ids.outsider!, "sess-x", { joined_at: sec(3) }))).toBe("ignored");
+      expect(await send(evt(`${tag}-e6`, "participant.joined", ids.editor!, "sess-y", { joined_at: sec(3) }))).toBe("ignored");
+      expect(await send(evt(`${tag}-e7`, "participant.joined", ids.owner!, "sess-z", { joined_at: sec(3) }, "ruwad-no-such-room"))).toBe("ignored");
+      expect(await send(JSON.stringify({ id: `${tag}-e8`, type: "meeting.started", event_ts: sec(0), payload: { room } }))).toBe("ignored");
+
+      const rows = await attendanceOf(b.id);
+      expect(rows).toHaveLength(2);
+      const f = rows.find((r) => r.userId === ids.owner)!;
+      const a = rows.find((r) => r.userId === ids.advisorUser)!;
+      expect(f).toMatchObject({ role: "FOUNDER", source: "WEBHOOK", sessionKey: "sess-f" });
+      expect(new Date(f.leftAt).getTime() - new Date(f.joinedAt).getTime()).toBe(20 * 60_000);
+      expect(a).toMatchObject({ role: "ADVISOR" });
+      expect(Math.abs(new Date(a.joinedAt).getTime() - start)).toBeLessThan(1000); // the late join moved the start back to when they really arrived (webhook times are whole seconds)
+      expect(new Date(a.leftAt).getTime() - new Date(a.joinedAt).getTime()).toBe(28 * 60_000);
+
+      const sum = (await api("owner").get(`/advisory/bookings/${b.id}/meeting`)).body.attendance;
+      expect(sum.advisor.minutes).toBe(28);
+      expect(sum.founder.minutes).toBe(20);
+      expect(sum.overlapMinutes).toBe(20);
+    } finally { await s.app.close(); }
+  });
+
+  it("an ended consultation goes into Needs Review with what attendance suggests, once, and only after the grace period", async () => {
+    const b = await ended(44, 3);
+    await presence(b.id, ids.advisorUser!, "ADVISOR", 0, 28);
+    await presence(b.id, ids.owner!, "FOUNDER", 2, 27);
+    const end = new Date((await row(b.id)).endsAt);
+
+    await automation().runOnce(minutesAfter(end, 10), { dryRun: false }); // meeting window still open
+    expect((await row(b.id)).needsReview).toBe(false);
+    await automation().runOnce(minutesAfter(end, 30), { dryRun: false }); // closed, but inside the 30 minute grace
+    expect((await row(b.id)).needsReview).toBe(false);
+    const dry = await automation().runOnce(minutesAfter(end, 50), { dryRun: true });
+    expect(dry.references).toContain((await row(b.id)).reference);
+    expect((await row(b.id)).needsReview).toBe(false); // a dry run changes nothing
+
+    const report = await automation().runOnce(minutesAfter(end, 50), { dryRun: false });
+    expect(report.needsReview).toBeGreaterThanOrEqual(1);
+    const flagged = await row(b.id);
+    expect(flagged).toMatchObject({ needsReview: true, attendanceOutcome: "ATTENDED_BOTH", status: "CONFIRMED" }); // flagged, NOT completed
+    expect((await history(b.id)).map((h) => h.type)).toContain("NEEDS_REVIEW");
+    const told = await notified(b.id, "NEEDS_REVIEW");
+    expect(told).toHaveLength(1);
+    expect(told[0]!.details).toMatchObject({ mode: "mock", recipients: ["ADVISOR"] });
+    await automation().runOnce(minutesAfter(end, 60), { dryRun: false });
+    expect(await notified(b.id, "NEEDS_REVIEW")).toHaveLength(1); // once
+    expect(sendTransactional).not.toHaveBeenCalled();
+  });
+
+  it("automatic completion is OFF: even a consultation both parties attended is left for a person to confirm", async () => {
+    expect(automation().status().autoComplete).toBe(false);
+    const b = await ended(45, 4);
+    await presence(b.id, ids.advisorUser!, "ADVISOR", 0, 30);
+    await presence(b.id, ids.owner!, "FOUNDER", 0, 30);
+    const report = await automation().runOnce(minutesAfter(new Date((await row(b.id)).endsAt), 60), { dryRun: false });
+    expect(report.autoCompleted).toBe(0);
+    expect(await row(b.id)).toMatchObject({ status: "CONFIRMED", needsReview: true, attendanceOutcome: "ATTENDED_BOTH" });
+  });
+
+  it("with auto-completion switched on (it isn't approved; this only proves the safeguards), only a clear 'both attended' completes; no-shows and unknowns never do", async () => {
+    const both = await ended(46, 5);
+    await presence(both.id, ids.advisorUser!, "ADVISOR", 0, 30);
+    await presence(both.id, ids.owner!, "FOUNDER", 1, 29);
+    const alone = await confirmed(47, 0);
+    await db.query(`UPDATE advisory_bookings SET "startsAt" = now() - interval '6 hours', "endsAt" = now() - interval '330 minutes' WHERE id = $1`, [alone.id]);
+    await presence(alone.id, ids.advisorUser!, "ADVISOR", 0, 30); // the startup never came
+    const nobody = await confirmed(48, 0);
+    await db.query(`UPDATE advisory_bookings SET "startsAt" = now() - interval '7 hours', "endsAt" = now() - interval '390 minutes' WHERE id = $1`, [nobody.id]);
+
+    const fakeConfig = { get: (k: string) => ({ ADVISORY_ENABLED: "true", ADVISORY_AUTOCOMPLETE_ENABLED: "true" } as Record<string, string>)[k] } as unknown as ConfigService;
+    const auto = new AutomationService(fakeConfig, app.get(DataSource), app.get(getRepositoryToken(AdvisoryBooking)), app.get(AdvisoryNotifier), app.get(AdvisoryMeetingService), app.get(AdvisoryAttendanceService));
+    expect(auto.status().autoComplete).toBe(true);
+    const report = await auto.runOnce(new Date(), { dryRun: false });
+    expect(report.autoCompleted).toBeGreaterThanOrEqual(1);
+    expect(await row(both.id)).toMatchObject({ status: "COMPLETED", attendanceOutcome: "ATTENDED_BOTH", needsReview: false });
+    const ev = (await history(both.id)).find((h) => h.type === "COMPLETED");
+    expect(ev).toBeDefined();
+    expect(await row(alone.id)).toMatchObject({ status: "CONFIRMED", needsReview: true, attendanceOutcome: "FOUNDER_NO_SHOW" });
+    expect(await row(nobody.id)).toMatchObject({ status: "CONFIRMED", needsReview: true, attendanceOutcome: "UNKNOWN" });
+  });
+
+  it("the advisor records what happened: the consultation is COMPLETED with that outcome and leaves the queue; nobody else can, and not before it ends", async () => {
+    const b = await ended(49, 8);
+    await presence(b.id, ids.advisorUser!, "ADVISOR", 0, 30);
+    await automation().runOnce(minutesAfter(new Date((await row(b.id)).endsAt), 60), { dryRun: false });
+    expect((await row(b.id)).needsReview).toBe(true);
+
+    for (const who of ["owner", "adminMember", "outsider", "otherAdvisorUser", "editor"]) expect((await api(who).post(`/advisory/bookings/${b.id}/outcome`, { outcome: "ATTENDED_BOTH" })).status).toBe(403);
+    expect((await api(null).post(`/advisory/bookings/${b.id}/outcome`, { outcome: "ATTENDED_BOTH" })).status).toBe(401);
+    expect((await api("advisorUser").post(`/advisory/bookings/${b.id}/outcome`, { outcome: "UNKNOWN" })).status).toBe(400); // a system state, not a resolution
+    expect((await api("advisorUser").post(`/advisory/bookings/${b.id}/outcome`, { outcome: "ATTENDED_BOTH", extra: 1 })).status).toBe(400);
+
+    const res = await api("advisorUser").post(`/advisory/bookings/${b.id}/outcome`, { outcome: "FOUNDER_NO_SHOW", note: "They didn't join" });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ status: "COMPLETED", attendanceOutcome: "FOUNDER_NO_SHOW", needsReview: false });
+    const ev = (await history(b.id)).find((h) => h.type === "OUTCOME_RESOLVED");
+    expect(ev!.details).toMatchObject({ outcome: "FOUNDER_NO_SHOW", suggested: "FOUNDER_NO_SHOW", note: "They didn't join" });
+    expect((await api("advisorUser").post(`/advisory/bookings/${b.id}/outcome`, { outcome: "ATTENDED_BOTH" })).status).toBe(409); // already concluded
+
+    const future = await confirmed(2, 1);
+    expect((await api("advisorUser").post(`/advisory/bookings/${future.id}/outcome`, { outcome: "ATTENDED_BOTH" })).status).toBe(409); // hasn't happened
+    const [s] = await slots(advSlug, svc30, day(3));
+    const pending = (await book("owner", startupA, s!.startsAt)).body;
+    await db.query(`UPDATE advisory_bookings SET "startsAt" = now() - interval '20 hours', "endsAt" = now() - interval '1170 minutes' WHERE id = $1`, [pending.id]);
+    expect((await api("advisorUser").post(`/advisory/bookings/${pending.id}/outcome`, { outcome: "ATTENDED_BOTH" })).status).toBe(409); // was never confirmed
+  });
+
+  it("an administrator can record the outcome too, and sees the queue (demonstration bookings hidden unless asked for)", async () => {
+    const b = await ended(41, 9);
+    await automation().runOnce(minutesAfter(new Date((await row(b.id)).endsAt), 60), { dryRun: false });
+    const queue = (await api("admin").get("/advisory/admin/bookings?needsReview=true")).body as { id: string; needsReview: boolean; attendanceOutcome: string }[];
+    expect(queue.map((x) => x.id)).toContain(b.id);
+    expect(queue.every((x) => x.needsReview)).toBe(true);
+    expect(queue.find((x) => x.id === b.id)!.attendanceOutcome).toBe("UNKNOWN");
+    for (const who of ["owner", "advisorUser"]) expect((await api(who).get("/advisory/admin/bookings?needsReview=true")).status).toBe(403);
+
+    const [ds] = await slots(demoSlug, demoSvc, day(55));
+    const demo = (await book("owner", startupA, ds!.startsAt, demoSvc, demoSlug)).body;
+    await db.query(`UPDATE advisory_bookings SET status = 'CONFIRMED', "needsReview" = true, "startsAt" = now() - interval '11 hours', "endsAt" = now() - interval '630 minutes' WHERE id = $1`, [demo.id]);
+    expect(((await api("admin").get("/advisory/admin/bookings?needsReview=true")).body as { id: string }[]).map((x) => x.id)).not.toContain(demo.id);
+    expect(((await api("admin").get("/advisory/admin/bookings?needsReview=true&includeDemo=true")).body as { id: string }[]).map((x) => x.id)).toContain(demo.id);
+
+    const res = await api("admin").post(`/advisory/bookings/${b.id}/outcome`, { outcome: "BOTH_NO_SHOW" });
+    expect(res.status).toBe(201);
+    expect(res.body).toMatchObject({ status: "COMPLETED", attendanceOutcome: "BOTH_NO_SHOW", needsReview: false });
+    expect((await history(b.id)).find((h) => h.type === "OUTCOME_RESOLVED")).toBeDefined();
+  });
+
+  it("'Mark completed' clears the review flag, and a CONFIRMED consultation that has ended still shows its suggested outcome until then", async () => {
+    const b = await ended(42, 10);
+    await presence(b.id, ids.owner!, "FOUNDER", 0, 30);
+    await automation().runOnce(minutesAfter(new Date((await row(b.id)).endsAt), 60), { dryRun: false });
+    expect(await row(b.id)).toMatchObject({ needsReview: true, attendanceOutcome: "ADVISOR_NO_SHOW" });
+    const mine = (await api("advisorUser").get("/advisory/advisor/bookings")).body as { id: string; needsReview: boolean; attendanceOutcome: string }[];
+    expect(mine.find((x) => x.id === b.id)).toMatchObject({ needsReview: true, attendanceOutcome: "ADVISOR_NO_SHOW" });
+    expect((await api("advisorUser").post(`/advisory/advisor/bookings/${b.id}/complete`)).status).toBe(201);
+    expect(await row(b.id)).toMatchObject({ status: "COMPLETED", needsReview: false, attendanceOutcome: "ATTENDED_BOTH" });
   });
 
   // ---- the master switch ------------------------------------------------------------------------------------------------------------------

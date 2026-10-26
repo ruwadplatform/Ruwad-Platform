@@ -15,15 +15,17 @@ import {
 } from "@/lib/api/advisory";
 import { AvailabilityEditor, ProfileForm, ServicesEditor } from "./AdvisorEditors";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
+import { ResolveOutcomeModal } from "./AttendanceParts";
 import { NoteModal } from "./booking-modals";
-import { BookingStatusBadge, errText, expiryLine, formatWhen } from "./booking-format";
+import { BookingStatusBadge, errText, expiryLine, formatWhen, outcomeLabel } from "./booking-format";
 import type { AvailabilityState, BookingView, MyAdvisorProfile } from "./advisory-types";
 import { useAsync } from "./use-async";
 
-type Tab = "requests" | "upcoming" | "completed" | "availability" | "services" | "profile";
+type Tab = "requests" | "upcoming" | "review" | "completed" | "availability" | "services" | "profile";
 const TABS: { id: Tab; label: string }[] = [
   { id: "requests", label: "Requests" },
   { id: "upcoming", label: "Upcoming" },
+  { id: "review", label: "Needs review" },
   { id: "completed", label: "Completed" },
   { id: "availability", label: "Availability" },
   { id: "services", label: "Services" },
@@ -105,10 +107,12 @@ function Dashboard({ advisor, reload }: { advisor: MyAdvisorProfile; reload: () 
     requests: rows.filter((b) => b.status === "PENDING").sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
     upcoming: rows.filter((b) => b.status === "CONFIRMED" && new Date(b.endsAt) > now).sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
     // confirmed consultations whose time has passed are waiting for the advisor to mark them completed
-    completed: rows.filter((b) => b.status === "COMPLETED" || (b.status === "CONFIRMED" && new Date(b.endsAt) <= now)).sort((a, b) => b.startsAt.localeCompare(a.startsAt)),
+    // ended consultations waiting for a person to say what happened (the scheduler flags them with what attendance suggests)
+    review: rows.filter((b) => b.status === "CONFIRMED" && b.needsReview).sort((a, b) => b.startsAt.localeCompare(a.startsAt)),
+    completed: rows.filter((b) => b.status === "COMPLETED" || (b.status === "CONFIRMED" && !b.needsReview && new Date(b.endsAt) <= now)).sort((a, b) => b.startsAt.localeCompare(a.startsAt)),
   }), [rows, now]);
   const refresh = () => setTick((t) => t + 1);
-  const counts: Partial<Record<Tab, number>> = { requests: groups.requests.length, upcoming: groups.upcoming.length, completed: groups.completed.length };
+  const counts: Partial<Record<Tab, number>> = { requests: groups.requests.length, upcoming: groups.upcoming.length, review: groups.review.length, completed: groups.completed.length };
 
   return (
     <>
@@ -122,10 +126,10 @@ function Dashboard({ advisor, reload }: { advisor: MyAdvisorProfile; reload: () 
         </div>
       </div>
       <div className="mt-16" role="tabpanel">
-        {(tab === "requests" || tab === "upcoming" || tab === "completed") && (
+        {(tab === "requests" || tab === "upcoming" || tab === "review" || tab === "completed") && (
           bookings.error ? <ErrorState title="Couldn't load your consultations" body={bookings.error} />
             : bookings.loading ? <LoadingState title="Loading your consultations…" />
-            : groups[tab].length === 0 ? <EmptyState icon="calendar" title={tab === "requests" ? "No requests waiting" : tab === "upcoming" ? "No upcoming consultations" : "No completed consultations yet"} body={tab === "requests" ? "New consultation requests will appear here for you to approve or decline." : undefined} />
+            : groups[tab].length === 0 ? <EmptyState icon="calendar" title={tab === "requests" ? "No requests waiting" : tab === "upcoming" ? "No upcoming consultations" : tab === "review" ? "Nothing needs review" : "No completed consultations yet"} body={tab === "requests" ? "New consultation requests will appear here for you to approve or decline." : tab === "review" ? "After a consultation ends, it appears here until you confirm what happened." : undefined} />
             : <ul className="adv-booklist">{groups[tab].map((b) => <AdvisorRow key={b.id} b={b} tab={tab} now={now} onChanged={refresh} />)}</ul>
         )}
         {tab === "availability" && <AvailabilityTab />}
@@ -156,6 +160,8 @@ function AdvisorRow({ b, tab, now, onChanged }: { b: BookingView; tab: Tab; now:
         <div className="adv-bookrow-when"><RuwadIcon name="clock" size={13} /> {formatWhen(b.startsAt)} · {b.minutes} min <span className="muted small">Riyadh (UTC+3)</span></div>
         {expiryLine(b) && <div className="adv-bookrow-flag"><RuwadIcon name="clock" size={13} /> Please answer by {expiryLine(b)}. It expires after that.</div>}
         {b.description && <div className="adv-bookrow-note muted small">“{b.description}”</div>}
+        {tab === "review" && <div className="adv-bookrow-flag"><RuwadIcon name="info" size={13} /> Attendance suggests: {outcomeLabel(b.attendanceOutcome) ?? "no attendance recorded"}. Please confirm what happened.</div>}
+        {b.status === "COMPLETED" && b.attendanceOutcome && b.attendanceOutcome !== "ATTENDED_BOTH" && <div className="adv-bookrow-note muted small">Outcome: {outcomeLabel(b.attendanceOutcome)}</div>}
         {needsAnswer && <div className="adv-bookrow-flag"><RuwadIcon name="info" size={13} /> The startup proposed a new time: {formatWhen(b.pendingReschedule!.startsAt)}. Your current time stays booked until you answer.</div>}
       </div>
       <div className="adv-bookrow-side">
@@ -170,6 +176,7 @@ function AdvisorRow({ b, tab, now, onChanged }: { b: BookingView; tab: Tab; now:
               )}>Decline</button>
             </>
           )}
+          {tab === "review" && <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => openModal(<ResolveOutcomeModal booking={b} onDone={onChanged} />)}>Record outcome</button>}
           {tab === "completed" && b.status === "CONFIRMED" && ended && <button type="button" className="btn btn-primary btn-sm" disabled={busy} onClick={() => run(() => completeBooking(b.id), "Marked as completed")}>Mark completed</button>}
           <Link className="btn btn-outline btn-sm" href={`/workspace/consultations/${b.id}`}>{needsAnswer ? "Respond" : tab === "upcoming" ? "Manage" : "View"}</Link>
         </div>

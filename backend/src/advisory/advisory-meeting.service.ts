@@ -7,7 +7,9 @@ import { AuthUser } from "../common/decorators/current-user.decorator";
 import { User } from "../users/user.entity";
 import { AdvisoryBooking, AdvisoryBookingEvent } from "./advisory.entities";
 import { BookingStatus } from "./advisory.enums";
+import { AdvisoryAttendanceService } from "./advisory-attendance.service";
 import { AdvisoryBookingsService } from "./advisory-bookings.service";
+import { AttendanceSummary } from "./attendance-logic";
 import { MEETING_NOTICE, MeetingState, meetingState, meetingWindow } from "./meeting-window";
 import { VIDEO_PROVIDER, VideoProvider, VideoProviderError } from "./video/video-provider";
 import { MockVideoProvider } from "./video/mock-video-provider";
@@ -44,6 +46,8 @@ export interface MeetingStatus {
   canJoin: boolean;
   recording: false;
   notice: string;
+  /** Who has been in the room, and who is in it now. */
+  attendance: AttendanceSummary;
 }
 
 /** The consultation meeting room: who may join, when, and with what. Joining requires a CONFIRMED booking, being the advisor or an OWNER/ADMIN of the
@@ -63,6 +67,7 @@ export class AdvisoryMeetingService {
     @InjectRepository(AdvisoryBookingEvent) private readonly events: Repository<AdvisoryBookingEvent>,
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly bookingsService: AdvisoryBookingsService,
+    private readonly attendance: AdvisoryAttendanceService,
   ) {
     this.config = readVideoConfig((k) => config.get<string>(k));
   }
@@ -87,6 +92,7 @@ export class AdvisoryMeetingService {
       canJoin: state === "OPEN" && available && canAct,
       recording: false,
       notice: MEETING_NOTICE,
+      attendance: await this.attendance.summary(booking, now),
     };
   }
 

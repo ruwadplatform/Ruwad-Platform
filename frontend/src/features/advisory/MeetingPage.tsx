@@ -116,7 +116,7 @@ export function MeetingPage({ id }: { id: string }) {
 
       {join ? (
         <>
-          {join.mode === "daily" ? <DailyRoom join={join} onLeave={() => setJoin(null)} /> : <SimulatedRoom join={join} otherParty={otherParty} onLeave={() => setJoin(null)} />}
+          {join.mode === "daily" ? <DailyRoom join={join} onLeave={() => setJoin(null)} /> : <SimulatedRoom bookingId={id} join={join} otherParty={otherParty} onLeave={() => setJoin(null)} />}
           <p className="adv-meeting-notice mt-8"><RuwadIcon name="lock" size={13} /> {join.notice} The meeting closes at {formatWhen(join.closesAt)}.</p>
         </>
       ) : (

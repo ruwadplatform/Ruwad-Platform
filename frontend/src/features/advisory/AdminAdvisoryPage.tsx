@@ -14,14 +14,15 @@ import {
 } from "@/lib/api/advisory";
 import { AvailabilityEditor, ServicesEditor } from "./AdvisorEditors";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
+import { ResolveOutcomeModal } from "./AttendanceParts";
 import { NoteModal } from "./booking-modals";
-import { BookingStatusBadge, errText, formatWhen, statusLabel } from "./booking-format";
+import { BookingStatusBadge, errText, formatWhen, outcomeLabel, statusLabel } from "./booking-format";
 import type { AdminAdvisorRow, AdvisorReviewStatus, AvailabilityState, BookingStatus } from "./advisory-types";
 import { useAsync } from "./use-async";
 import type { AutomationReport } from "./advisory-types";
 
-type Tab = "advisors" | "bookings" | "stats" | "automation";
-const TABS: { id: Tab; label: string }[] = [{ id: "advisors", label: "Advisors" }, { id: "bookings", label: "Bookings" }, { id: "stats", label: "Statistics" }, { id: "automation", label: "Automation" }];
+type Tab = "advisors" | "bookings" | "review" | "stats" | "automation";
+const TABS: { id: Tab; label: string }[] = [{ id: "advisors", label: "Advisors" }, { id: "bookings", label: "Bookings" }, { id: "review", label: "Needs review" }, { id: "stats", label: "Statistics" }, { id: "automation", label: "Automation" }];
 const ADVISOR_STATUS: Record<AdvisorReviewStatus, { label: string; cls: string }> = {
   DRAFT: { label: "Draft", cls: "adv-badge-muted" },
   PENDING_REVIEW: { label: "Pending review", cls: "adv-badge-warn" },
@@ -50,6 +51,7 @@ export function AdminAdvisoryPage() {
       <div className="mt-16" role="tabpanel">
         {tab === "advisors" && <AdvisorsTab />}
         {tab === "bookings" && <BookingsTab />}
+        {tab === "review" && <ReviewTab />}
         {tab === "stats" && <StatsTab />}
         {tab === "automation" && <AutomationTab />}
       </div>
@@ -328,6 +330,49 @@ function AutomationTab() {
         </section>
       )}
       {s.lastError && <p className="adv-review-note adv-review-error mt-16" role="alert">Last scheduled pass failed: {s.lastError}</p>}
+    </>
+  );
+}
+
+/** The Needs Review queue: consultations that have ended and still need a person to say what happened, with what attendance suggested. */
+function ReviewTab() {
+  const { openModal } = useModal();
+  const [includeDemo, setIncludeDemo] = useState(false);
+  const [tick, setTick] = useState(0);
+  const res = useAsync(`admreview|${includeDemo}|${tick}`, () => fetchAdminBookings({ needsReview: true, includeDemo }));
+  return (
+    <>
+      <label className="adv-check"><input type="checkbox" checked={includeDemo} onChange={(e) => setIncludeDemo(e.target.checked)} /> Include demonstration bookings</label>
+      <div className="mt-16">
+        {res.error ? <ErrorState title="Couldn't load the queue" body={res.error} />
+          : !res.data ? <LoadingState title="Loading the queue…" />
+          : res.data.length === 0 ? <EmptyState icon="check" title="Nothing needs review" body="Consultations appear here after they end, until the advisor (or you) confirm what happened." />
+          : (
+            <div className="panel scroll-x">
+              <table className="data-table">
+                <thead><tr><th>Reference</th><th>Consultation</th><th>Advisor</th><th>Startup</th><th>Ended</th><th>Attendance suggests</th><th></th></tr></thead>
+                <tbody>
+                  {res.data.map((b) => (
+                    <tr key={b.id}>
+                      <td className="small">{b.reference}{b.isDemo && <> <span className="adv-demo">Demo</span></>}</td>
+                      <td className="small">{b.serviceName}<div className="muted">{b.minutes} min</div></td>
+                      <td className="small">{b.advisor?.name ?? "—"}</td>
+                      <td className="small">{b.startupName}</td>
+                      <td className="small">{formatWhen(b.endsAt)}</td>
+                      <td className="small">{outcomeLabel(b.attendanceOutcome) ?? "—"}</td>
+                      <td>
+                        <div className="flex gap-8" style={{ flexWrap: "wrap" }}>
+                          <Link className="btn btn-outline btn-sm" href={`/workspace/consultations/${b.id}`}>View</Link>
+                          <button type="button" className="btn btn-primary btn-sm" onClick={() => openModal(<ResolveOutcomeModal booking={b} onDone={() => setTick((t) => t + 1)} />)}>Record outcome</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+      </div>
     </>
   );
 }

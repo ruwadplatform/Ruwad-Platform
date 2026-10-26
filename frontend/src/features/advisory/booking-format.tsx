@@ -43,6 +43,16 @@ const STATUS: Record<BookingStatus, { label: string; tone: "good" | "warn" | "cr
 
 export const statusLabel = (s: BookingStatus) => STATUS[s].label;
 
+export const OUTCOME_LABEL: Record<string, string> = {
+  ATTENDED_BOTH: "Both attended",
+  FOUNDER_NO_SHOW: "The startup didn't attend",
+  ADVISOR_NO_SHOW: "The advisor didn't attend",
+  BOTH_NO_SHOW: "Neither attended",
+  NO_OVERLAP: "Both joined, but never at the same time",
+  UNKNOWN: "No attendance was recorded",
+};
+export const outcomeLabel = (o: string | null | undefined): string | null => (o ? OUTCOME_LABEL[o] ?? o : null);
+
 /** "Expires October 28, 2026 · 04:00 PM" for a pending request, or null when there is nothing to show. */
 export const expiryLine = (b: Pick<BookingView, "status" | "expiresAt">): string | null => (b.status === "PENDING" && b.expiresAt ? formatWhen(b.expiresAt) : null);
 

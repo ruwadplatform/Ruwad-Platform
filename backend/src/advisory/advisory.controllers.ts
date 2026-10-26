@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, UseGuards } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -10,11 +10,12 @@ import { AdvisoryAdminService } from "./advisory-admin.service";
 import { AdvisoryAdvisorsService } from "./advisory-advisors.service";
 import { AdvisoryAutomationService } from "./advisory-automation.service";
 import { AdvisoryBookingsService } from "./advisory-bookings.service";
+import { AdvisoryAttendanceService } from "./advisory-attendance.service";
 import { AdvisoryMeetingService } from "./advisory-meeting.service";
 import { AdvisoryAdvisor } from "./advisory.entities";
 import { AdvisoryEnabledGuard, ApprovedAdvisorGuard, CurrentAdvisor } from "./advisory.guards";
 import {
-  AdvisorProfileDto, BookingListQueryDto, CreateBookingDto, CreateServiceDto, DatesQueryDto, NoteDto, ProposeRescheduleDto, ReasonDto, ReviewAdvisorDto, SetAvailabilityDto,
+  AdvisorProfileDto, BookingListQueryDto, OutcomeDto, PresenceDto, CreateBookingDto, CreateServiceDto, DatesQueryDto, NoteDto, ProposeRescheduleDto, ReasonDto, ReviewAdvisorDto, SetAvailabilityDto,
   SlotQueryDto, TimeOffDto, UpdateAdvisorProfileDto, UpdateServiceDto, VerificationDto,
 } from "./dto/advisory.dto";
 
@@ -36,7 +37,7 @@ export class AdvisoryPublicController {
 @Controller("advisory")
 @UseGuards(AdvisoryEnabledGuard, JwtAuthGuard)
 export class AdvisoryBookingsController {
-  constructor(private readonly bookings: AdvisoryBookingsService, private readonly meeting: AdvisoryMeetingService) {}
+  constructor(private readonly bookings: AdvisoryBookingsService, private readonly meeting: AdvisoryMeetingService, private readonly attendance: AdvisoryAttendanceService) {}
 
   @Get("my-startups") myStartups(@CurrentUser() u: AuthUser) { return this.bookings.myStartups(u.userId); }
   @Post("bookings") create(@CurrentUser() u: AuthUser, @Body() dto: CreateBookingDto) { return this.bookings.create(u, dto); }
@@ -53,6 +54,10 @@ export class AdvisoryBookingsController {
   /** Join the meeting: returns a short-lived, single-room token. Only the advisor and the startup's owner/admin, only for a CONFIRMED booking, only inside the join window. */
   @Throttle({ default: { limit: 12, ttl: 60_000 } })
   @Post("bookings/:id/meeting/join") joinMeeting(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.meeting.join(u, id); }
+  /** A person in a SIMULATED room reports that they joined or left. Refused for real meetings (their attendance comes from the video provider). */
+  @Post("bookings/:id/meeting/presence") presence(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: PresenceDto) { return this.attendance.recordPresence(u, id, dto.event); }
+  /** The advisor, or an administrator, records what happened at a consultation that has ended (it becomes COMPLETED with that outcome). */
+  @Post("bookings/:id/outcome") outcome(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: OutcomeDto) { return this.attendance.resolveOutcome(u, id, dto.outcome, dto.note); }
   @Post("bookings/:id/reschedule/withdraw") withdraw(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.withdrawReschedule(u, id); }
 }
 
@@ -136,4 +141,17 @@ export class AdvisoryAdminController {
   @Post("automation/run") runAutomation(@Query("dryRun") dryRun?: string) { return this.automation.runOnce(new Date(), { dryRun: dryRun !== "false" }); }
 
   @Get("stats") stats(@Query("includeDemo") includeDemo?: string) { return this.admin.stats(includeDemo === "true"); }
+}
+
+/** Daily's webhook. Public (Daily can't sign in), so the signature on the raw body is the only thing that lets a request through; see
+ * AdvisoryAttendanceService.handleDailyWebhook. 404 unless DAILY_WEBHOOK_SECRET is set. */
+@ApiTags("advisory")
+@Controller("advisory/webhooks")
+@UseGuards(AdvisoryEnabledGuard)
+export class AdvisoryWebhookController {
+  constructor(private readonly attendance: AdvisoryAttendanceService) {}
+
+  @Post("daily")
+  @HttpCode(200)
+  daily(@Req() req: { rawBody?: Buffer }, @Headers() headers: Record<string, string | string[] | undefined>) { return this.attendance.handleDailyWebhook(req.rawBody, headers); }
 }

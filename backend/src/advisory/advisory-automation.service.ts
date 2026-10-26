@@ -5,6 +5,7 @@ import { DataSource, EntityManager, In, Repository } from "typeorm";
 import { AdvisoryBooking } from "./advisory.entities";
 import { AdvisoryNotificationKind, AdvisoryNotifier } from "./advisory-notifier";
 import { AdvisoryAutomationConfig, readAutomationConfig } from "./advisory-config";
+import { AdvisoryAttendanceService } from "./advisory-attendance.service";
 import { AdvisoryMeetingService } from "./advisory-meeting.service";
 
 export interface AutomationReport {
@@ -19,11 +20,15 @@ export interface AutomationReport {
   reminders1h: number;
   /** Meeting rooms deleted for consultations that ended long ago. */
   roomsClosed: number;
+  /** Ended consultations put in the Needs Review queue (with what attendance suggested). */
+  needsReview: number;
+  /** Consultations completed automatically. Always 0 unless auto-completion was separately approved and switched on. */
+  autoCompleted: number;
   /** References of the bookings acted on (or, in a dry run, that WOULD be acted on). */
   references: string[];
 }
 
-type CountKey = "expired" | "proposalsExpired" | "expiryWarnings" | "reminders24h" | "reminders1h" | "roomsClosed";
+type CountKey = "expired" | "proposalsExpired" | "expiryWarnings" | "reminders24h" | "reminders1h" | "roomsClosed" | "needsReview" | "autoCompleted";
 
 /** Rows handled per step per run; the next run picks up any more. */
 const BATCH = 200;
@@ -55,6 +60,7 @@ export class AdvisoryAutomationService implements OnModuleInit, OnModuleDestroy 
     @InjectRepository(AdvisoryBooking) private readonly bookings: Repository<AdvisoryBooking>,
     private readonly notifier: AdvisoryNotifier,
     private readonly meeting: AdvisoryMeetingService,
+    private readonly attendance: AdvisoryAttendanceService,
   ) {
     this.config = readAutomationConfig((k) => config.get<string>(k));
   }
@@ -105,12 +111,13 @@ export class AdvisoryAutomationService implements OnModuleInit, OnModuleDestroy 
     if (this.running) throw new ConflictException("An automation pass is already running.");
     this.running = true;
     try {
-      const report: AutomationReport = { ranAt: now.toISOString(), dryRun: opts.dryRun, expired: 0, proposalsExpired: 0, expiryWarnings: 0, reminders24h: 0, reminders1h: 0, roomsClosed: 0, references: [] };
+      const report: AutomationReport = { ranAt: now.toISOString(), dryRun: opts.dryRun, expired: 0, proposalsExpired: 0, expiryWarnings: 0, reminders24h: 0, reminders1h: 0, roomsClosed: 0, needsReview: 0, autoCompleted: 0, references: [] };
       await this.expirePending(now, opts.dryRun, report);
       await this.expireProposals(now, opts.dryRun, report);
       await this.warnExpiring(now, opts.dryRun, report);
       await this.remind(now, opts.dryRun, report, 24);
       await this.remind(now, opts.dryRun, report, 1);
+      await this.flagForReview(now, opts.dryRun, report);
       await this.closeRooms(now, opts.dryRun, report);
       if (!opts.dryRun) this.lastReport = report;
       return report;
@@ -173,6 +180,37 @@ export class AdvisoryAutomationService implements OnModuleInit, OnModuleDestroy 
     if (dryRun) return this.preview(where, [now, hoursBefore], report, key);
     const ids = await this.claimStamp(where, [now, hoursBefore], column, now);
     await this.notifyAll(ids, hoursBefore === 24 ? "REMINDER_24H" : "REMINDER_1H", report, key);
+  }
+
+  /** A CONFIRMED consultation that ended `reviewGraceMinutes` ago (after the meeting window closed) and still has no recorded outcome goes into the Needs
+   * Review queue with what attendance SUGGESTS. A person confirms it. The only automatic completion is behind ADVISORY_AUTOCOMPLETE_ENABLED, which is OFF
+   * and has not been approved: when (and only when) it is on, a consultation whose attendance shows both parties present together is completed. A
+   * suggested no-show, an unknown, or anything doubtful is never completed automatically. Rows are claimed with FOR UPDATE SKIP LOCKED, so two runners
+   * can't both handle one. */
+  private async flagForReview(now: Date, dryRun: boolean, report: AutomationReport): Promise<void> {
+    const afterEnd = this.meeting.config.closesAfterMinutes + this.config.reviewGraceMinutes;
+    const where = `status = 'CONFIRMED' AND "needsReview" = false AND "attendanceOutcome" IS NULL AND "endsAt" + ($2::numeric * interval '1 minute') <= $1`;
+    if (dryRun) return this.preview(where, [now, afterEnd], report, "needsReview");
+    const done: { id: string; auto: boolean }[] = await this.ds.transaction(async (m) => {
+      const rows = rowsOf<{ id: string }>(await m.query(`SELECT id FROM advisory_bookings WHERE ${where} ORDER BY "endsAt" LIMIT ${BATCH} FOR UPDATE SKIP LOCKED`, [now, afterEnd]));
+      const out: { id: string; auto: boolean }[] = [];
+      for (const { id } of rows) {
+        const booking = await m.findOneByOrFail(AdvisoryBooking, { id });
+        const outcome = await this.attendance.suggestedOutcome(booking, now);
+        if (this.config.autoComplete && outcome === "ATTENDED_BOTH") {
+          await m.query(`UPDATE advisory_bookings SET status = 'COMPLETED', "completedAt" = $2, "attendanceOutcome" = $3, "needsReview" = false, "updatedAt" = now() WHERE id = $1`, [id, now, outcome]);
+          await this.audit(m, [id], "COMPLETED", { fromStatus: "CONFIRMED", toStatus: "COMPLETED", details: { automatic: true, outcome, note: "both parties attended together" } });
+          out.push({ id, auto: true });
+        } else {
+          await m.query(`UPDATE advisory_bookings SET "needsReview" = true, "attendanceOutcome" = $2, "updatedAt" = now() WHERE id = $1`, [id, outcome]);
+          await this.audit(m, [id], "NEEDS_REVIEW", { fromStatus: "CONFIRMED", toStatus: "CONFIRMED", details: { suggestedOutcome: outcome } });
+          out.push({ id, auto: false });
+        }
+      }
+      return out;
+    });
+    report.autoCompleted += done.filter((d) => d.auto).length;
+    await this.notifyAll(done.filter((d) => !d.auto).map((d) => d.id), "NEEDS_REVIEW", report, "needsReview");
   }
 
   /** Delete the meeting room of a consultation that ended a while ago (the room has long since expired on the provider's side; this is tidying).

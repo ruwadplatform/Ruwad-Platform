@@ -204,6 +204,7 @@ export class AdvisoryBookingsService {
     if (q.status && (Object.values(BookingStatus) as string[]).includes(q.status)) qb.andWhere(`b."status" = :st`, { st: q.status });
     if (q.advisorId) qb.andWhere(`b."advisorId" = :aid`, { aid: q.advisorId });
     if (q.includeDemo !== "true") qb.andWhere(`b."isDemo" = false`);
+    if (q.needsReview === "true") qb.andWhere(`b."needsReview" = true`);
     return this.views(await qb.orderBy(`b."startsAt"`, "DESC").take(500).getMany());
   }
 
@@ -272,7 +273,7 @@ export class AdvisoryBookingsService {
     const b = await this.loadVisible(id);
     await this.actAs(user, b, ["ADVISOR"], "Only this consultation's advisor can mark it completed.");
     if (b.endsAt > now) throw new ConflictException("A consultation can be marked completed once it has ended.");
-    return this.change(b, BookingStatus.COMPLETED, user, "ADVISOR", "COMPLETED", { completedAt: now }, null);
+    return this.change(b, BookingStatus.COMPLETED, user, "ADVISOR", "COMPLETED", { completedAt: now, needsReview: false, attendanceOutcome: "ATTENDED_BOTH" }, null);
   }
 
   // ---- cancel -----------------------------------------------------------------------------------------------------------------------------

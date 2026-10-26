@@ -2,13 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
+import { reportPresence } from "@/lib/api/advisory";
 import type { JoinInfo } from "./advisory-types";
 
 /** The two kinds of meeting room the meeting page can show. */
 
 /** A SIMULATED room: nothing is connected, no camera or microphone is used, nothing leaves the page. It exists so the meeting experience can be built,
  * tested and shown (and used for every demonstration booking) without a video provider or any cost. Controls are real UI with pretend effects. */
-export function SimulatedRoom({ join, otherParty, onLeave }: { join: JoinInfo; otherParty: string; onLeave: () => void }) {
+export function SimulatedRoom({ bookingId, join, otherParty, onLeave }: { bookingId: string; join: JoinInfo; otherParty: string; onLeave: () => void }) {
+  // A simulated room has no provider to tell the server who is in it, so the page says so (the server refuses this for real meetings).
+  useEffect(() => {
+    void reportPresence(bookingId, "joined").catch(() => undefined);
+    return () => { void reportPresence(bookingId, "left").catch(() => undefined); };
+  }, [bookingId]);
   const [mic, setMic] = useState(true);
   const [cam, setCam] = useState(true);
   const [sharing, setSharing] = useState(false);

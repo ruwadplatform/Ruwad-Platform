@@ -9,7 +9,8 @@ import { AppModule } from "./app.module";
 import { RejectNulBytesPipe, rejectMalformedUrls, resolveTrustProxyHops } from "./common/request-hygiene";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody keeps a copy of each request's exact bytes on the request (req.rawBody) so Daily's webhook signature can be verified; parsing is unchanged.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
 
   // Helmet's default Cross-Origin-Resource-Policy is "same-origin", which

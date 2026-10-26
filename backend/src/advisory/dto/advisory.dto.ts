@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsEnum, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUUID, Length, Matches, Max, MaxLength, Min, ValidateNested } from "class-validator";
 import { ConsultationTypeId } from "../advisory.enums";
 import { HHMM_PATTERN, YMD_PATTERN } from "../advisory-time";
 
@@ -106,6 +106,16 @@ export class BookingListQueryDto {
   @IsOptional() @IsString() @MaxLength(20) when?: string;
   @IsOptional() @IsUUID() advisorId?: string;
   @IsOptional() @IsString() @MaxLength(5) includeDemo?: string;
+  @IsOptional() @IsString() @MaxLength(5) needsReview?: string;
+}
+
+export class PresenceDto {
+  @IsIn(["joined", "left"]) event!: "joined" | "left";
+}
+
+export class OutcomeDto {
+  @IsIn(["ATTENDED_BOTH", "FOUNDER_NO_SHOW", "ADVISOR_NO_SHOW", "BOTH_NO_SHOW"]) outcome!: "ATTENDED_BOTH" | "FOUNDER_NO_SHOW" | "ADVISOR_NO_SHOW" | "BOTH_NO_SHOW";
+  @IsOptional() @IsString() @MaxLength(500) note?: string;
 }
 
 export class ReviewAdvisorDto {

@@ -10,9 +10,10 @@ import { WorkspaceGate } from "@/components/workspace/WorkspaceGate";
 import { useSession } from "@/hooks/use-store";
 import { acceptReschedule, adminCancelBooking, approveBooking, cancelBooking, completeBooking, declineReschedule, fetchBooking, rejectBooking, withdrawReschedule } from "@/lib/api/advisory";
 import { Breadcrumbs } from "./AdvisoryServicesPage";
+import { AttendancePanel } from "./AttendanceParts";
 import { MeetingCard } from "./MeetingPage";
 import { NoteModal, RescheduleModal } from "./booking-modals";
-import { BookingStatusBadge, errText, expiryLine, formatWhen, localZoneIfDifferent } from "./booking-format";
+import { BookingStatusBadge, errText, expiryLine, formatWhen, localZoneIfDifferent, outcomeLabel } from "./booking-format";
 import type { BookingDetail, BookingHistoryEvent } from "./advisory-types";
 import { useAsync } from "./use-async";
 
@@ -27,6 +28,9 @@ function describeEvent(e: BookingHistoryEvent): string {
     case "REJECTED": return d.note ? `Declined: ${d.note}` : "Declined by the advisor";
     case "CANCELLED": return d.note ? `Cancelled: ${d.note}` : "Cancelled";
     case "COMPLETED": return "Marked as completed";
+    case "NEEDS_REVIEW": return "The consultation ended: waiting for someone to confirm what happened";
+    case "OUTCOME_RESOLVED": return `Outcome recorded: ${outcomeLabel(d.outcome) ?? "recorded"}${d.note ? ` (“${d.note}”)` : ""}`;
+    case "JOIN_REQUESTED": return "Joined the meeting";
     case "EXPIRED": return "Expired: nobody answered in time, so the time was released";
     case "RESCHEDULE_EXPIRED": return "The proposed new time expired unanswered; the original time is unchanged";
     case "RESCHEDULE_PROPOSED": return `New time proposed: ${fmt(d.to)}${d.note ? ` (“${d.note}”)` : ""}`;
@@ -126,6 +130,7 @@ function Detail({ detail, reload }: { detail: BookingDetail; reload: () => void 
       )}
 
       {b.status === "CONFIRMED" && <MeetingCard bookingId={b.id} />}
+      {(b.status === "CONFIRMED" || b.status === "COMPLETED") && <AttendancePanel booking={b} viewerRole={viewerRole} onChanged={reload} />}
 
       <section className="panel panel-pad">
         <dl className="adv-facts">

@@ -1,5 +1,5 @@
 import type {
-  AdminAdvisorRow, AdvisorApplication, AdvisorProfile, AdvisorSummary, AdvisoryStats, AutomationReport, AutomationStatus, AvailabilityState, BookableStartup, BookingDetail, BookingView, JoinInfo, MeetingStatus, MyAdvisorProfile, SlotOffer,
+  AdminAdvisorRow, AdvisorApplication, AdvisorProfile, AdvisorSummary, AdvisoryStats, AutomationReport, AutomationStatus, AvailabilityState, BookableStartup, BookingDetail, BookingView, JoinInfo, ManualOutcome, MeetingStatus, MyAdvisorProfile, SlotOffer,
 } from "@/features/advisory/advisory-types";
 import { api, isNotFound } from "./client";
 
@@ -78,11 +78,12 @@ export const setAdvisorVerified = (id: string, affiliationVerified: boolean) => 
 export const saveAdvisorAvailability = (id: string, windows: { weekday: number; startTime: string; endTime: string }[]) => api.put<AvailabilityState>(`/advisory/admin/advisors/${id}/availability`, { windows });
 export const createAdvisorService = (id: string, body: ServiceInput) => api.post<ServiceRow>(`/advisory/admin/advisors/${id}/services`, body);
 export const updateAdvisorService = (id: string, serviceId: string, body: Partial<ServiceInput> & { active?: boolean }) => api.patch<ServiceRow>(`/advisory/admin/advisors/${id}/services/${serviceId}`, body);
-export const fetchAdminBookings = (q: { status?: string; advisorId?: string; includeDemo?: boolean } = {}) => {
+export const fetchAdminBookings = (q: { status?: string; advisorId?: string; includeDemo?: boolean; needsReview?: boolean } = {}) => {
   const p = new URLSearchParams();
   if (q.status) p.set("status", q.status);
   if (q.advisorId) p.set("advisorId", q.advisorId);
   if (q.includeDemo) p.set("includeDemo", "true");
+  if (q.needsReview) p.set("needsReview", "true");
   return api.get<BookingView[]>(`/advisory/admin/bookings${p.toString() ? `?${p}` : ""}`);
 };
 export const adminCancelBooking = (id: string, reason?: string) => api.post<BookingView>(`/advisory/admin/bookings/${id}/cancel`, { reason });
@@ -99,3 +100,7 @@ export const runAutomation = (dryRun: boolean) => api.post<AutomationReport>(`/a
 export const fetchMeetingStatus = (id: string) => api.get<MeetingStatus>(`/advisory/bookings/${id}/meeting`);
 /** Asks the server for a short-lived, single-room token. Only the advisor and the startup's owner/admin, only for a confirmed consultation, only inside the join window. */
 export const joinMeeting = (id: string) => api.post<JoinInfo>(`/advisory/bookings/${id}/meeting/join`);
+/** A person in a SIMULATED room reports that they joined or left. (A real meeting's attendance comes from the video provider, never from the browser.) */
+export const reportPresence = (id: string, event: "joined" | "left") => api.post<{ ok: true }>(`/advisory/bookings/${id}/meeting/presence`, { event });
+/** The advisor, or an administrator, records what happened at a consultation that has ended; it becomes COMPLETED with that outcome. */
+export const resolveOutcome = (id: string, outcome: ManualOutcome, note?: string) => api.post<BookingView>(`/advisory/bookings/${id}/outcome`, { outcome, note });

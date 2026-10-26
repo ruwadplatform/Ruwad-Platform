@@ -275,7 +275,27 @@ export interface MeetingStatus {
   canJoin: boolean;
   recording: false;
   notice: string;
+  /** Who has been in the room, and who is in it now. */
+  attendance: AttendanceSummary;
 }
+
+export interface RoleAttendance {
+  hasRecord: boolean;
+  firstJoinedAt: string | null;
+  lastLeftAt: string | null;
+  minutes: number;
+  present: boolean;
+}
+
+export interface AttendanceSummary {
+  founder: RoleAttendance;
+  advisor: RoleAttendance;
+  overlapMinutes: number;
+  hasData: boolean;
+}
+
+/** What a person can record about a consultation that has ended. (There is deliberately no NO_SHOW status: the booking becomes COMPLETED with this outcome.) */
+export type ManualOutcome = "ATTENDED_BOTH" | "FOUNDER_NO_SHOW" | "ADVISOR_NO_SHOW" | "BOTH_NO_SHOW";
 
 export interface JoinInfo {
   mode: "daily" | "simulated";
