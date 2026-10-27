@@ -1,4 +1,4 @@
-import { API_BASE, ApiError, api, UPLOAD_API_BASE } from "./client";
+import { API_BASE, ApiError, api } from "./client";
 
 /** The owner's document store for a startup's Data Room. Everything here is private to the startup's owners and RUWĀD admins. */
 
@@ -43,13 +43,15 @@ async function errorFrom(res: Response, tooLarge: string): Promise<ApiError> {
   return new ApiError(res.status, message);
 }
 
-/** Multipart upload — bypasses the shared JSON helper (the browser sets the multipart boundary itself). */
+/** Multipart upload — bypasses the shared JSON helper (the browser sets the multipart boundary itself).
+ * Goes through this site's own `/api` like every other Data Room call: the session cookie belongs to this site, so a request straight to the backend's own address
+ * carries no session (401) and is blocked by CORS before the browser shows the answer ("Failed to fetch"). */
 export async function uploadDataRoomFile(startupId: string, file: File, category: string, name?: string): Promise<DataRoomFile> {
   const form = new FormData();
   form.append("category", category);
   if (name?.trim()) form.append("name", name.trim());
   form.append("file", file); // last, so the text fields are parsed before the file stream
-  const res = await fetch(`${UPLOAD_API_BASE}${base(startupId)}`, { method: "POST", credentials: "include", body: form });
+  const res = await fetch(`${API_BASE}${base(startupId)}`, { method: "POST", credentials: "include", body: form });
   if (!res.ok) throw await errorFrom(res, "That file is larger than the 10 MB limit per document.");
   return res.json();
 }
