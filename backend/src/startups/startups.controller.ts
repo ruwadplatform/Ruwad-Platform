@@ -12,6 +12,8 @@ import { OwnershipGuard } from "../common/guards/ownership.guard";
 import { Roles } from "../common/decorators/roles.decorator";
 import { OwnedEntity } from "../common/decorators/owned-entity.decorator";
 import { UserRole, EntityKind } from "../common/enums";
+import { Personalized, ViewerCtx } from "../visibility/personalized";
+import { Viewer } from "../visibility/viewer";
 
 @ApiTags("startups")
 @Controller("startups")
@@ -19,13 +21,15 @@ export class StartupsController {
   constructor(private readonly service: StartupsService, private readonly profileEdit: StartupProfileEditService) {}
 
   @Get()
-  findAll(@Query() query: QueryStartupsDto) {
-    return this.service.findAll(query);
+  @Personalized()
+  findAll(@Query() query: QueryStartupsDto, @ViewerCtx() viewer: Viewer) {
+    return this.service.findAll(query, viewer);
   }
 
   @Get(":slug")
-  findOne(@Param("slug") slug: string) {
-    return this.service.findBySlugOrThrow(slug);
+  @Personalized()
+  findOne(@Param("slug") slug: string, @ViewerCtx() viewer: Viewer) {
+    return this.service.findBySlugOrThrow(slug, viewer);
   }
 
   @Post()

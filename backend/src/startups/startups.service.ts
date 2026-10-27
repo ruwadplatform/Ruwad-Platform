@@ -15,6 +15,9 @@ import { paginate, PaginatedResult } from "../common/pagination.dto";
 import { OrganizationsService } from "../organizations/organizations.service";
 import { ScoringService } from "../scoring/scoring.service";
 import { affectsScoring } from "./scoring-relevance";
+import { AccessService } from "../visibility/access.service";
+import { atLeast, startupDetail, startupSummary } from "../visibility/field-policy";
+import { Viewer } from "../visibility/viewer";
 
 @Injectable()
 export class StartupsService {
@@ -28,6 +31,7 @@ export class StartupsService {
     private readonly investments: InvestmentsService,
     private readonly organizations: OrganizationsService,
     private readonly scoring: ScoringService,
+    private readonly access: AccessService,
   ) {}
 
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
@@ -110,7 +114,8 @@ export class StartupsService {
     });
   }
 
-  async findAll(query: QueryStartupsDto): Promise<PaginatedResult<Record<string, unknown>>> {
+  async findAll(query: QueryStartupsDto, viewer: Viewer): Promise<PaginatedResult<Record<string, unknown>>> {
+    const access = this.access.forList(viewer);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const qb = this.repo.createQueryBuilder("s");
@@ -120,23 +125,27 @@ export class StartupsService {
     if (query.country) qb.andWhere("s.country = :country", { country: query.country });
     if (query.city) qb.andWhere("s.city = :city", { city: query.city });
 
-    const sortColumn = ["name", "founded", "fundingTotal", "ruwadScore"].includes(query.sort ?? "") ? query.sort! : "ruwadScore";
+    // Ordering by a value the viewer may not read would reveal that value's ranking, so a visitor asking to sort by funding gets the default order.
+    const sortable = atLeast(access, "member") ? ["name", "founded", "fundingTotal", "ruwadScore"] : ["name", "founded", "ruwadScore"];
+    const sortColumn = sortable.includes(query.sort ?? "") ? query.sort! : "ruwadScore";
     // A null score means "not yet calculated", not "worst" — it must never
     // sort to the top of a descending "best score first" listing.
     qb.orderBy(`s.${sortColumn}`, (query.order ?? "desc").toUpperCase() as "ASC" | "DESC", "NULLS LAST");
     qb.skip((page - 1) * limit).take(limit);
 
     const [rows, total] = await qb.getManyAndCount();
-    const items = rows.map((s) => this.toSummary(s));
+    const items = rows.map((s) => startupSummary(this.toSummary(s), access));
     return paginate(items, total, page, limit);
   }
 
-  async findBySlugOrThrow(slug: string): Promise<Record<string, unknown>> {
+  async findBySlugOrThrow(slug: string, viewer: Viewer): Promise<Record<string, unknown>> {
     const startup = await this.repo.findOne({ where: { slug } });
     if (!startup) throw new NotFoundException("Startup not found");
-    return this.toDetail(startup);
+    const access = await this.access.forRecord(viewer, EntityKind.STARTUP, startup.id);
+    return startupDetail(await this.toDetail(startup), access);
   }
 
+  /** The full-fidelity summary, for server-side use only. Anything sent to a client goes through startupSummary() (visibility/field-policy.ts). */
   toSummary(s: Startup) {
     return {
       id: s.id, slug: s.slug, name: s.name, logo: initials(s.name), logoImageId: s.logoImageId ?? null, category: s.category, city: s.city,
@@ -147,6 +156,7 @@ export class StartupsService {
     };
   }
 
+  /** The full-fidelity record, for server-side use only. Anything sent to a client goes through startupDetail() (visibility/field-policy.ts). */
   async toDetail(s: Startup) {
     // Deliberately no `documents` here: this is the PUBLIC profile payload, and
     // Data Room document metadata (names, on-file flags…) is only ever served by

@@ -12,6 +12,9 @@ import { OrganizationsService } from "../organizations/organizations.service";
 import { EntityKind } from "../common/enums";
 import { initials, slugify } from "../common/slug.util";
 import { paginate, PaginatedResult } from "../common/pagination.dto";
+import { AccessService } from "../visibility/access.service";
+import { investorDetail, investorListItem } from "../visibility/field-policy";
+import { Viewer } from "../visibility/viewer";
 
 @Injectable()
 export class InvestorsService {
@@ -21,6 +24,7 @@ export class InvestorsService {
     private readonly investments: InvestmentsService,
     private readonly startups: StartupsService,
     private readonly organizations: OrganizationsService,
+    private readonly access: AccessService,
   ) {}
 
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
@@ -75,7 +79,8 @@ export class InvestorsService {
     return { id: v.id, slug: v.slug, name: v.name, logo: initials(v.name), logoImageId: v.logoImageId ?? null, type: v.type, city: v.city, ticket: v.ticket, hcDeals: v.hcDeals, desc: v.desc };
   }
 
-  async findAll(query: QueryInvestorsDto): Promise<PaginatedResult<Record<string, unknown>>> {
+  async findAll(query: QueryInvestorsDto, viewer: Viewer): Promise<PaginatedResult<Record<string, unknown>>> {
+    const access = this.access.forList(viewer);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const qb = this.repo.createQueryBuilder("v");
@@ -90,18 +95,19 @@ export class InvestorsService {
         this.shared.getSectorNames(EntityKind.INVESTOR, v.id),
         this.investments.findForInvestor(v.id),
       ]);
-      return {
+      return investorListItem({
         id: v.id, slug: v.slug, name: v.name, logo: initials(v.name), logoImageId: v.logoImageId ?? null, type: v.type, city: v.city, founded: v.founded, verified: v.verified,
         desc: v.desc, ticket: v.ticket, hcDeals: v.hcDeals, thesis: v.thesis, stageFocus: v.stageFocus, hcFocus,
         portfolioSize: portfolio.length,
-      };
+      }, access);
     }));
     return paginate(items, total, page, limit);
   }
 
-  async findBySlugOrThrow(slug: string): Promise<Record<string, unknown>> {
+  async findBySlugOrThrow(slug: string, viewer: Viewer): Promise<Record<string, unknown>> {
     const investor = await this.repo.findOne({ where: { slug } });
     if (!investor) throw new NotFoundException("Investor not found");
+    const access = await this.access.forRecord(viewer, EntityKind.INVESTOR, investor.id);
     const [sectors, team, portfolio, hasPendingClaim] = await Promise.all([
       this.shared.getSectorNames(EntityKind.INVESTOR, investor.id),
       this.shared.getTeamMembers(EntityKind.INVESTOR, investor.id),
@@ -114,6 +120,6 @@ export class InvestorsService {
         return s ? { ...this.startups.toSummary(s), round: p.round, year: p.year } : null;
       }),
     );
-    return { ...investor, logo: initials(investor.name), sectors, team, portfolio: startupPortfolio.filter(Boolean), hasPendingClaim };
+    return investorDetail({ ...investor, logo: initials(investor.name), sectors, team, portfolio: startupPortfolio.filter(Boolean), hasPendingClaim }, access);
   }
 }

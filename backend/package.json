@@ -19,6 +19,7 @@
     "migration:generate": "npm run build && typeorm-ts-node-commonjs migration:generate -d src/database/data-source.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
+    "test:visibility": "node scripts/dev/run-visibility-integration.js",
     "deploy:start": "npm run migration:run && npm run start:prod",
     "content:refresh": "node scripts/ops/content-refresh.js"
   },

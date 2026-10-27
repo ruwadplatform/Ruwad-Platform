@@ -11,10 +11,12 @@ import { ResearchInstitution } from "../research/research-institution.entity";
 import { Multinational } from "../multinationals/multinational.entity";
 import { UsersModule } from "../users/users.module";
 
+import { AccessService } from "../visibility/access.service";
+
 @Module({
   imports: [TypeOrmModule.forFeature([EntityMembership, ListingClaim, Startup, Investor, Hub, ResearchInstitution, Multinational]), UsersModule],
-  providers: [OrganizationsService],
+  providers: [OrganizationsService, AccessService],
   controllers: [OrganizationsController],
-  exports: [OrganizationsService, TypeOrmModule],
+  exports: [OrganizationsService, AccessService, TypeOrmModule],
 })
 export class OrganizationsModule {}

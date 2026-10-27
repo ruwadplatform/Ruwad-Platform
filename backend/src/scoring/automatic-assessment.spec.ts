@@ -337,7 +337,7 @@ describe("only meaningful startup edits start a new assessment", () => {
   it("StartupsService.update recalculates for a relevant change and skips a cosmetic one", async () => {
     const startupsRepo = fakeRepo([{ id: "s1", name: "Acme", slug: "acme", ...before }]);
     const scoringSvc: any = { recalculateStartupScore: jest.fn(async () => ({})) };
-    const svc = new StartupsService(startupsRepo as any, fakeRepo() as any, fakeRepo() as any, {} as any, {} as any, {} as any, scoringSvc);
+    const svc = new StartupsService(startupsRepo as any, fakeRepo() as any, fakeRepo() as any, {} as any, {} as any, {} as any, scoringSvc, {} as any);
     await svc.update("s1", { tagline: "fresh tagline" } as any);
     expect(scoringSvc.recalculateStartupScore).not.toHaveBeenCalled();
     await svc.update("s1", { fundingTotal: 99 } as any);
@@ -409,7 +409,7 @@ describe("the public startup profile and the admin review queues stay out of the
     const startup = { id: "s1", name: "Acme", verified: "unclaimed", fundingTotal: 10, valuation: 0, ruwadScore: 8.1, scoreStatus: ScoreStatus.CALCULATED, scoringBasis: "EXISTING_DATA" };
     const shared = { getSectorNames: async () => [], getTeamMembers: async () => [], getProducts: async () => [], getContact: async () => null };
     const scoringSvc: any = { getScoreForStartup: async () => ({ status: ScoreStatus.CALCULATED, ruwadScore: 8.1, confidenceScore: 0.9, version: "v", calculatedAt: "", missingFactors: [], factors: { growth: { score: 8, confidence: 1, reason: "r", inputsUsed: [], missingInputs: [] } } }) };
-    const svc = new StartupsService(fakeRepo([startup]) as any, fakeRepo() as any, fakeRepo() as any, shared as any, { findForTarget: async () => [] } as any, { pendingClaimForEntity: async () => false } as any, scoringSvc);
+    const svc = new StartupsService(fakeRepo([startup]) as any, fakeRepo() as any, fakeRepo() as any, shared as any, { findForTarget: async () => [] } as any, { pendingClaimForEntity: async () => false } as any, scoringSvc, {} as any);
     const json = JSON.stringify(await svc.toDetail(startup as any));
     for (const leak of ["predictiveIntelligence", "estimatePercent", "Experimental", "inputFeatures", "modelVersion", "raisedNewRoundWithin6Months", "scoringBasis", "EXISTING_DATA"]) expect(json).not.toContain(leak);
   });

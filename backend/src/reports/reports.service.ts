@@ -8,6 +8,8 @@ import { PaginationQueryDto, paginate, PaginatedResult } from "../common/paginat
 import { slugify } from "../common/slug.util";
 import { StartupsService } from "../startups/startups.service";
 import { InvestorsService } from "../investors/investors.service";
+import { reportListItem, reportView } from "../visibility/field-policy";
+import { Viewer, baseAccess } from "../visibility/viewer";
 
 @Injectable()
 export class ReportsService {
@@ -56,7 +58,8 @@ export class ReportsService {
     });
   }
 
-  async findAll(query: PaginationQueryDto & { category?: string }): Promise<PaginatedResult<Report>> {
+  async findAll(query: PaginationQueryDto & { category?: string }, viewer: Viewer): Promise<PaginatedResult<Record<string, unknown>>> {
+    const access = baseAccess(viewer);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const qb = this.repo.createQueryBuilder("r").where("r.isPublished = true");
@@ -65,7 +68,7 @@ export class ReportsService {
     qb.orderBy("r.publicationDate", "DESC");
     qb.skip((page - 1) * limit).take(limit);
     const [rows, total] = await qb.getManyAndCount();
-    return paginate(rows.map((r) => this.slim(r)), total, page, limit);
+    return paginate(rows.map((r) => reportListItem(r as unknown as Record<string, unknown>, access)), total, page, limit);
   }
 
   /** Lists don't need the heavy generated payload (statistics, saved sources). */
@@ -92,7 +95,7 @@ export class ReportsService {
     return this.repo.save(report);
   }
 
-  async findBySlugOrThrow(slug: string): Promise<Record<string, unknown>> {
+  async findBySlugOrThrow(slug: string, viewer: Viewer): Promise<Record<string, unknown>> {
     const report = await this.repo.findOne({ where: { slug, isPublished: true } }); // drafts and unpublished reports are not public
     if (!report) throw new NotFoundException("Report not found");
 
@@ -102,11 +105,11 @@ export class ReportsService {
       Promise.all(report.relatedReportIds.map((id) => this.repo.findOne({ where: { id } }).catch(() => null))),
     ]);
 
-    return {
+    return reportView({
       ...report,
       relatedCompanies: relatedCompanies.filter(Boolean),
       relatedInvestors: relatedInvestors.filter(Boolean),
       relatedReports: relatedReports.filter(Boolean),
-    };
+    } as unknown as Record<string, unknown>, baseAccess(viewer));
   }
 }

@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { GUEST } from "../visibility/viewer";
 import { NotFoundException } from "@nestjs/common";
 import { ResearchService } from "../content/research.service";
 import type { SerperClient } from "../content/serper.client";
@@ -130,11 +131,11 @@ describe("visibility: draft, publish, unpublish", () => {
   it("a draft is not publicly readable; publishing makes it readable; unpublishing removes it", async () => {
     const { gen, reports } = setup();
     const draft = await gen.generate("SECTOR_OVERVIEW", { sector: "Digital Health" });
-    await expect(reports.findBySlugOrThrow(draft.slug)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(reports.findBySlugOrThrow(draft.slug, GUEST)).rejects.toBeInstanceOf(NotFoundException);
     await reports.setPublished(draft.id, true);
-    await expect(reports.findBySlugOrThrow(draft.slug)).resolves.toMatchObject({ slug: draft.slug, isPublished: true });
+    await expect(reports.findBySlugOrThrow(draft.slug, GUEST)).resolves.toMatchObject({ slug: draft.slug, isPublished: true });
     await reports.setPublished(draft.id, false);
-    await expect(reports.findBySlugOrThrow(draft.slug)).rejects.toBeInstanceOf(NotFoundException);
+    await expect(reports.findBySlugOrThrow(draft.slug, GUEST)).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it("opening a report runs 0 Serper searches", async () => {
@@ -142,7 +143,7 @@ describe("visibility: draft, publish, unpublish", () => {
     const r = await gen.generate("SECTOR_OVERVIEW", { sector: "Digital Health" });
     await reports.setPublished(r.id, true);
     const before = world.serperCalls();
-    for (let i = 0; i < 3; i++) await reports.findBySlugOrThrow(r.slug);
+    for (let i = 0; i < 3; i++) await reports.findBySlugOrThrow(r.slug, GUEST);
     expect(world.serperCalls()).toBe(before);
   });
 });

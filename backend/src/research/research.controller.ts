@@ -10,14 +10,16 @@ import { OwnershipGuard } from "../common/guards/ownership.guard";
 import { Roles } from "../common/decorators/roles.decorator";
 import { OwnedEntity } from "../common/decorators/owned-entity.decorator";
 import { UserRole, EntityKind } from "../common/enums";
+import { Personalized, ViewerCtx } from "../visibility/personalized";
+import { Viewer } from "../visibility/viewer";
 
 @ApiTags("research")
 @Controller("research")
 export class ResearchController {
   constructor(private readonly service: ResearchService) {}
 
-  @Get() findAll(@Query() query: QueryResearchDto) { return this.service.findAll(query); }
-  @Get(":slug") findOne(@Param("slug") slug: string) { return this.service.findBySlugOrThrow(slug); }
+  @Get() @Personalized() findAll(@Query() query: QueryResearchDto, @ViewerCtx() viewer: Viewer) { return this.service.findAll(query, viewer); }
+  @Get(":slug") @Personalized() findOne(@Param("slug") slug: string, @ViewerCtx() viewer: Viewer) { return this.service.findBySlugOrThrow(slug, viewer); }
 
   @Post()
   @ApiCookieAuth() @UseGuards(JwtAuthGuard, RolesGuard)

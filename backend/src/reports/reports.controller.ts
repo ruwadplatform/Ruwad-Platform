@@ -13,6 +13,8 @@ import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { RolesGuard } from "../common/guards/roles.guard";
 import { Roles } from "../common/decorators/roles.decorator";
 import { UserRole } from "../common/enums";
+import { Personalized, ViewerCtx } from "../visibility/personalized";
+import { Viewer } from "../visibility/viewer";
 
 const ADMIN = [UserRole.RUWAD_ADMIN, UserRole.SUPER_ADMIN];
 
@@ -22,7 +24,7 @@ export class ReportsController {
   constructor(private readonly service: ReportsService, private readonly generator: ReportGeneratorService, private readonly library: ReportLibraryService) {}
 
   /** Public: published reports only. Viewing never triggers a web search — everything is stored with the report. */
-  @Get() findAll(@Query() query: PaginationQueryDto & { category?: string }) { return this.service.findAll(query); }
+  @Get() @Personalized() findAll(@Query() query: PaginationQueryDto & { category?: string }, @ViewerCtx() viewer: Viewer) { return this.service.findAll(query, viewer); }
 
   // ---- admin (declared before ":slug" so these paths aren't read as a slug) ----
   @Get("admin/all")
@@ -71,7 +73,7 @@ export class ReportsController {
   @ApiCookieAuth() @UseGuards(JwtAuthGuard, RolesGuard) @Roles(...ADMIN)
   unpublish(@Param("id", new ParseUUIDPipe()) id: string) { return this.service.setPublished(id, false); }
 
-  @Get(":slug") findOne(@Param("slug") slug: string) { return this.service.findBySlugOrThrow(slug); }
+  @Get(":slug") @Personalized() findOne(@Param("slug") slug: string, @ViewerCtx() viewer: Viewer) { return this.service.findBySlugOrThrow(slug, viewer); }
 
   @Post()
   @ApiCookieAuth() @UseGuards(JwtAuthGuard, RolesGuard) @Roles(...ADMIN)

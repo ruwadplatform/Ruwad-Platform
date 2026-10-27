@@ -10,6 +10,9 @@ import { DirectorySharedService } from "../directory-shared/directory-shared.ser
 import { EntityKind } from "../common/enums";
 import { initials, slugify } from "../common/slug.util";
 import { paginate, PaginatedResult } from "../common/pagination.dto";
+import { AccessService } from "../visibility/access.service";
+import { researchDetail, researchListItem } from "../visibility/field-policy";
+import { Viewer } from "../visibility/viewer";
 
 @Injectable()
 export class ResearchService {
@@ -20,6 +23,7 @@ export class ResearchService {
     @InjectRepository(ResearchTechnology) private readonly technologies: Repository<ResearchTechnology>,
     @InjectRepository(Researcher) private readonly researchers: Repository<Researcher>,
     private readonly shared: DirectorySharedService,
+    private readonly access: AccessService,
   ) {}
 
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
@@ -73,7 +77,8 @@ export class ResearchService {
     });
   }
 
-  async findAll(query: QueryResearchDto): Promise<PaginatedResult<Record<string, unknown>>> {
+  async findAll(query: QueryResearchDto, viewer: Viewer): Promise<PaginatedResult<Record<string, unknown>>> {
+    const access = this.access.forList(viewer);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const qb = this.repo.createQueryBuilder("r");
@@ -91,18 +96,19 @@ export class ResearchService {
         this.projects.count({ where: { researchInstitutionId: r.id } }),
         this.publications.count({ where: { researchInstitutionId: r.id } }),
       ]);
-      return {
+      return researchListItem({
         id: r.id, slug: r.slug, name: r.name, logo: initials(r.name), logoImageId: r.logoImageId ?? null, type: r.type, city: r.city, country: r.country,
         founded: r.founded, about: r.about, numResearchers: r.numResearchers, collaborationStatus: r.collaborationStatus,
         coreResearchAreas: r.coreResearchAreas, healthcareFocus, projectCount, publicationCount,
-      };
+      }, access);
     }));
     return paginate(items, total, page, limit);
   }
 
-  async findBySlugOrThrow(slug: string): Promise<Record<string, unknown>> {
+  async findBySlugOrThrow(slug: string, viewer: Viewer): Promise<Record<string, unknown>> {
     const inst = await this.repo.findOne({ where: { slug } });
     if (!inst) throw new NotFoundException("Research institution not found");
+    const access = await this.access.forRecord(viewer, EntityKind.RESEARCH, inst.id);
     const [sectors, projects, publications, technologies, researchers, partnerships, contact] = await Promise.all([
       this.shared.getSectorNames(EntityKind.RESEARCH, inst.id),
       this.projects.find({ where: { researchInstitutionId: inst.id } }),
@@ -114,6 +120,6 @@ export class ResearchService {
     ]);
     // Deliberately no `documents`/DataRoom lookup here — Research &
     // Academia has no Data Room, by explicit product rule.
-    return { ...inst, logo: initials(inst.name), sectors, projects, publications, technologies, researchers, partnerships, contact };
+    return researchDetail({ ...inst, logo: initials(inst.name), sectors, projects, publications, technologies, researchers, partnerships, contact }, access);
   }
 }
