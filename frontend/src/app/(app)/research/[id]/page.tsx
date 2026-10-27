@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { ResearchProfilePage } from "@/features/research/ResearchProfilePage";
 import { fetchResearchBySlug } from "@/lib/api/research";
+import { sessionFetchOptions } from "@/lib/api/server-session";
 import { JsonLd } from "@/lib/seo/JsonLd";
 import { profileMetadata, profileUnavailable } from "@/lib/seo/profile-page";
 import { profileJsonLd, type ProfileFacts } from "@/lib/seo/profile-seo";
@@ -22,7 +23,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { id } = await params;
   let institution;
   try {
-    institution = await fetchResearchBySlug(id);
+    // The page shows this visitor what their account may see; the metadata above deliberately uses the public view only.
+    institution = await fetchResearchBySlug(id, await sessionFetchOptions());
   } catch {
     return (
       <div className="content-in wide">

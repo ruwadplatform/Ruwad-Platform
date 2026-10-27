@@ -157,7 +157,7 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
           <div className="stat-mini-row">
             <Stat label="Legal Name" val={s.legalName} />
             <Stat label="Former Name" val={s.formerName} />
-            <Stat label="Registration No." val={<span className="mono">{s.registrationNumber}</span>} />
+            <Stat label="Registration No." val={<span className="mono">{s.registrationNumber || "—"}</span>} />
             <Stat label="Business Model" val={s.businessModel} />
             <Stat label="Status" val={<span className="badge badge-good">{s.status}</span>} />
             <Stat label="Employees" val={s.employees} />
@@ -235,9 +235,10 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
       const overview = (
         <div className="panel panel-pad mb-16">
           <div className="stat-mini-row">
-            <StatCard label="Total Raised" value={<>SAR {s.fundingTotal}M</>} />
+            {/* The amount raised and the round history are for members: a visitor's copy of the profile does not carry them. */}
+            {loggedIn && <StatCard label="Total Raised" value={<>SAR {s.fundingTotal}M</>} />}
             <StatCard label="Funding Stage" size={15} value={s.stage} />
-            <StatCard label="Last Round" size={15} value={s.rounds[s.rounds.length - 1]?.round || "—"} />
+            {loggedIn && <StatCard label="Last Round" size={15} value={s.rounds[s.rounds.length - 1]?.round || "—"} />}
           </div>
         </div>
       );
@@ -290,9 +291,10 @@ function TabBody({ tab, s, loggedIn }: { tab: Tab; s: Startup; loggedIn: boolean
     case "Investors": {
       const investorIds = s.investorIds ?? [];
       if (!loggedIn) {
+        const investorCount = s.investorCount ?? investorIds.length;
         return (
           <div className="panel panel-pad">
-            <LockedTeaser preview={`${investorIds.length} investor${investorIds.length === 1 ? "" : "s"} on record`} title="Unlock Investor Intelligence" body="See which investors backed this company, co-investment patterns and participation history." blurLines={3} cta="Unlock Investor Intelligence" />
+            <LockedTeaser preview={`${investorCount} investor${investorCount === 1 ? "" : "s"} on record`} title="Unlock Investor Intelligence" body="See which investors backed this company, co-investment patterns and participation history." blurLines={3} cta="Unlock Investor Intelligence" />
           </div>
         );
       }

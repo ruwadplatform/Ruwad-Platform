@@ -27,8 +27,9 @@ export const ADVISORY_ENABLED = process.env.NEXT_PUBLIC_ADVISORY_ENABLED === "tr
  * anywhere until this is filled in. */
 export const AFFILIATED_ORGANIZATION: { name: string; url?: string } | null = null;
 
-/** Profile pages (one per startup, investor, hub, institution, company) are indexable by default. Set SEO_INDEX_PROFILES=false at build time to keep them out of search results, the sitemap and the public lists, for example while the data shown on them is being reviewed. */
-export const PROFILES_INDEXABLE = process.env.SEO_INDEX_PROFILES !== "false";
+/** Profile pages (one per startup, investor, hub, institution, company) stay OUT of search results, the sitemap and the public lists until SEO_INDEX_PROFILES=true is set at build time. That is
+ * switched on only after the API's field-level redaction has been verified in production (see docs/api-access-policy.md). */
+export const PROFILES_INDEXABLE = process.env.SEO_INDEX_PROFILES === "true";
 
 export const absoluteUrl = (path: string): string => `${SITE_URL}${path === "/" ? "" : path.startsWith("/") ? path : `/${path}`}`;
 

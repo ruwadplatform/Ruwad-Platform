@@ -61,14 +61,15 @@ export function ReportDetailPage({ report: r }: { report: Report }) {
   const relatedCompanies = r.relatedCompaniesDetailed ?? [];
   const relatedInvestors = r.relatedInvestorsDetailed ?? [];
   const relatedReports = r.relatedReportsDetailed ?? [];
-  const chartSections = r.sections.filter((s) => (s.chart?.length ?? 0) > 0);
+  const chartSections = r.sections.filter((s) => (s.chart?.length ?? 0) > 0 || s.chartLocked);
   // While the session check is still in flight, default to the guest-
   // capped view (fewer findings) rather than guessing logged-in — under-
   // showing real content for ~100ms is harmless; over-showing gated
   // content to a guest, even briefly, is not.
   const unlocked = hydrated && loggedIn;
   const visibleFindings = unlocked ? r.keyFindings : r.keyFindings.slice(0, 2);
-  const lockedFindingsCount = r.keyFindings.length - visibleFindings.length;
+  // The server already leaves the members-only findings out of a visitor's copy and says how many.
+  const lockedFindingsCount = r.keyFindings.length - visibleFindings.length + (r.lockedFindingCount ?? 0);
   // Only treat the last section as a distinct "Outlook" narrative when the
   // report actually has more than one section — a single-section report
   // has nothing separate to say twice.
@@ -214,7 +215,7 @@ export function ReportDetailPage({ report: r }: { report: Report }) {
           <div className="entity-grid">
             {relatedCompanies.map((s) => (
               <EntityCard key={s.id} href={`/startups/${s.slug}`} logo={s.logo} logoUrl={s.logoUrl} name={s.name} subtitle={`${s.city} · ${s.category}`} desc={s.tagline} kind="startups" id={s.slug}
-                meta={<><span className="tag">{s.stage}</span></>} foot={<span className="small muted">SAR {s.fundingTotal}M raised</span>} />
+                meta={<><span className="tag">{s.stage}</span></>} foot={unlocked && s.fundingTotal ? <span className="small muted">SAR {s.fundingTotal}M raised</span> : null} />
             ))}
           </div>
         )}

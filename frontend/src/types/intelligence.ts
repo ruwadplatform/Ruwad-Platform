@@ -24,23 +24,27 @@ export interface ReportSection {
   heading: string;
   body: string;
   chart?: ChartDatum[];
+  /** The section has a chart that is for members; a visitor's copy carries the heading only. */
+  chartLocked?: boolean;
 }
 
 export interface ReportMetric { label: string; value: string; note?: string }
 export interface ReportDistribution { key: string; title: string; unit: string; rows: { l: string; v: number }[] }
 export interface ReportExternalSource {
   id: string; title: string; url: string; domain: string; snippet: string;
-  publishedAt: string | null; publishedText: string | null; query: string; topic: string;
-  sourceType: string; sourceTypeLabel: string; tier: number; retrievedAt: string;
+  publishedAt: string | null; publishedText: string | null;
+  /** How the source was found: shown to administrators only. */
+  query?: string; topic?: string;
+  sourceType: string; sourceTypeLabel: string; tier?: number; retrievedAt: string;
 }
 export interface ReportInternalStats {
   coverage: { startups: number; investors: number; asOf: string };
   metrics: ReportMetric[];
   distributions: ReportDistribution[];
-  companies: { slug: string; name: string; stage: string; city: string; category: string; fundingTotal: number }[];
+  companies: { slug: string; name: string; stage: string; city: string; category: string; fundingTotal?: number }[];
   investors: { slug: string; name: string; type: string; city: string; hcDeals: number }[];
   /** Companies that say they are raising, with the target each states — funding SOUGHT, never raised. */
-  fundingSought?: { slug: string; name: string; stage: string; target: string }[];
+  fundingSought?: { slug: string; name: string; stage: string; target?: string }[];
   ecosystem?: ReportMetric[];
   subject?: { slug: string; name: string; facts: ReportMetric[]; peers: ReportMetric[]; profile?: { heading: string; items: { label: string; value: string }[] }[]; missing?: string[] } | null;
 }
@@ -58,7 +62,7 @@ export interface GeneratedReport {
   overviewLines: string[];
   methodology: string[];
   coverageNotice: string;
-  research: { status: "ok" | "partial" | "unavailable" | "disabled"; searchesUsed: number; cacheHits: number; sourcesKept: number; note?: string };
+  research: { status: "ok" | "partial" | "unavailable" | "disabled"; searchesUsed?: number; cacheHits?: number; sourcesKept?: number; note?: string };
   scopeLabel: string;
   marketSize?: ReportMarketSize;
   internalStats: ReportInternalStats;
@@ -110,6 +114,8 @@ export interface Report {
   badges: ReportBadge[];
   executiveSummary: string;
   keyFindings: string[];
+  /** How many findings a visitor's copy leaves out. */
+  lockedFindingCount?: number;
   marketStats: ReportStat[];
   sections: ReportSection[];
   relatedCompanies: string[];

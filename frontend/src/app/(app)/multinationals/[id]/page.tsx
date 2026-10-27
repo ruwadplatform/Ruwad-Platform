@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { MultinationalProfilePage } from "@/features/multinationals/MultinationalProfilePage";
 import { fetchMultinationalBySlug } from "@/lib/api/multinationals";
+import { sessionFetchOptions } from "@/lib/api/server-session";
 import { JsonLd } from "@/lib/seo/JsonLd";
 import { profileMetadata, profileUnavailable } from "@/lib/seo/profile-page";
 import { profileJsonLd, type ProfileFacts } from "@/lib/seo/profile-seo";
@@ -22,7 +23,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { id } = await params;
   let mnc;
   try {
-    mnc = await fetchMultinationalBySlug(id);
+    // The page shows this visitor what their account may see; the metadata above deliberately uses the public view only.
+    mnc = await fetchMultinationalBySlug(id, await sessionFetchOptions());
   } catch {
     return (
       <div className="content-in wide">

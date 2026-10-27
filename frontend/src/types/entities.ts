@@ -102,6 +102,8 @@ export interface Startup {
    * resolves against the loaded Investors collection instead of a
    * fragile name match). */
   investorIds?: string[];
+  /** How many investors are on record. Visitors get the count only; the investors themselves are for members. */
+  investorCount?: number;
   traction: Traction;
   logo: string;
   logoUrl?: string | null;
@@ -155,6 +157,8 @@ export interface Investor {
    * investments join (id/slug/logo/score/etc, not just a name) — the
    * Portfolio tab reads this instead of re-deriving it with a fragile
    * name match against a separately-loaded Startups collection. */
+  /** The full portfolio size. A visitor receives a three-company preview in `portfolioDetailed`. */
+  portfolioTotal?: number;
   portfolioDetailed?: { id: string; slug: string; name: string; logo: string; logoUrl?: string | null; category: string; city: string; tagline: string; stage: string; ruwadScore: number | null }[];
   logo: string;
   logoUrl?: string | null;

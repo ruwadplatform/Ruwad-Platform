@@ -211,7 +211,16 @@ export function isSessionHydrated(): boolean {
   return sessionHydrated;
 }
 
+/** The directory, report and analytics data the API returns depends on who is signed in (a visitor gets the public fields, a member more), so whatever was loaded for the previous
+ * viewer must be dropped and loaded again when someone signs in, registers or signs out. Pages rendered on the server are refreshed the same way (components/shell/AppBoot.tsx). */
+const viewerChangeListeners = new Set<() => void>();
+export function subscribeViewerChange(listener: () => void): () => void {
+  viewerChangeListeners.add(listener);
+  return () => viewerChangeListeners.delete(listener);
+}
+
 function resetUserScopedCaches(): void {
+  viewerChangeListeners.forEach((l) => l());
   watchlistCache.reset();
   savedSearchesCache.reset();
   introsCache.reset();

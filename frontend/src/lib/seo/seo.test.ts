@@ -4,9 +4,14 @@ import { test } from "node:test";
 import { profileDescription, profileJsonLd, profileTitle } from "./profile-seo.ts";
 import { INDEXABLE_ROUTES, PRIVATE_ROUTES, PROFILE_SECTIONS, ROBOTS_DISALLOW, SITEMAP_STATIC } from "./routes.ts";
 import { buildRobots, buildSitemap, describe, jsonLdString, truncate } from "./rules.ts";
-import { SITE_URL, absoluteUrl, indexingAllowed } from "./site.ts";
+import { PROFILES_INDEXABLE, SITE_URL, absoluteUrl, indexingAllowed } from "./site.ts";
 
 const PROD = { VERCEL_ENV: "production" };
+
+test("profile pages stay out of the index unless SEO_INDEX_PROFILES=true is set", () => {
+  assert.equal(PROFILES_INDEXABLE, process.env.SEO_INDEX_PROFILES === "true");
+  if (process.env.SEO_INDEX_PROFILES === undefined) assert.equal(PROFILES_INDEXABLE, false);
+});
 
 test("the canonical address is the www production host", () => {
   assert.equal(SITE_URL, "https://www.ruwad.studio");
@@ -52,7 +57,8 @@ test("the sitemap lists the public pages and profiles, once each, on the canonic
   const urls = entries.map((e) => e.url);
   assert.equal(new Set(urls).size, urls.length, "no duplicates");
   assert.ok(urls.every((u) => u.startsWith("https://www.ruwad.studio")));
-  for (const u of ["https://www.ruwad.studio", "https://www.ruwad.studio/startups", "https://www.ruwad.studio/startups/allergenix", "https://www.ruwad.studio/investors/sanabil", "https://www.ruwad.studio/research/kaust", "https://www.ruwad.studio/multinationals/pfizer"]) assert.ok(urls.includes(u), u);
+  assert.ok(!urls.includes("https://www.ruwad.studio"), "the root address redirects, so it is never listed");
+  for (const u of ["https://www.ruwad.studio/dashboard", "https://www.ruwad.studio/startups", "https://www.ruwad.studio/startups/allergenix", "https://www.ruwad.studio/investors/sanabil", "https://www.ruwad.studio/research/kaust", "https://www.ruwad.studio/multinationals/pfizer"]) assert.ok(urls.includes(u), u);
   assert.equal(urls.filter((u) => u.includes("/startups/")).length, 1, "unusable slugs are skipped");
   assert.equal(entries.find((e) => e.url.endsWith("/startups/allergenix"))!.lastModified!.toISOString().slice(0, 10), "2026-10-07");
   assert.equal(entries.find((e) => e.url.endsWith("/research/kaust"))!.lastModified!.toISOString().slice(0, 10), "2026-11-01", "an invalid date falls back");
@@ -122,4 +128,16 @@ test("profile structured data states only public facts and never contact, score,
   const json = JSON.stringify(ld);
   for (const secret of ["x@y.z", "+966", "4.3", "7.5", "ruwadScore", "fundingTotal", "email", "phone", "team", "sameAs"]) assert.ok(!json.includes(secret), secret);
   assert.equal(ld.dateModified, "2026-10-07T00:00:00.000Z");
+});
+
+test("the site describes itself with the Dashboard address, since the root redirects there", async () => {
+  const { HOME_PATH, siteJsonLd } = await import("./site-jsonld.ts");
+  assert.equal(HOME_PATH, "/dashboard");
+  const [org, site] = siteJsonLd() as [Record<string, unknown>, Record<string, unknown>];
+  assert.equal(org["@type"], "Organization");
+  assert.equal(org.url, "https://www.ruwad.studio/dashboard");
+  assert.equal(site.url, "https://www.ruwad.studio/dashboard");
+  assert.deepEqual(org.alternateName, ["RUWAD", "Ruwad", "RUWĀD Platform", "روّاد"]);
+  const json = JSON.stringify([org, site]);
+  for (const claim of ["sameAs", "parentOrganization", "founder", "email", "telephone"]) assert.ok(!json.includes(claim), claim);
 });

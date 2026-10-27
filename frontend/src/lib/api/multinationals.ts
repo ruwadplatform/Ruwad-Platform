@@ -1,4 +1,4 @@
-import { api, isNotFound } from "./client";
+import { api, isNotFound, type ServerFetchOptions } from "./client";
 import { logoUrl } from "./uploads";
 import type { Multinational } from "@/types/entities";
 
@@ -77,9 +77,9 @@ export async function fetchMultinationals(): Promise<Multinational[]> {
   return res.items.map(mapMultinational);
 }
 
-export async function fetchMultinationalBySlug(slug: string): Promise<Multinational | null> {
+export async function fetchMultinationalBySlug(slug: string, server?: ServerFetchOptions): Promise<Multinational | null> {
   try {
-    const raw = await api.get<RawMultinational>(`/multinationals/${slug}`);
+    const raw = await api.get<RawMultinational>(`/multinationals/${slug}`, server);
     return mapMultinational(raw);
   } catch (e) {
     if (isNotFound(e)) return null;

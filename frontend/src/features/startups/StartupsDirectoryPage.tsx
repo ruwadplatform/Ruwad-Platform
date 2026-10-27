@@ -8,6 +8,7 @@ import { AISummaryButton } from "@/components/ai-summary/AISummaryButton";
 import { OrganizationLogo } from "@/components/shared/OrganizationLogo";
 import { FilterGroup, GuestAdvancedFilterGate } from "@/components/shared/FilterGroup";
 import { DirectoryGateBanner } from "@/components/shared/DirectoryGateBanner";
+import { ContactLock } from "@/components/shared/ContactLock";
 import { SaveSearchModal } from "@/components/shared/SaveSearchModal";
 import { useModal } from "@/components/shell/ModalProvider";
 import { useFilterDrawer } from "@/components/shell/FilterDrawerProvider";
@@ -143,7 +144,7 @@ export function StartupsDirectoryPage() {
         <button className="btn btn-outline" onClick={openSaveSearch}><RuwadIcon name="bookmark" size={14} /> Save Search</button>
         <select className="select" style={{ width: "auto" }} value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
           <option value="score">Sort: RUWĀD Score</option>
-          <option value="funding">Sort: Funding</option>
+          {loggedIn && <option value="funding">Sort: Funding</option>}
           <option value="founded">Sort: Newest</option>
           <option value="name">Sort: Name A–Z</option>
         </select>
@@ -173,7 +174,7 @@ export function StartupsDirectoryPage() {
             {shown.map((s) => <StartupGridCard key={s.id} s={s} />)}
           </div>
         ) : (
-          <StartupTable list={shown} />
+          <StartupTable list={shown} loggedIn={hydrated && loggedIn} />
         )}
         {hydrated && capped && <DirectoryGateBanner entityLabelPlural="Startups" totalCount={STARTUPS.length} />}
       </div>
@@ -202,7 +203,7 @@ function StartupGridCard({ s }: { s: Startup }) {
   );
 }
 
-function StartupTable({ list }: { list: Startup[] }) {
+function StartupTable({ list, loggedIn }: { list: Startup[]; loggedIn: boolean }) {
   return (
     <div className="panel scroll-x">
       <table className="data-table">
@@ -213,14 +214,14 @@ function StartupTable({ list }: { list: Startup[] }) {
           </tr>
         </thead>
         <tbody>
-          {list.map((s) => <StartupRow key={s.id} s={s} />)}
+          {list.map((s) => <StartupRow key={s.id} s={s} loggedIn={loggedIn} />)}
         </tbody>
       </table>
     </div>
   );
 }
 
-function StartupRow({ s }: { s: Startup }) {
+function StartupRow({ s, loggedIn }: { s: Startup; loggedIn: boolean }) {
   const router = useRouter();
   const saved = useIsSaved("startups", s.id);
   const toggleSaved = useToggleSaved();
@@ -232,7 +233,7 @@ function StartupRow({ s }: { s: Startup }) {
       <td>{s.city}</td>
       <td><span className="tag">{s.stage}</span></td>
       <td>{s.founded}</td>
-      <td className="mono">SAR {s.fundingTotal}M</td>
+      <td className="mono">{loggedIn ? <>SAR {s.fundingTotal}M</> : <ContactLock />}</td>
       <td className="mono">{s.employees}</td>
       <td className="score">{s.ruwadScore != null ? s.ruwadScore.toFixed(1) : "—"}</td>
       <td className="cell-sub">{s.provenance.lastUpdated}</td>

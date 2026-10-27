@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { StartupProfilePage } from "@/features/startups/StartupProfilePage";
 import { fetchStartupBySlug } from "@/lib/api/startups";
+import { sessionFetchOptions } from "@/lib/api/server-session";
 import { JsonLd } from "@/lib/seo/JsonLd";
 import { profileMetadata, profileUnavailable } from "@/lib/seo/profile-page";
 import { profileJsonLd, type ProfileFacts } from "@/lib/seo/profile-seo";
@@ -22,7 +23,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const { id } = await params;
   let startup;
   try {
-    startup = await fetchStartupBySlug(id);
+    // The page shows this visitor what their account may see; the metadata above deliberately uses the public view only.
+    startup = await fetchStartupBySlug(id, await sessionFetchOptions());
   } catch {
     return (
       <div className="content-in wide">

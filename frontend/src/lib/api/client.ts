@@ -28,13 +28,20 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+/** A server-side render acts for the visitor who asked for the page. `cookie` is ONLY the RUWĀD session cookie, taken from that request by lib/api/server-session.ts, and it is sent only to the backend.
+ * A request carrying it is never cached, so one viewer's data can never be handed to another. */
+export interface ServerFetchOptions {
+  cookie?: string;
+}
+
+async function request<T>(path: string, init?: RequestInit, server?: ServerFetchOptions): Promise<T> {
   // Server-side renders call the backend directly; the browser goes through the same-origin proxy.
   const base = typeof window === "undefined" ? BACKEND_API_URL : API_BASE;
   const res = await fetch(`${base}${path}`, {
     ...init,
+    ...(server?.cookie ? { cache: "no-store" as const } : {}),
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: { "Content-Type": "application/json", ...(server?.cookie ? { Cookie: server.cookie } : {}), ...(init?.headers ?? {}) },
   });
 
   if (!res.ok) {
@@ -56,7 +63,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, server?: ServerFetchOptions) => request<T>(path, undefined, server),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body: body === undefined ? undefined : JSON.stringify(body) }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body: body === undefined ? undefined : JSON.stringify(body) }),

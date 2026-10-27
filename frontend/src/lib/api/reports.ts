@@ -1,4 +1,4 @@
-import { api, isNotFound } from "./client";
+import { api, isNotFound, type ServerFetchOptions } from "./client";
 import { logoUrl } from "./uploads";
 import type { LibraryContentView, Report, ReportExternalSource, ReportInternalStats } from "@/types/intelligence";
 
@@ -8,7 +8,7 @@ export interface RawRelatedInvestor { id: string; slug: string; name: string; lo
 interface RawReport {
   id: string; slug: string; title: string; category: string; reportType: string; publicationDate: string; description: string;
   geography: string; sector: string; authors: string[]; readingTime: string; pages: number; badges: Report["badges"];
-  executiveSummary: string; keyFindings: string[]; marketStats: Report["marketStats"]; sections: Report["sections"]; sources: string[];
+  executiveSummary: string; keyFindings: string[]; lockedFindingCount?: number; marketStats: Report["marketStats"]; sections: Report["sections"]; sources: string[];
   provenanceConfidence?: Report["provenance"]["confidence"]; provenanceLastUpdated?: string; provenanceSources?: string[];
   relatedCompanies?: RawRelatedStartup[];
   relatedInvestors?: RawRelatedInvestor[];
@@ -73,6 +73,7 @@ function mapReport(r: RawReport): Report {
     badges: r.badges ?? [],
     executiveSummary: r.executiveSummary,
     keyFindings: r.keyFindings ?? [],
+    lockedFindingCount: r.lockedFindingCount ?? 0,
     marketStats: r.marketStats ?? [],
     sections: r.sections ?? [],
     relatedCompanies: (r.relatedCompanies ?? []).map((s) => s.slug),
@@ -91,9 +92,9 @@ export async function fetchReports(): Promise<Report[]> {
   return res.items.map(mapReport);
 }
 
-export async function fetchReportBySlug(slug: string) {
+export async function fetchReportBySlug(slug: string, server?: ServerFetchOptions) {
   try {
-    const raw = await api.get<RawReport>(`/reports/${slug}`);
+    const raw = await api.get<RawReport>(`/reports/${slug}`, server);
     return mapReport(raw);
   } catch (e) {
     if (isNotFound(e)) return null;
