@@ -79,8 +79,10 @@ export function MeetingPage({ id }: { id: string }) {
   const { loggedIn, hydrated } = useSession();
   const { now, tick } = useTicker(20_000);
   const detail = useAsync<BookingDetail>(loggedIn ? `mtg-detail|${id}` : null, () => fetchBooking(id));
-  const status = useAsync(loggedIn ? `mtg-status|${id}|${tick}` : null, () => fetchMeetingStatus(id));
   const [join, setJoin] = useState<JoinInfo | null>(null);
+  // The status is refreshed only in the lobby. While someone is IN the room nothing may change underneath them: a refetch swaps `data` for "loading", the
+  // full-page loading screen below would replace the live call, the call frame would be destroyed and rebuilt, and the person would be asked to join again.
+  const status = useAsync(loggedIn && !join ? `mtg-status|${id}|${tick}` : null, () => fetchMeetingStatus(id));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
