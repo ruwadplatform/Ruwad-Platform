@@ -16,6 +16,7 @@ import { MultinationalsModule } from "../multinationals/multinationals.module";
 import { ReportsModule } from "../reports/reports.module";
 import { ResearchModule } from "../research/research.module";
 import { StartupsModule } from "../startups/startups.module";
+import { UsersModule } from "../users/users.module";
 import { Hub } from "../hubs/hub.entity";
 import { Investor } from "../investors/investor.entity";
 import { Multinational } from "../multinationals/multinational.entity";
@@ -75,7 +76,7 @@ suite("field-level access control (local Postgres)", () => {
         TypeOrmModule.forRoot({ type: "postgres", url: assertLocalDatabase(LOCAL_DATABASE_URL), ssl: false, autoLoadEntities: true, synchronize: false }),
         PassportModule,
         JwtModule.register({ secret: SECRET, signOptions: { expiresIn: "1h" } }),
-        StartupsModule, InvestorsModule, HubsModule, ResearchModule, MultinationalsModule, ReportsModule, AnalyticsModule,
+        StartupsModule, InvestorsModule, HubsModule, ResearchModule, MultinationalsModule, ReportsModule, AnalyticsModule, UsersModule,
       ],
       providers: [JwtStrategy],
     }).compile();
@@ -323,6 +324,49 @@ suite("field-level access control (local Postgres)", () => {
       expect(full.researchQueries).toEqual([{ q: `QUERY-${SEC}` }]);
       await get("member", `/reports/admin/by-slug/${slug("generated")}`).expect(403);
       await get(null, `/reports/admin/by-slug/${slug("generated")}`).expect(401);
+    });
+  });
+
+  describe("sessions of deleted or inactive accounts", () => {
+    const adminRoute = () => `/reports/admin/by-slug/${slug("generated")}`; // guarded: administrators only
+
+    it("an administrator whose account is deleted loses the session at once, with the very same valid token", async () => {
+      await user("gone-admin", "RUWAD_ADMIN");
+      await get("gone-admin", adminRoute()).expect(200);
+      await db.query(`DELETE FROM users WHERE id = $1`, [ids["gone-admin"]]);
+      await get("gone-admin", adminRoute()).expect(401);
+    });
+
+    it("a suspended account is rejected, and works again as soon as it is reactivated", async () => {
+      await user("susp-admin", "RUWAD_ADMIN");
+      await get("susp-admin", adminRoute()).expect(200);
+      await db.query(`UPDATE users SET status = 'SUSPENDED' WHERE id = $1`, [ids["susp-admin"]]);
+      await get("susp-admin", adminRoute()).expect(401);
+      await db.query(`UPDATE users SET status = 'ACTIVE' WHERE id = $1`, [ids["susp-admin"]]);
+      await get("susp-admin", adminRoute()).expect(200);
+    });
+
+    it("a validly signed token for an account that never existed, or with a malformed subject, is rejected (401, never a 500)", async () => {
+      tokenOf.set("ghost", jwt.sign({ sub: randomUUID(), email: "ghost@vis.test", role: "RUWAD_ADMIN" }));
+      tokenOf.set("badsub", jwt.sign({ sub: "not-a-uuid", email: "bad@vis.test", role: "RUWAD_ADMIN" }));
+      await get("ghost", adminRoute()).expect(401);
+      await get("badsub", adminRoute()).expect(401);
+    });
+
+    it("on a public read route a removed account is simply a visitor: it loses the member view and gets no error", async () => {
+      await user("gone-member", "USER");
+      expect((await get("gone-member", detailPaths().startups).expect(200)).body.fundingTotal).toBe(123.45);
+      await db.query(`DELETE FROM users WHERE id = $1`, [ids["gone-member"]]);
+      const after = (await get("gone-member", detailPaths().startups).expect(200)).body;
+      expect(after).not.toHaveProperty("fundingTotal");
+      expect(json(after)).not.toContain(SEC);
+    });
+
+    it("everyone else is unaffected: active members, the owner and the administrator keep working", async () => {
+      await get("admin", adminRoute()).expect(200);
+      expect((await get("owner", detailPaths().startups).expect(200)).body.registrationNumber).toBe(`CR-${SEC}`);
+      expect((await get("member", detailPaths().startups).expect(200)).body.fundingTotal).toBe(123.45);
+      await get("member", adminRoute()).expect(403); // still authenticated, still not an administrator
     });
   });
 });
