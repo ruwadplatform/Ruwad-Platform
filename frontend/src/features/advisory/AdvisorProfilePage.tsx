@@ -119,7 +119,7 @@ function Overview({ advisor }: { advisor: AdvisorProfile }) {
       <h3 className="adv-sec-sub">Areas of expertise</h3>
       <p className="adv-about">{advisor.expertise}</p>
       <h3 className="adv-sec-sub">Qualifications</h3>
-      <p className="adv-empty-line">No qualifications are listed. This is a demonstration profile, so none have been invented.</p>
+      <p className="adv-empty-line">No qualifications are listed.{advisor.isDemo && " This is a demonstration profile, so none have been invented."}</p>
     </>
   );
 }

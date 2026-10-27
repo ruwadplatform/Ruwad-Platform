@@ -1,7 +1,7 @@
 import { DIRECTORY_SEARCH_DAYS, nextAvailableFor } from "./advisory-next-available";
 import { AvailabilityInput } from "./advisory-slots";
 import { addDays, parseYmd, riyadhInstant } from "./advisory-time";
-import { DEMO_ADVISORS } from "./seed/demo-advisors";
+import { DEMO_ADVISORS } from "./testing/demo-advisors";
 
 const ymd = (s: string) => parseYmd(s)!;
 // Sunday 4 Jan 2026, 08:00 Riyadh. Omar is open Sun/Mon/Wed 09:00–12:00 and 14:00–16:30, Thu 10:00–11:30 and 14:00–15:30.

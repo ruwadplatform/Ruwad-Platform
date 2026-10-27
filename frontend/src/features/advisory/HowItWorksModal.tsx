@@ -28,7 +28,7 @@ export function HowItWorksModal() {
           </li>
         ))}
       </ol>
-      <p className="small muted mt-16">Advisory Services is being introduced in stages. The advisors you see for now are demonstration profiles.</p>
+      <p className="small muted mt-16">Advisory Services is being introduced in stages.</p>
       <button type="button" className="btn btn-primary btn-block mt-16" onClick={closeModal}>Got it</button>
     </div>
   );

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatSlot, matchesAvailability, nextAvailableSlot, riyadhInstant } from "./advisory-availability.ts";
 import { filterAdvisors, filterOptions, normalize, searchScore, sortAdvisors } from "./advisory-filter.ts";
-import { DEMO_ADVISORS } from "./demo-advisors.ts";
+import { DEMO_ADVISORS } from "./__fixtures__/demo-advisors.ts";
 import { EMPTY_ADVISOR_FILTERS, type AdvisorSummary } from "./advisory-types.ts";
 
 // The server now supplies each advisor's `nextAvailable`; these are what it would send at SUNDAY_8AM for the demo advisors' weekly hours.

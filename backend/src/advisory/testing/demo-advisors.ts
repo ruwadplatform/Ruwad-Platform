@@ -1,13 +1,13 @@
 import { ConsultationTypeId } from "../advisory.enums";
 
-/** DEMONSTRATION SEED: the six fictional advisors, ported from the frontend's Phase 1–2 placeholders (frontend/src/features/advisory/demo-advisors.ts).
+/** TEST FIXTURE ONLY: six fictional advisors used by the slot/availability unit tests. Nothing writes them to a database, and this folder is excluded from the production build.
  *
  * Every entry is made up. Names, institutions, designations and expertise are placeholders: they do not describe real people and do not claim that
  * anyone works at the institution shown (`affiliationVerified` is false). There are NO ratings, review counts, completed-consultation counts,
  * publications or credentials. They have no user account (nobody can log in as them) and are flagged `isDemo`, so their bookings are
  * demonstrations: never emailed, and left out of administrator statistics by default.
  *
- * This is NOT run by any migration. It is applied by `npm run advisory:seed:local` to the local development database only. */
+ * Nothing seeds these into any database (the former local seed script was removed): advisors come only from real applications approved by an administrator. */
 
 type W = { start: string; end: string };
 const win = (start: string, end: string): W => ({ start, end });

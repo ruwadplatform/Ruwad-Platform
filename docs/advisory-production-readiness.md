@@ -74,7 +74,7 @@ Daily's webhook URL (when it exists) is `https://<backend>/api/advisory/webhooks
 4. Deploy the frontend with the flag **off**.
 5. Turn on `ADVISORY_ENABLED` on the backend only; smoke-test the API with an administrator account.
 6. Turn on `NEXT_PUBLIC_ADVISORY_ENABLED` and redeploy the frontend.
-7. Onboard the first real advisor through the admin screen. **Demonstration advisors are not seeded in production**: the seed script is local-only by design.
+7. Onboard the first real advisor through the admin screen. **No demonstration advisors are seeded anywhere**: advisors exist only once a real application is approved by an administrator.
 8. Switch on, one at a time and watching each: the scheduler (AWS only), then real video, then live email.
 
 There is no staging environment; step 5 is the closest thing to one.
@@ -146,7 +146,6 @@ All of these refuse any database that is not on this machine (`backend/scripts/d
 ```
 npm run db:local               start the local Postgres (port 55432)
 npm run migration:run:local    apply every migration, advisory ones included, to the local database
-npm run advisory:seed:local    create the six fictional demonstration advisors
 npm run start:local            start the built backend on the local database, mock email, throwaway JWT secret
 npm run test:advisory          the integration suite (real Postgres, concurrency, permissions)
 ```

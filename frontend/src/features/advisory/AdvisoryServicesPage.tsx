@@ -170,12 +170,14 @@ export function AdvisoryServicesPage() {
         </div>
       </section>
 
-      <p className="adv-note"><RuwadIcon name="info" size={14} /> Demonstration data: the advisors below are fictional placeholder profiles. They are not real people, and no affiliation with the institutions shown is claimed.</p>
+      {advisors?.some((a) => a.isDemo) && <p className="adv-note"><RuwadIcon name="info" size={14} /> Demonstration data: the advisors below are fictional placeholder profiles. They are not real people, and no affiliation with the institutions shown is claimed.</p>}
 
       {error ? (
         <ErrorState title="Couldn't load advisors" body={error} />
       ) : !advisors ? (
         <LoadingState title="Loading advisors…" />
+      ) : advisors.length === 0 ? (
+        <EmptyState icon="info" title="No advisors are listed yet" body="Advisors appear here once their application has been approved. Please check back soon." />
       ) : results.length === 0 ? (
         <EmptyState icon="search" title="No advisors match those filters" body="Try a different search term or clear a filter." action={<button type="button" className="btn btn-outline" onClick={() => setFilters(EMPTY_ADVISOR_FILTERS)}>Clear filters</button>} />
       ) : (

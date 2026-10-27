@@ -1,13 +1,13 @@
-import type { AdvisorProfile, AdvisorService, AdvisorSummary, ConsultationTypeId, WeeklyAvailability } from "./advisory-types.ts";
+import type { AdvisorProfile, AdvisorService, AdvisorSummary, ConsultationTypeId, WeeklyAvailability } from "../advisory-types.ts";
 
-/** DEMONSTRATION SEED — six fictional advisors so Advisory Services can be built and reviewed before any real advisor is onboarded.
+/** TEST FIXTURE ONLY — six fictional advisors for the directory filter/sort unit tests. No screen imports this file; advisors come from the backend.
  *
  * Every entry is made up. The names, institutions, designations and expertise lines are placeholders: they do not describe real people, and they
  * do not claim that anyone works at the institution shown (`affiliationVerified` is false everywhere). There are deliberately NO ratings, review
  * counts, consultation counts, publications or credentials here — `publications` and `reviews` are empty, and the biographies say they are placeholders.
  * The years of experience and the weekly availability are placeholders too.
  *
- * To replace this with real advisors, change `lib/api/advisory.ts` to call the backend; nothing in the screens reads this file. */
+ * Nothing in the screens reads this file. */
 
 const win = (start: string, end: string) => ({ start, end });
 /** Sun–Thu is the Saudi working week; windows are Riyadh time (see advisory-time.ts). */

@@ -1,6 +1,6 @@
 import { AvailabilityInput, datesWithSlots, isOfferedSlot, slotsForDate } from "./advisory-slots";
 import { MAX_BOOKING_DAYS, addDays, parseYmd, riyadhDate, riyadhInstant, weekdayOf, ymdKey } from "./advisory-time";
-import { DEMO_ADVISORS } from "./seed/demo-advisors";
+import { DEMO_ADVISORS } from "./testing/demo-advisors";
 
 const ymd = (s: string) => parseYmd(s)!;
 const times = (xs: { time: string }[]) => xs.map((s) => s.time);

@@ -21,7 +21,6 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts",
     "migration:run:local": "node scripts/dev/local-migrate.js run",
     "migration:revert:local": "node scripts/dev/local-migrate.js revert",
-    "advisory:seed:local": "node scripts/dev/local-advisory-seed.js",
     "test:advisory": "node scripts/dev/run-advisory-integration.js",
     "start:local": "node scripts/dev/local-backend.js",
     "deploy:start": "npm run migration:run && npm run start:prod",
