@@ -8,6 +8,7 @@ import { Test } from "@nestjs/testing";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import request from "supertest";
 import { JwtStrategy } from "../auth/jwt.strategy";
+import { UsersModule } from "../users/users.module";
 import { EmailService } from "../email/email.service";
 import { AdvisoryApplicationNotifier } from "./advisory-application-notifier";
 import { AdvisoryModule } from "./advisory.module";
@@ -84,6 +85,7 @@ suite("Become an Advisor: applications (local Postgres)", () => {
         PassportModule,
         JwtModule.register({ secret: SECRET, signOptions: { expiresIn: "1h" } }),
         AdvisoryModule,
+        UsersModule, // JwtStrategy checks the account is still ACTIVE through UsersService
       ],
       providers: [JwtStrategy],
     }).overrideProvider(EmailService).useValue({ sendTransactional }).compile();

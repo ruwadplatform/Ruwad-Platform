@@ -9,6 +9,9 @@ import { TypeOrmModule, getRepositoryToken } from "@nestjs/typeorm";
 import { DataSource } from "typeorm";
 import request from "supertest";
 import { JwtStrategy } from "../auth/jwt.strategy";
+import { UsersModule } from "../users/users.module";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const passport = require("passport");
 import { EmailService } from "../email/email.service";
 import { AdvisoryAutomationService, AdvisoryAutomationService as AutomationService } from "./advisory-automation.service";
 import { AdvisoryAttendanceService } from "./advisory-attendance.service";
@@ -124,6 +127,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
         PassportModule,
         JwtModule.register({ secret: SECRET, signOptions: { expiresIn: "1h" } }),
         AdvisoryModule,
+        UsersModule, // JwtStrategy checks the account is still ACTIVE through UsersService
       ],
       providers: [JwtStrategy],
     }).overrideProvider(EmailService).useValue({ sendTransactional }).compile();
@@ -131,6 +135,10 @@ suite("Advisory Services — integration (local Postgres)", () => {
     a.setGlobalPrefix("api");
     a.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true, transformOptions: { enableImplicitConversion: true } }));
     await a.init();
+    // Passport keeps ONE global strategy named "jwt", and JwtStrategy now looks the account up in the database. When an extra app built here is closed its
+    // connection goes away, so hand the strategy back to the main app or its next request fails with "Driver not Connected". (Production runs one app per process.)
+    const closeApp = a.close.bind(a);
+    a.close = async () => { await closeApp(); if (app && app !== a) passport.use("jwt", app.get(JwtStrategy) as never); };
     return { app: a, jwt: moduleRef.get(JwtService) };
   }
 
