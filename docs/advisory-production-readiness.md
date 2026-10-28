@@ -1,6 +1,6 @@
 # Advisory Services: production readiness
 
-Status: **built and tested locally only.** Nothing here has been deployed, no production migration has been run, and no production setting has been changed. Everything below is a plan and a checklist for a separate, explicitly approved production window.
+Status: **built and tested locally only.** Nothing here has been deployed, no production migration has been run, and no production setting has been changed. Everything below is a plan and a checklist for a separate, explicitly approved production window. The Step 5 audit (attendance accuracy fix, full workflow review, GO / NO-GO) is in `advisory-release-readiness.md`; where the two differ, that newer document wins.
 
 Branch: `feature/advisory-services`. Features are off by default in code (`ADVISORY_ENABLED`, `NEXT_PUBLIC_ADVISORY_ENABLED`), so merging the code does nothing visible until the flags and the migrations are in place.
 
@@ -11,20 +11,21 @@ Branch: `feature/advisory-services`. Features are off by default in code (`ADVIS
 | Directory, profiles, calendar, booking | Done; server is the source of truth for slots and "Next available" |
 | Bookings: request, approve/reject, cancel, mutual reschedule | Done (see `backend/src/advisory/booking-state.ts`) |
 | Automation: request expiry (72 h, never later than 30 min before start), expiry warning (24 h), reminders (24 h and 1 h), reschedule-proposal expiry | Done; **scheduler off by default** |
-| Video: Daily Prebuilt behind a provider interface; simulated rooms | Done; **real Daily never run live** (no account yet) |
-| Attendance, Needs Review queue, recording the outcome | Done; Daily webhook payload shapes **unverified** |
+| Video: Daily Prebuilt behind a provider interface; simulated rooms | Done; run live once against a real Daily account in Step 4 (local only, nothing left behind) |
+| Attendance, Needs Review queue, recording the outcome | Done; webhook shapes verified against real events (Step 4); connected-time accuracy fixed with an event ledger (Step 5) |
 | Automatic completion | Built but **off and not approved** |
 | Advisor applications ("Become an Advisor") | Done: form, private documents, admin review, history, emails; see section 7 |
 | Email | **Mock only** (`ADVISORY_EMAIL_MODE`), never for demonstration bookings |
 
 ## 2. Database
 
-Three migrations, all in `backend/src/database/migrations-advisory/` and all **opt-in**:
+Four migrations, all in `backend/src/database/migrations-advisory/` and all **opt-in**:
 
 1. `1794300000000-CreateAdvisoryServices`: new tables and enums; `CREATE EXTENSION IF NOT EXISTS btree_gist`; the exclusion constraint that makes double-booking impossible.
 2. `1794400000000-AdvisoryAutomationAndMeetings`: the `EXPIRED` enum value, expiry / reminder / review / meeting columns on `advisory_bookings`, and the `advisory_meeting_attendance` and `advisory_webhook_events` tables.
 
 3. `1794500000000-AdvisorApplications`: nullable application columns on `advisory_advisors` (contact email, phone, services, preferred duration, links, application reference, submitted and declaration times), plus the `advisory_application_documents` and `advisory_application_events` tables.
+4. `1794600000000-AdvisoryPresenceEvents`: the `advisory_presence_events` ledger (one row per Daily join or leave) from which connected attendance time is derived.
 
 They only add; none touches an existing table outside the advisory ones. All were applied, reverted and re-applied on the local database. They have never been run anywhere else.
 
@@ -38,7 +39,7 @@ ADVISORY_MIGRATIONS=true <the usual migration command, pointed at production>
 
 Notes:
 - `btree_gist` needs separate approval. It is a Supabase-supported extension.
-- The migrations are meant to be applied **together, in one window**. Revert newest first (`1794500000000`, then `1794400000000`, then `1794300000000`).
+- The migrations are meant to be applied **together, in one window**. Revert newest first (`1794600000000`, `1794500000000`, `1794400000000`, then `1794300000000`).
 - Revert is supported (`down()` drops the new tables, indexes and columns). The `EXPIRED` enum value stays, because PostgreSQL cannot drop a single enum value; an unused value is harmless.
 - Take or confirm a Supabase backup / point-in-time recovery point first.
 
@@ -69,7 +70,7 @@ Daily's webhook URL (when it exists) is `https://<backend>/api/advisory/webhooks
 ## 4. Deployment sequence (every step needs separate approval)
 
 1. Confirm a database backup / recovery point.
-2. Enable `btree_gist` and apply both migrations (section 2). Verify the tables exist and the existing app is unaffected.
+2. Enable `btree_gist` (it is available but not installed in production) and apply all four migrations (section 2). Verify the tables exist and the existing app is unaffected.
 3. Deploy the backend with every advisory flag **off**. Check `/api/health`, existing pages, and that advisory routes answer 404.
 4. Deploy the frontend with the flag **off**.
 5. Turn on `ADVISORY_ENABLED` on the backend only; smoke-test the API with an administrator account.
@@ -87,8 +88,8 @@ Render and AWS both exist. The scheduler claims every row with `UPDATE ... FOR U
 
 ## 6. Open items before real use
 
-- **Daily has never been run live.** The provider is tested against a fake Daily server. Do one supervised check with two people before relying on it. Confirm the room property names (`enable_chat`, `enable_screenshare`, `enable_prejoin_ui`, `enable_knocking`).
-- **Webhook payload shapes are assumed** from Daily's documentation (`room`, `session_id`, `user_id`, `joined_at`, `duration`, event `id` and `event_ts`). Confirm them against real events.
+- **Daily has been run live once, locally** (Step 4), not against the production backend. Do one supervised check with two people after registering the production webhook (see `advisory-release-readiness.md`, section 10).
+- Webhook payload shapes were confirmed against real events in Step 4 (timestamp header in milliseconds; several leave events per session; `joined_at` and `duration` always describe the first join), documented in `advisory-daily-webhook-live-test.md`.
 - Webhooks need a Daily account with a card on file; there is no spending cap, so set a usage alert in Daily.
 - `@daily-co/daily-js` (0.87.0; 0.94.0 needs Node >= 22.14) depends on `@sentry/browser`, so it can report errors to a third party. Review this before live activation.
 - **Saudi data-protection and data-residency requirements** for a US-based video provider need review before live activation. The HIPAA add-on was not bought; meetings are not recorded and carry a notice against sharing patient-identifiable information.

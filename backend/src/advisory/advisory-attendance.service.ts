@@ -10,7 +10,7 @@ import { AdvisoryAdvisor, AdvisoryBooking, AdvisoryBookingEvent, AdvisoryMeeting
 import { AttendanceOutcome, BookingParty, BookingStatus } from "./advisory.enums";
 import { AdvisoryAutomationConfig, readAutomationConfig } from "./advisory-config";
 import { AdvisoryBookingsService, BookingView } from "./advisory-bookings.service";
-import { AttendanceSummary, Presence, WebhookCheck, checkDailyWebhook, decideOutcome, summarizeAttendance } from "./attendance-logic";
+import { AttendanceSummary, Presence, WebhookCheck, checkDailyWebhook, decideOutcome, deriveSegments, summarizeAttendance } from "./attendance-logic";
 import { assertTransition } from "./booking-state";
 import { meetingState, meetingWindow } from "./meeting-window";
 import { VIDEO_PROVIDER, VideoProvider } from "./video/video-provider";
@@ -96,23 +96,20 @@ export class AdvisoryAttendanceService {
     return null;
   }
 
-  /** Writes a join (idempotent per session) or a leave (which closes that session, even if its join arrives later, or never arrives).
-   * A leave may carry the stay's own start (`stayStartedAt`: Daily's leave event includes joined_at and duration), so a lost or late join event can't
-   * turn a real stay into a zero-length one. Times only ever move OUTWARD (earliest join, latest leave), so a repeated or reordered event can't shrink
+  /** Writes a SIMULATED room's join (idempotent per session) or leave (which closes that session). Only the simulated room uses this: a real meeting's
+   * attendance goes through the event ledger (applyWebhookPresence). Times only move outward (earliest join, latest leave), so a repeat can't shrink
    * what was recorded. */
-  private async upsertPresence(db: Db, bookingId: string, userId: string, role: BookingParty, sessionKey: string, kind: "joined" | "left", at: Date, source: string, stayStartedAt?: Date): Promise<void> {
+  private async upsertPresence(db: Db, bookingId: string, userId: string, role: BookingParty, sessionKey: string, kind: "joined" | "left", at: Date, source: string): Promise<void> {
     if (kind === "joined") {
       await db.query(
         `INSERT INTO advisory_meeting_attendance ("bookingId", "userId", role, "sessionKey", "joinedAt", source) VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT ("bookingId", "userId", "sessionKey") DO UPDATE SET "joinedAt" = LEAST(advisory_meeting_attendance."joinedAt", EXCLUDED."joinedAt")`,
         [bookingId, userId, role, sessionKey, at, source]);
     } else {
-      const startedAt = stayStartedAt && stayStartedAt.getTime() < at.getTime() ? stayStartedAt : at;
       await db.query(
-        `INSERT INTO advisory_meeting_attendance ("bookingId", "userId", role, "sessionKey", "joinedAt", "leftAt", source) VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT ("bookingId", "userId", "sessionKey") DO UPDATE SET "leftAt" = GREATEST(COALESCE(advisory_meeting_attendance."leftAt", EXCLUDED."leftAt"), EXCLUDED."leftAt"),
-           "joinedAt" = LEAST(advisory_meeting_attendance."joinedAt", EXCLUDED."joinedAt")`,
-        [bookingId, userId, role, sessionKey, startedAt, at, source]);
+        `INSERT INTO advisory_meeting_attendance ("bookingId", "userId", role, "sessionKey", "joinedAt", "leftAt", source) VALUES ($1, $2, $3, $4, $5, $5, $6)
+         ON CONFLICT ("bookingId", "userId", "sessionKey") DO UPDATE SET "leftAt" = GREATEST(COALESCE(advisory_meeting_attendance."leftAt", EXCLUDED."leftAt"), EXCLUDED."leftAt")`,
+        [bookingId, userId, role, sessionKey, at, source]);
     }
   }
 
@@ -137,9 +134,10 @@ export class AdvisoryAttendanceService {
   /** Receives a Daily webhook. The signature is verified against the RAW body first; an unverified request is refused and learns nothing. Anything
    * verified is acknowledged with success (even if it is ignored) so Daily doesn't keep retrying.
    *
-   * Duplicates are recognised by the event's id AND (a rare duplicate can carry a different id, per Daily's documentation) by event type + session_id + the
-   * event's own time, so a repeated leave for the same session with a later time is processed, not dropped. The "seen" markers and the attendance change are written in ONE transaction: if anything fails, the markers are rolled back too, so
-   * Daily's retry is processed instead of being thrown away as a duplicate.
+   * Every join and leave is stored ONCE in a ledger, by its own time, and the connected stretches are derived from the set of events (see deriveSegments):
+   * a repeated event (under the same id or a new one), a late event or an out-of-order event changes nothing, and a disconnected gap is never counted.
+   * The "seen" marker, the ledger entry and the stretches are written in ONE transaction: if anything fails they all roll back, so Daily's retry is
+   * processed instead of being thrown away as a duplicate.
    *
    * Only attendance rows (and, for a consultation already waiting for review, its suggested outcome) are ever written. A webhook never changes a
    * booking's status, never completes anything, and can only touch the one booking whose unguessable room name it names. Nothing sensitive is logged:
@@ -162,19 +160,11 @@ export class AdvisoryAttendanceService {
     const type = typeof body.type === "string" ? body.type.slice(0, 60) : "unknown";
     const sessionId = typeof payload.session_id === "string" && payload.session_id ? payload.session_id : null;
     const isPresence = type === "participant.joined" || type === "participant.left";
-    const eventId = (typeof body.id === "string" && body.id) || `${type}:${String(sessionId ?? "")}:${String(body.event_ts ?? "")}`;
-    // Daily's documentation says a rare duplicate can carry a different event id and advises type + session_id. A live test showed that is not enough on
-    // its own: one session_id can produce SEVERAL genuine participant.left events (a connection drops and recovers: left at 122 s, joined again, left at
-    // 137.75 s), and the later, longer one must not be thrown away. So the second key also carries the event's own time (the leave's duration, the join's
-    // joined_at): an identical redelivery under a new id is still caught, and a genuinely new event is not.
-    const eventStamp = type === "participant.left" ? (typeof payload.duration === "number" ? payload.duration : body.event_ts) : (payload.joined_at ?? body.event_ts);
-    const seenKeys = [eventId.slice(0, 120), ...(isPresence && sessionId ? [`${type}|${sessionId}|${String(eventStamp)}`.slice(0, 120)] : [])];
+    const eventId = ((typeof body.id === "string" && body.id) || `${type}:${String(sessionId ?? "")}:${String(body.event_ts ?? "")}`).slice(0, 120);
 
     const outcome = await this.ds.transaction(async (m): Promise<{ status: WebhookResult["status"]; why: string }> => {
-      for (const key of seenKeys) {
-        const fresh = await m.query(`INSERT INTO advisory_webhook_events (id, type) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING RETURNING id`, [key, type]);
-        if (!Array.isArray(fresh) || fresh.length === 0) return { status: "duplicate", why: "already processed" };
-      }
+      const fresh = await m.query(`INSERT INTO advisory_webhook_events (id, type) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING RETURNING id`, [eventId, type]);
+      if (!Array.isArray(fresh) || fresh.length === 0) return { status: "duplicate", why: "already processed" };
       if (!isPresence) return { status: "ignored", why: "event type not used" };
       const room = typeof payload.room === "string" ? payload.room : typeof payload.room_name === "string" ? payload.room_name : null;
       const userId = typeof payload.user_id === "string" ? payload.user_id : null;
@@ -183,22 +173,40 @@ export class AdvisoryAttendanceService {
       if (!booking) return { status: "ignored", why: "unknown room" };
       const role = await this.roleOf(booking, userId);
       if (!role) return { status: "ignored", why: "not a participant of that consultation" }; // someone who isn't a participant: not recorded
-      const sessionKey = String(sessionId ?? `${userId}:${room}`).slice(0, 80);
-      const eventTime = toDate(body.event_ts) ?? now;
-
-      if (type === "participant.joined") {
-        await this.upsertPresence(m, booking.id, userId, role, sessionKey, "joined", toDate(payload.joined_at) ?? eventTime, "WEBHOOK");
-      } else {
-        const joined = toDate(payload.joined_at);
-        const duration = typeof payload.duration === "number" && payload.duration >= 0 ? payload.duration : null;
-        const left = joined && duration !== null ? new Date(joined.getTime() + duration * 1000) : eventTime;
-        await this.upsertPresence(m, booking.id, userId, role, sessionKey, "left", left, "WEBHOOK", joined ?? undefined);
-      }
+      const sessionKey = String(sessionId ?? `${userId}:${room}`).slice(0, 70); // leaves room for the "#n" of a later stretch
+      const joinedAt = toDate(payload.joined_at); // Daily's joined_at is the FIRST join of the session, on every event of it
+      const eventTime = toDate(body.event_ts);
+      // The moment each event happened: a join's event_ts (for a REjoin this is when the connection came back; joined_at would be the first join), and a
+      // leave's joined_at + duration (equal to its event_ts).
+      const duration = typeof payload.duration === "number" && payload.duration >= 0 ? payload.duration : null;
+      const kind = type === "participant.joined" ? "joined" : "left";
+      const at = kind === "joined" ? (eventTime ?? joinedAt ?? now) : joinedAt && duration !== null ? new Date(joinedAt.getTime() + duration * 1000) : (eventTime ?? now);
+      if (!(await this.applyWebhookPresence(m, booking.id, userId, role, sessionKey, kind, at, joinedAt))) return { status: "duplicate", why: "that join/leave was already recorded" };
       await this.refreshSuggestion(m, booking.id, now);
-      return { status: "processed", why: `${role.toLowerCase()} ${type === "participant.joined" ? "joined" : "left"} ${booking.reference}` };
+      return { status: "processed", why: `${role.toLowerCase()} ${kind} ${booking.reference}` };
     });
     this.logger.log(`Daily webhook ${type}: ${outcome.status} (${outcome.why})`);
     return { status: outcome.status };
+  }
+
+  /** Stores one join or leave in the ledger and rewrites that session's connected stretches from ALL its events. Returns false if this exact event
+   * (same session, kind and moment) was already recorded. One writer per session at a time: a concurrent event for the same session waits for this
+   * transaction, then sees its event, so two near-simultaneous webhooks can never overwrite each other's stretches. */
+  private async applyWebhookPresence(m: EntityManager, bookingId: string, userId: string, role: BookingParty, sessionKey: string, kind: "joined" | "left", at: Date, stayStartedAt: Date | null): Promise<boolean> {
+    await m.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`${bookingId}|${userId}|${sessionKey}`]);
+    const fresh = await m.query(
+      `INSERT INTO advisory_presence_events ("bookingId", "userId", role, "sessionKey", kind, "occurredAt", "stayStartedAt") VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT ("bookingId", "userId", "sessionKey", kind, "occurredAt") DO NOTHING RETURNING id`, [bookingId, userId, role, sessionKey, kind, at, stayStartedAt]);
+    if (!Array.isArray(fresh) || fresh.length === 0) return false;
+    const events = (await m.query(`SELECT kind, "occurredAt", "stayStartedAt" FROM advisory_presence_events WHERE "bookingId" = $1 AND "userId" = $2 AND "sessionKey" = $3`, [bookingId, userId, sessionKey])) as { kind: "joined" | "left"; occurredAt: Date; stayStartedAt: Date | null }[];
+    const segments = deriveSegments(events.map((e) => ({ kind: e.kind, at: new Date(e.occurredAt), stayStartedAt: e.stayStartedAt ? new Date(e.stayStartedAt) : null })));
+    await m.query(`DELETE FROM advisory_meeting_attendance WHERE "bookingId" = $1 AND "userId" = $2 AND source = 'WEBHOOK' AND ("sessionKey" = $3 OR starts_with("sessionKey", $3 || '#'))`, [bookingId, userId, sessionKey]);
+    for (const [i, seg] of segments.entries()) {
+      await m.query(
+        `INSERT INTO advisory_meeting_attendance ("bookingId", "userId", role, "sessionKey", "joinedAt", "leftAt", source) VALUES ($1, $2, $3, $4, $5, $6, 'WEBHOOK')`,
+        [bookingId, userId, role, i === 0 ? sessionKey : `${sessionKey}#${i}`, seg.from, seg.to]);
+    }
+    return true;
   }
 
   /** Late attendance data (a delayed or retried event) for a consultation that is ALREADY waiting for review: the stored suggestion is brought up to

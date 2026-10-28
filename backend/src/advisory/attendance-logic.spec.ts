@@ -1,4 +1,4 @@
-import { OUTCOME_LABEL, Presence, checkDailyWebhook, decideOutcome, signDailyWebhook, summarizeAttendance, verifyDailyWebhook } from "./attendance-logic";
+import { OUTCOME_LABEL, Presence, PresenceEvent, checkDailyWebhook, decideOutcome, deriveSegments, signDailyWebhook, summarizeAttendance, verifyDailyWebhook } from "./attendance-logic";
 import { ATTENDANCE_OUTCOMES } from "./advisory.enums";
 
 const at = (hhmm: string) => new Date(`2026-11-10T${hhmm}:00Z`);
@@ -160,5 +160,101 @@ describe("Daily webhook signature", () => {
     // reformatting the JSON (even without changing its meaning) breaks the signature: it is checked against the raw bytes
     const pretty = JSON.stringify(JSON.parse(raw), null, 2);
     expect(checkDailyWebhook({ secretBase64: secret, timestamp: ts, signature: signDailyWebhook(secret, ts, raw), rawBody: pretty, now }).ok).toBe(false);
+  });
+});
+
+// ---- connected stretches: the REAL sessions captured in the live test with Daily (2026-10-28) ---------------------------------------------------------
+describe("connected stretches (real Daily sessions)", () => {
+  const sec = (unixSeconds: number) => new Date(Math.round(unixSeconds * 1000));
+  const join = (t: number): PresenceEvent => ({ kind: "joined", at: sec(t) });
+  const leave = (t: number, stayStartedAt?: number): PresenceEvent => ({ kind: "left", at: sec(t), stayStartedAt: stayStartedAt === undefined ? null : sec(stayStartedAt) });
+  const seconds = (segs: { from: Date; to: Date | null }[]) => Math.round(segs.reduce((n, s) => n + (s.to!.getTime() - s.from.getTime()), 0)) / 1000;
+
+  // The founder: joined, dropped out after 122 s, came back 10 s later, left at 137.76 s after the first join. (event_ts of each event.)
+  const FOUNDER = [join(1793176898.647), leave(1793177020.692, 1793176898.662), join(1793177030.833), leave(1793177036.410, 1793176898.662)];
+  // The advisor: a backgrounded tab that dropped and came back five times: 73 s in, a 3 minute gap, then four short stretches, each after a 2.5 to 3 s gap.
+  const ADVISOR = [
+    join(1793176905.431), leave(1793176978.691, 1793176905.436),
+    join(1793177158.277), leave(1793177194.036, 1793176905.436),
+    join(1793177196.709), leave(1793177253.475, 1793176905.436),
+    join(1793177256.010), leave(1793177312.779, 1793176905.436),
+    join(1793177315.709), leave(1793177372.471, 1793176905.436),
+  ];
+
+  it("counts only the connected stretches: the founder's reconnection is 127.6 s connected, not the 137.8 s span", () => {
+    const segs = deriveSegments(FOUNDER);
+    expect(segs).toHaveLength(2);
+    expect(seconds([segs[0]!])).toBeCloseTo(122.045, 2);
+    expect(seconds([segs[1]!])).toBeCloseTo(5.577, 2);
+    expect(seconds(segs)).toBeCloseTo(127.622, 2);
+    expect(segs.every((s) => !s.inferred)).toBe(true);
+  });
+
+  it("the advisor's five-stretch session is 279.3 s connected out of a 467 s span: the 3 minute gap and the three short gaps are not attendance", () => {
+    const segs = deriveSegments(ADVISOR);
+    expect(segs).toHaveLength(5);
+    expect(seconds(segs)).toBeCloseTo(279.316, 2);
+    const span = (segs[4]!.to!.getTime() - segs[0]!.from.getTime()) / 1000;
+    expect(span).toBeCloseTo(467.04, 2);
+    expect(span - seconds(segs)).toBeCloseTo(187.724, 2); // what the previous accounting wrongly counted as presence
+  });
+
+  it("the answer depends only on WHICH events exist: every arrival order of the founder's four events gives the same stretches", () => {
+    const perms = (xs: PresenceEvent[]): PresenceEvent[][] => (xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p])));
+    const want = JSON.stringify(deriveSegments(FOUNDER));
+    const all = perms(FOUNDER);
+    expect(all).toHaveLength(24);
+    for (const p of all) expect(JSON.stringify(deriveSegments(p))).toBe(want);
+  });
+
+  it("the advisor's ten events in 200 shuffled orders, each delivered twice, always give the same five stretches", () => {
+    let seed = 12345;
+    const rnd = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
+    const want = JSON.stringify(deriveSegments(ADVISOR));
+    for (let i = 0; i < 200; i++) {
+      const doubled = [...ADVISOR, ...ADVISOR];
+      for (let j = doubled.length - 1; j > 0; j--) { const k = Math.floor(rnd() * (j + 1)); [doubled[j], doubled[k]] = [doubled[k]!, doubled[j]!]; }
+      expect(JSON.stringify(deriveSegments(doubled))).toBe(want);
+    }
+  });
+
+  it("a lost JOIN for the first stretch is recovered exactly from the leave's own joined_at (nothing is estimated)", () => {
+    const segs = deriveSegments([FOUNDER[1]!]);
+    expect(segs).toHaveLength(1);
+    expect(segs[0]!.from.getTime()).toBe(sec(1793176898.662).getTime());
+    expect(segs[0]!.inferred).toBe(false);
+  });
+
+  it("a lost REjoin is flagged, and only then can a gap be counted (the safest fallback: it never counts less than was there)", () => {
+    const segs = deriveSegments([FOUNDER[0]!, FOUNDER[1]!, FOUNDER[3]!]); // the second join never arrived
+    expect(segs).toHaveLength(2);
+    expect(segs[1]!.inferred).toBe(true);
+    expect(segs[1]!.from.getTime()).toBe(segs[0]!.to!.getTime()); // starts where the previous stretch ended
+    expect(seconds(segs)).toBeCloseTo(137.763, 2); // the whole span: exactly the old behaviour, and no worse
+  });
+
+  it("a join with no leave stays open (still in, or we never heard); a leave with no usable start adds nothing", () => {
+    expect(deriveSegments([join(1793176898.647)])).toEqual([{ from: sec(1793176898.647), to: null, inferred: false }]);
+    expect(deriveSegments([leave(1793176978.691)])).toEqual([]); // no joined_at hint and nothing before it: nothing to count
+    expect(deriveSegments([join(1793176898.647), join(1793177000)])).toHaveLength(1); // a second join while already in is the same stay
+  });
+
+  it("a leave at or before its own join, and an empty list, produce no negative or empty stretches", () => {
+    expect(deriveSegments([join(1793177000), leave(1793177000)])).toEqual([]);
+    expect(deriveSegments([])).toEqual([]);
+  });
+
+  it("founder and advisor are computed independently, and the overlap is the time both were connected at once (73.3 s: only the advisor's first stretch)", () => {
+    const t0 = 1793176898;
+    const window = { from: sec(t0 - 600), to: sec(t0 + 3600) };
+    const rows = [
+      ...deriveSegments(FOUNDER).map((s): Presence => ({ role: "FOUNDER", joinedAt: s.from, leftAt: s.to })),
+      ...deriveSegments(ADVISOR).map((s): Presence => ({ role: "ADVISOR", joinedAt: s.from, leftAt: s.to })),
+    ];
+    const sum = summarizeAttendance(rows, window, sec(t0 + 7200));
+    expect(sum.founder.minutes).toBe(2.1); // 127.6 s
+    expect(sum.advisor.minutes).toBe(4.7); // 279.3 s (it was 7.8 min when the gaps were counted)
+    expect(sum.overlapMinutes).toBe(1.2); // 73.26 s: the founder's first stretch overlaps the advisor's first stretch only
+    expect(decideOutcome(sum, 5)).toBe("NO_OVERLAP"); // together for 1.2 min: below the 5 minute minimum, so a person looks at it (unchanged rule)
   });
 });

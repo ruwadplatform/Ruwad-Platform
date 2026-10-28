@@ -108,6 +108,63 @@ export const OUTCOME_LABEL: Record<AttendanceOutcome, string> = {
   UNKNOWN: "No attendance was recorded",
 };
 
+// ---- connected stretches, from Daily's own join and leave events ----------------------------------------------------------------------------------
+
+/** One join or leave of one session, at the moment it happened. `at` is the event's own time (Daily's event_ts for a join, joined_at + duration for a
+ * leave), NOT the time we received it. `stayStartedAt` is Daily's joined_at on a LEAVE: when the stay first began. */
+export interface PresenceEvent {
+  kind: "joined" | "left";
+  at: Date;
+  stayStartedAt?: Date | null;
+}
+
+/** One stretch of time a participant was actually connected. `to` is null while they are still in (or we never heard that they left). `inferred` marks
+ * a stretch whose start had to be estimated because its join event never arrived. */
+export interface Segment {
+  from: Date;
+  to: Date | null;
+  inferred: boolean;
+}
+
+/** The stretches a session was really connected, from its join and leave events, in any order and with duplicates.
+ *
+ * What a live test with Daily showed (2026-10-28): `joined_at` and `duration` on every event refer to the FIRST join and `duration` simply keeps
+ * growing, so a leave's duration is the whole span, gaps included. But each event's own time is exact: a leave's event_ts equals joined_at + duration,
+ * and a REjoin's participant.joined carries its own event_ts (the moment the connection came back; for the first join it equals joined_at). So the
+ * stretches are [a join's time, the next leave's time], and what lies between a leave and the next join is a gap that must not count. One real
+ * session had 188 s of gaps (one of them 3 minutes) inside a 467 s span.
+ *
+ * The result depends only on WHICH events exist, never on the order they arrived: a leave that arrives first, a join that arrives late, a repeated
+ * event under a new id: all give the same answer. When a stretch's own join event is missing, its start is estimated: Daily's joined_at (exact) if it is
+ * the first stretch, otherwise the end of the previous stretch (this can count the gap, which is why it is flagged `inferred`). Nothing is invented
+ * beyond that: a leave with no usable start adds nothing. */
+export function deriveSegments(events: PresenceEvent[]): Segment[] {
+  const seen = new Set<string>();
+  const ordered = events
+    .filter((e) => { const k = `${e.kind}|${e.at.getTime()}`; if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => a.at.getTime() - b.at.getTime() || (a.kind === b.kind ? 0 : a.kind === "joined" ? -1 : 1)); // a join sorts before a leave at the same instant
+  const segments: Segment[] = [];
+  let open: Date | null = null;
+  for (const e of ordered) {
+    if (e.kind === "joined") {
+      if (open === null) open = e.at; // a second join while already in is the same stay seen twice: keep the earlier
+      continue;
+    }
+    if (open !== null) {
+      if (e.at.getTime() > open.getTime()) segments.push({ from: open, to: e.at, inferred: false });
+      open = null;
+      continue;
+    }
+    // a leave whose join never arrived
+    const previousEnd = segments.length ? segments[segments.length - 1]!.to : null;
+    const hint = e.stayStartedAt ?? null;
+    const startMs = Math.max(hint ? hint.getTime() : -Infinity, previousEnd ? previousEnd.getTime() : -Infinity);
+    if (Number.isFinite(startMs) && startMs < e.at.getTime()) segments.push({ from: new Date(startMs), to: e.at, inferred: previousEnd !== null });
+  }
+  if (open !== null) segments.push({ from: open, to: null, inferred: false });
+  return segments;
+}
+
 // ---- Daily webhook signature ---------------------------------------------------------------------------------------------------------------------
 
 /** Why a webhook was refused. Carries no secret, signature or body: only the reason and, for a stale timestamp, how far off the clock was. */

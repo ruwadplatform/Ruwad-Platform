@@ -198,6 +198,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
     const adv = created.advisors;
     if (db && adv.length) {
       await db.query(`DELETE FROM advisory_meeting_attendance WHERE "bookingId" IN (SELECT id FROM advisory_bookings WHERE "advisorId" = ANY($1))`, [adv]);
+      await db.query(`DELETE FROM advisory_presence_events WHERE "bookingId" IN (SELECT id FROM advisory_bookings WHERE "advisorId" = ANY($1))`, [adv]);
       await db.query(`DELETE FROM advisory_booking_events WHERE "bookingId" IN (SELECT id FROM advisory_bookings WHERE "advisorId" = ANY($1))`, [adv]);
       await db.query(`DELETE FROM advisory_bookings WHERE "advisorId" = ANY($1)`, [adv]);
       await db.query(`DELETE FROM advisory_availability_exceptions WHERE "advisorId" = ANY($1)`, [adv]);
@@ -1290,36 +1291,77 @@ suite("Advisory Services — integration (local Postgres)", () => {
     } finally { await s.app.close(); }
   });
 
-  it("a connection that drops and recovers (real Daily behaviour, captured live): one session leaves, joins again and leaves later; the later leave is recorded, and only an identical redelivery under a new id is a duplicate", async () => {
+  it("a connection that drops and recovers (the REAL founder session captured live): the 10 s gap is not attendance, events in any order and repeated under new ids change nothing", async () => {
     const { id, room, start } = await withRoom(50);
     const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
     try {
       const send = async (body: string) => (await post(s.app, body, sign(body))).body.status as string;
       const session = sid("recon");
-      const base = (start + 120_000 + 647) / 1000; // joined_at in unix seconds with a fraction, as Daily sends it
-      const joined = (evId: string, joinedAt: number) => dailyEvent("participant.joined", evId, { room, user_id: ids.owner!, session_id: session, joined_at: joinedAt, owner: false }, joinedAt);
-      const left = (evId: string, joinedAt: number, duration: number) => dailyEvent("participant.left", evId, { room, user_id: ids.owner!, session_id: session, joined_at: joinedAt, duration, owner: false }, joinedAt + duration);
-      // the sequence Daily really sent: joined; left after 122.03 s; joined AGAIN under the same session_id (joined_at differs by 15 ms); left after 137.75 s
-      expect(await send(joined(`${tag}-rc1`, base))).toBe("processed");
-      expect(await send(left(`${tag}-rc2`, base + 0.015, 122.03))).toBe("processed");
-      expect(await send(joined(`${tag}-rc3`, base + 0.015))).toBe("processed"); // the same session again: NOT a duplicate
-      expect(await send(left(`${tag}-rc4`, base + 0.015, 137.75))).toBe("processed"); // the later, longer leave must not be thrown away
-      // only an IDENTICAL redelivery under a new event id is a duplicate
-      expect(await send(left(`${tag}-rc4-again`, base + 0.015, 137.75))).toBe("duplicate");
-      expect(await send(joined(`${tag}-rc1-again`, base))).toBe("duplicate");
+      const t = (rel: number) => (start + 60_000) / 1000 + rel; // unix seconds, relative to the first join (1 minute into the meeting window)
+      // Exactly what Daily sent, as offsets from the first join: joined at 0; left at 122.045 (joined_at +0.015, duration 122.03); the connection came back at
+      // 132.186 (a participant.joined for the SAME session, whose joined_at is still the first join); left at 137.763 (duration 137.748 counts from the first join).
+      const joined = (evId: string, eventAt: number) => dailyEvent("participant.joined", evId, { room, user_id: ids.owner!, session_id: session, joined_at: eventAt === 0 ? t(0) : t(0.015), owner: false }, t(eventAt));
+      const left = (evId: string, duration: number) => dailyEvent("participant.left", evId, { room, user_id: ids.owner!, session_id: session, joined_at: t(0.015), duration, owner: false }, t(0.015) + duration);
+      // delivered out of order: the final leave first, then the rejoin, then the first join, then the first leave
+      expect(await send(left(`${tag}-rc4`, 137.748))).toBe("processed");
+      expect(await send(joined(`${tag}-rc3`, 132.186))).toBe("processed");
+      expect(await send(joined(`${tag}-rc1`, 0))).toBe("processed");
+      expect(await send(left(`${tag}-rc2`, 122.03))).toBe("processed");
+      // repeats: the same events under NEW ids (Daily's documentation says that can happen) change nothing
+      expect(await send(left(`${tag}-rc4-again`, 137.748))).toBe("duplicate");
+      expect(await send(joined(`${tag}-rc3-again`, 132.186))).toBe("duplicate");
+      expect(await send(joined(`${tag}-rc1-again`, 0))).toBe("duplicate");
+      expect(await send(left(`${tag}-rc2-again`, 122.03))).toBe("duplicate");
       const rows = await attendanceOf(id);
-      expect(rows).toHaveLength(1); // one session, one row
-      const seconds = (new Date(rows[0]!.leftAt).getTime() - new Date(rows[0]!.joinedAt).getTime()) / 1000;
-      expect(Math.abs(seconds - 137.765)).toBeLessThan(0.01); // the whole stay: 137.75 s, not the first leave's 122 s
-      expect((await api("owner").get(`/advisory/bookings/${id}/meeting`)).body.attendance.founder.minutes).toBe(2.3);
+      expect(rows.map((r) => r.sessionKey)).toEqual([session, `${session}#1`]); // two connected stretches, one row each
+      const stretch = (r: Record<string, any>) => (new Date(r.leftAt).getTime() - new Date(r.joinedAt).getTime()) / 1000;
+      expect(stretch(rows[0]!)).toBeCloseTo(122.045, 2);
+      expect(stretch(rows[1]!)).toBeCloseTo(5.577, 2);
+      const gap = (new Date(rows[1]!.joinedAt).getTime() - new Date(rows[0]!.leftAt).getTime()) / 1000;
+      expect(gap).toBeCloseTo(10.141, 2); // not attendance
+      expect((await api("owner").get(`/advisory/bookings/${id}/meeting`)).body.attendance.founder).toMatchObject({ minutes: 2.1, present: false }); // 127.6 s connected, not the 137.8 s span
       expect(await row(id)).toMatchObject({ status: "CONFIRMED", needsReview: false, attendanceOutcome: null });
+    } finally { await s.app.close(); }
+  });
+
+  it("the REAL flapping advisor session captured live (five stretches and a 3 minute gap in a 467 s span): 279 s of attendance, founder and advisor counted independently, overlap only where both were connected", async () => {
+    const { id, room, start } = await withRoom(50);
+    const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
+    try {
+      const send = async (body: string) => (await post(s.app, body, sign(body))).body.status as string;
+      const t = (rel: number) => (start + 60_000) / 1000 + rel;
+      const advisor = sid("flap-a"), founder = sid("flap-f");
+      const ev = (type: "participant.joined" | "participant.left", evId: string, user: string, session: string, eventRel: number, firstJoinRel: number, duration?: number) =>
+        dailyEvent(type, evId, { room, user_id: user, session_id: session, joined_at: t(firstJoinRel), ...(duration !== undefined ? { duration } : {}), owner: false }, t(eventRel));
+      // the advisor, as Daily sent it (offsets from the advisor's first join): in 0-73.26, out for 179.6 s, then four stretches 288.6-... each after a 2.5-3 s gap
+      const stretches: [number, number][] = [[0, 73.26], [252.846, 288.605], [291.278, 348.044], [350.579, 407.348], [410.278, 467.04]];
+      const advisorEvents = stretches.flatMap(([from, to], i) => [ev("participant.joined", `${tag}-fa-j${i}`, ids.advisorUser!, advisor, from, 0), ev("participant.left", `${tag}-fa-l${i}`, ids.advisorUser!, advisor, to, 0.005, to - 0.005)]);
+      // the founder is connected for the first 100 s only (two stretches of 40 s with a 20 s gap)
+      const founderEvents = [[0, 40], [60, 100]].flatMap(([from, to], i) => [ev("participant.joined", `${tag}-ff-j${i}`, ids.owner!, founder, from!, 0), ev("participant.left", `${tag}-ff-l${i}`, ids.owner!, founder, to!, 0, to! - 0)]);
+      // deliver everything in reverse order, and then every event a second time under a new id
+      const all = [...advisorEvents, ...founderEvents].reverse();
+      for (const body of all) expect(await send(body)).toBe("processed");
+      for (const [i, body] of all.entries()) expect(await send(body.replace(`${tag}-`, `${tag}-again${i}-`))).toBe("duplicate");
+
+      const rows = await attendanceOf(id);
+      const mine = (u: string) => rows.filter((r) => r.userId === u);
+      expect(mine(ids.advisorUser!)).toHaveLength(5);
+      expect(mine(ids.owner!)).toHaveLength(2);
+      const total = (rs: Record<string, any>[]) => rs.reduce((n, r) => n + (new Date(r.leftAt).getTime() - new Date(r.joinedAt).getTime()) / 1000, 0);
+      expect(total(mine(ids.advisorUser!))).toBeCloseTo(279.316, 1); // not the 467 s span
+      expect(total(mine(ids.owner!))).toBeCloseTo(80, 1); // 40 + 40, not the 100 s span
+      const sum = (await api("owner").get(`/advisory/bookings/${id}/meeting`)).body.attendance;
+      expect(sum.advisor.minutes).toBe(4.7); // 279.3 s (it was 7.8 when the gaps were counted)
+      expect(sum.founder.minutes).toBe(1.3); // 80 s
+      expect(sum.overlapMinutes).toBe(0.9); // together only 40 s (0-40) + 13.26 s (60-73.26): the advisor's later stretches start after the founder left
+      expect(await row(id)).toMatchObject({ status: "CONFIRMED", needsReview: false, attendanceOutcome: null }); // no webhook completes or changes a consultation
     } finally { await s.app.close(); }
   });
 
   it("a webhook that fails halfway isn't lost: Daily's retry is processed (the 'seen' markers roll back with the attendance), and only after that do repeats count as duplicates", async () => {
     const { id, room, start } = await withRoom(51);
     const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
-    const spy = jest.spyOn(s.app.get(AdvisoryAttendanceService) as unknown as { upsertPresence: () => Promise<void> }, "upsertPresence").mockRejectedValueOnce(new Error("database unavailable"));
+    const spy = jest.spyOn(s.app.get(AdvisoryAttendanceService) as unknown as { applyWebhookPresence: () => Promise<boolean> }, "applyWebhookPresence").mockRejectedValueOnce(new Error("database unavailable"));
     try {
       const body = dailyEvent("participant.joined", `${tag}-t2`, { room, user_id: ids.advisorUser!, session_id: sid("a-retry"), joined_at: at(start, 1) }, at(start, 1));
       expect((await post(s.app, body, sign(body))).status).toBe(500); // processing failed: Daily will retry
