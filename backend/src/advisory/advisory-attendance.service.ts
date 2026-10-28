@@ -37,8 +37,9 @@ type Db = Pick<DataSource, "query">;
  * SIMULATED room only, the page itself (there is no provider to ask). A person recording the outcome is always a human: the advisor or an administrator.
  *
  * The webhook payload field names follow Daily's published documentation (envelope: version, type, id, payload, event_ts; payload: room, session_id,
- * user_id, joined_at in unix SECONDS with a fraction, duration in seconds). They have been checked against that documentation and against signed
- * events built from it, but NOT yet against a live event from Daily: that is the supervised live test. */
+ * user_id, joined_at in unix SECONDS with a fraction, duration in seconds). They were verified against LIVE events from Daily in the supervised test of
+ * 2026-10-28 (docs/advisory-daily-webhook-live-test.md, section 9), which also showed what the documentation does not say: X-Webhook-Timestamp is in
+ * MILLISECONDS, a retried delivery keeps its event id but gets a fresh timestamp, and one session can send several participant.left events. */
 @Injectable()
 export class AdvisoryAttendanceService {
   private readonly logger = new Logger(AdvisoryAttendanceService.name);
@@ -136,8 +137,8 @@ export class AdvisoryAttendanceService {
   /** Receives a Daily webhook. The signature is verified against the RAW body first; an unverified request is refused and learns nothing. Anything
    * verified is acknowledged with success (even if it is ignored) so Daily doesn't keep retrying.
    *
-   * Duplicates are recognised by the event's id AND, as Daily's documentation advises (a rare duplicate can carry a different id), by event type plus
-   * session_id. The "seen" markers and the attendance change are written in ONE transaction: if anything fails, the markers are rolled back too, so
+   * Duplicates are recognised by the event's id AND (a rare duplicate can carry a different id, per Daily's documentation) by event type + session_id + the
+   * event's own time, so a repeated leave for the same session with a later time is processed, not dropped. The "seen" markers and the attendance change are written in ONE transaction: if anything fails, the markers are rolled back too, so
    * Daily's retry is processed instead of being thrown away as a duplicate.
    *
    * Only attendance rows (and, for a consultation already waiting for review, its suggested outcome) are ever written. A webhook never changes a
@@ -162,7 +163,12 @@ export class AdvisoryAttendanceService {
     const sessionId = typeof payload.session_id === "string" && payload.session_id ? payload.session_id : null;
     const isPresence = type === "participant.joined" || type === "participant.left";
     const eventId = (typeof body.id === "string" && body.id) || `${type}:${String(sessionId ?? "")}:${String(body.event_ts ?? "")}`;
-    const seenKeys = [eventId.slice(0, 120), ...(isPresence && sessionId ? [`${type}|${sessionId}`.slice(0, 120)] : [])];
+    // Daily's documentation says a rare duplicate can carry a different event id and advises type + session_id. A live test showed that is not enough on
+    // its own: one session_id can produce SEVERAL genuine participant.left events (a connection drops and recovers: left at 122 s, joined again, left at
+    // 137.75 s), and the later, longer one must not be thrown away. So the second key also carries the event's own time (the leave's duration, the join's
+    // joined_at): an identical redelivery under a new id is still caught, and a genuinely new event is not.
+    const eventStamp = type === "participant.left" ? (typeof payload.duration === "number" ? payload.duration : body.event_ts) : (payload.joined_at ?? body.event_ts);
+    const seenKeys = [eventId.slice(0, 120), ...(isPresence && sessionId ? [`${type}|${sessionId}|${String(eventStamp)}`.slice(0, 120)] : [])];
 
     const outcome = await this.ds.transaction(async (m): Promise<{ status: WebhookResult["status"]; why: string }> => {
       for (const key of seenKeys) {

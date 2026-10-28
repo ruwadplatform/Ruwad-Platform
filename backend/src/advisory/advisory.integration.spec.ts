@@ -1290,6 +1290,32 @@ suite("Advisory Services — integration (local Postgres)", () => {
     } finally { await s.app.close(); }
   });
 
+  it("a connection that drops and recovers (real Daily behaviour, captured live): one session leaves, joins again and leaves later; the later leave is recorded, and only an identical redelivery under a new id is a duplicate", async () => {
+    const { id, room, start } = await withRoom(50);
+    const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
+    try {
+      const send = async (body: string) => (await post(s.app, body, sign(body))).body.status as string;
+      const session = sid("recon");
+      const base = (start + 120_000 + 647) / 1000; // joined_at in unix seconds with a fraction, as Daily sends it
+      const joined = (evId: string, joinedAt: number) => dailyEvent("participant.joined", evId, { room, user_id: ids.owner!, session_id: session, joined_at: joinedAt, owner: false }, joinedAt);
+      const left = (evId: string, joinedAt: number, duration: number) => dailyEvent("participant.left", evId, { room, user_id: ids.owner!, session_id: session, joined_at: joinedAt, duration, owner: false }, joinedAt + duration);
+      // the sequence Daily really sent: joined; left after 122.03 s; joined AGAIN under the same session_id (joined_at differs by 15 ms); left after 137.75 s
+      expect(await send(joined(`${tag}-rc1`, base))).toBe("processed");
+      expect(await send(left(`${tag}-rc2`, base + 0.015, 122.03))).toBe("processed");
+      expect(await send(joined(`${tag}-rc3`, base + 0.015))).toBe("processed"); // the same session again: NOT a duplicate
+      expect(await send(left(`${tag}-rc4`, base + 0.015, 137.75))).toBe("processed"); // the later, longer leave must not be thrown away
+      // only an IDENTICAL redelivery under a new event id is a duplicate
+      expect(await send(left(`${tag}-rc4-again`, base + 0.015, 137.75))).toBe("duplicate");
+      expect(await send(joined(`${tag}-rc1-again`, base))).toBe("duplicate");
+      const rows = await attendanceOf(id);
+      expect(rows).toHaveLength(1); // one session, one row
+      const seconds = (new Date(rows[0]!.leftAt).getTime() - new Date(rows[0]!.joinedAt).getTime()) / 1000;
+      expect(Math.abs(seconds - 137.765)).toBeLessThan(0.01); // the whole stay: 137.75 s, not the first leave's 122 s
+      expect((await api("owner").get(`/advisory/bookings/${id}/meeting`)).body.attendance.founder.minutes).toBe(2.3);
+      expect(await row(id)).toMatchObject({ status: "CONFIRMED", needsReview: false, attendanceOutcome: null });
+    } finally { await s.app.close(); }
+  });
+
   it("a webhook that fails halfway isn't lost: Daily's retry is processed (the 'seen' markers roll back with the attendance), and only after that do repeats count as duplicates", async () => {
     const { id, room, start } = await withRoom(51);
     const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });

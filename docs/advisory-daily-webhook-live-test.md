@@ -1,6 +1,6 @@
 # Daily.co webhook: plan for one supervised live delivery test
 
-**Status: prepared, NOT executed.** Nothing has been registered on Daily, no tunnel has been opened, and no production system is involved. Every step below needs the owner's approval first.
+**Status: executed once, on 2026-10-28, with the owner's approval (results in section 9).** The temporary webhook, room and tunnel were removed afterwards. Repeating it needs the owner's approval again.
 
 ## 1. What the test must prove
 Everything about the webhook is tested locally with signed events built from Daily's published documentation. Four things can only be learned from a real delivery:
@@ -62,3 +62,23 @@ If any step fails, steps 1 and 2 are the whole rollback: nothing else persists.
 
 ## 8. Later, for production (a separate approval)
 Set `ADVISORY_VIDEO_PROVIDER=daily`, `DAILY_API_KEY`, `DAILY_DOMAIN` and `DAILY_WEBHOOK_SECRET` on the backend host, apply the opt-in Advisory migrations in one window, and register the backend's public HTTPS URL with the same `hmac`. Not part of this test.
+
+## 9. Results of the live test (2026-10-28)
+One temporary webhook, one disposable consultation, one real Daily room, two test participants (real `daily-js`, devices off), a temporary Cloudflare Quick Tunnel to the single-route relay. Everything else was local: scratch copy of the local database on 127.0.0.1:55432, mock email, no production system involved. The webhook, the room and the tunnel were deleted afterwards and the Daily account was verified to have 0 webhooks and 0 rooms.
+
+**Confirmed**
+- The creation-time message (signed `{"test":"test"}`) was accepted with HTTP 200 well inside Daily's 8 seconds.
+- Every real delivery's signature verified, checked by the backend and independently by a second HMAC implementation.
+- Real events were matched to the right consultation (by room) and the right person (by the token's `user_id`).
+- Retry: after one injected failure Daily re-sent the **same event id about 3.6 seconds later with a fresh timestamp**, and it was processed. The 5 minute default window is therefore fine for retries.
+- Replay protection with real signatures: a redelivery inside the window is answered `duplicate` (HTTP 200); the same signed delivery 309 seconds old is refused as `stale-timestamp`.
+- Accuracy on clean sessions: RUWĀD 34.74 s / 45.46 s against Daily's own record 34 s / 45 s and the participants' own clocks 34.61 s / 45.38 s.
+- No secret, signature or token in any log or capture; the room is private with no recording property.
+
+**What the documentation does not say**
+- `X-Webhook-Timestamp` is in **milliseconds** (13 digits). The code already accepted both.
+- `event_ts` and `joined_at` are unix seconds with a fraction; `user_name` arrives URL-encoded; a leave carries `joined_at` that can differ from the join's by a few milliseconds.
+- **One session_id can send several `participant.left` events.** When a connection drops and recovers Daily keeps the session: left (122 s), joined again, left (137.75 s). Deduplicating on type plus `session_id` (as Daily's documentation advises) discarded the later, longer leave and under-counted a 137 s stay as 122 s. Fixed: the duplicate key also carries the event's own time (the leave's duration, the join's joined_at), so an identical redelivery is still a duplicate and a genuinely new event is not. A regression test uses the captured numbers.
+- A backgrounded browser tab freezes its connection and makes Daily record a leave and a rejoin about every minute. This was a property of the test harness (two tabs), not of the product, and was avoided in the second round (both participants in one foreground tab).
+
+**Known limitation:** within one session, a disconnected gap (a few seconds per reconnect) is counted as present, because attendance is stored as one span per session. In the extreme flapping case above this overstated a 431 s stay (Daily's figure) as 467 s. It cannot change an outcome at the 5 minute threshold in a realistic case; storing each connected stretch separately would remove it if ever needed.
