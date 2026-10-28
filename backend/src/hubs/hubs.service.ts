@@ -12,6 +12,9 @@ import { Startup } from "../startups/startup.entity";
 import { EntityKind } from "../common/enums";
 import { initials, slugify } from "../common/slug.util";
 import { paginate, PaginatedResult } from "../common/pagination.dto";
+import { AccessService } from "../visibility/access.service";
+import { hubDetail, hubListItem } from "../visibility/field-policy";
+import { Viewer } from "../visibility/viewer";
 
 @Injectable()
 export class HubsService {
@@ -21,6 +24,7 @@ export class HubsService {
     @InjectRepository(HubPortfolioItem) private readonly portfolio: Repository<HubPortfolioItem>,
     @InjectRepository(Startup) private readonly startups: Repository<Startup>,
     private readonly shared: DirectorySharedService,
+    private readonly access: AccessService,
   ) {}
 
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
@@ -75,7 +79,8 @@ export class HubsService {
     });
   }
 
-  async findAll(query: QueryHubsDto): Promise<PaginatedResult<Record<string, unknown>>> {
+  async findAll(query: QueryHubsDto, viewer: Viewer): Promise<PaginatedResult<Record<string, unknown>>> {
+    const access = this.access.forList(viewer);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const qb = this.repo.createQueryBuilder("h");
@@ -92,19 +97,20 @@ export class HubsService {
         this.programs.find({ where: { hubId: h.id } }),
         this.portfolio.count({ where: { hubId: h.id } }),
       ]);
-      return {
+      return hubListItem({
         id: h.id, slug: h.slug, name: h.name, logo: initials(h.name), logoImageId: h.logoImageId ?? null, type: h.type, city: h.city, country: h.country,
         status: h.status, website: h.website, provenanceLastUpdated: h.provenanceLastUpdated,
         stagesSupported: h.stagesSupported, healthcareFocus, programs, portfolioCount,
         eligibility: h.eligibility,
-      };
+      }, access);
     }));
     return paginate(items, total, page, limit);
   }
 
-  async findBySlugOrThrow(slug: string): Promise<Record<string, unknown>> {
+  async findBySlugOrThrow(slug: string, viewer: Viewer): Promise<Record<string, unknown>> {
     const hub = await this.repo.findOne({ where: { slug } });
     if (!hub) throw new NotFoundException("Hub not found");
+    const access = await this.access.forRecord(viewer, EntityKind.HUB, hub.id);
     // No `documents` in the public payload — see DataRoomService.status().
     const [sectors, programs, portfolioItems, partnerships, contact] = await Promise.all([
       this.shared.getSectorNames(EntityKind.HUB, hub.id),
@@ -120,6 +126,6 @@ export class HubsService {
         ...(startup ? { startupId: startup.id, startupSlug: startup.slug, startupLogo: initials(startup.name), startupLogoImageId: startup.logoImageId ?? null, startupScore: startup.ruwadScore != null ? Number(startup.ruwadScore) : null, startupCategory: startup.category, startupTagline: startup.tagline } : {}),
       };
     }));
-    return { ...hub, logo: initials(hub.name), sectors, programs, portfolio: portfolioResolved, partnerships, contact };
+    return hubDetail({ ...hub, logo: initials(hub.name), sectors, programs, portfolio: portfolioResolved, partnerships, contact }, access);
   }
 }

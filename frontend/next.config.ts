@@ -16,6 +16,23 @@ function backendOrigin(): string {
 }
 
 const nextConfig: NextConfig = {
+  // The older *.vercel.app addresses (and previews) serve the same pages as the real site. Search engines are told not to index them; the pages also carry canonical tags
+  // pointing at https://www.ruwad.studio, and robots.txt (src/app/robots.ts) leaves those addresses crawlable so the instruction can be seen.
+  async headers() {
+    return [
+      { source: "/:path*", has: [{ type: "host", value: ".*\\.vercel\\.app" }], headers: [{ key: "X-Robots-Tag", value: "noindex" }] },
+      // These pages are rendered for the signed-in visitor (their session cookie is passed to the API), so no shared cache may keep a copy.
+      ...["startups", "investors", "hubs", "research", "multinationals", "reports"].map((section) => ({
+        source: `/${section}/:id`,
+        headers: [{ key: "Cache-Control", value: "private, no-store, max-age=0" }],
+      })),
+    ];
+  },
+  // The Dashboard is the RUWĀD home page. The root address sends everyone there. The redirect is TEMPORARY (307) for the first deployment: browsers and search engines do not remember
+  // a 307, so it can be undone instantly. Switch to `permanent: true` (308) only after the production verification in docs/api-access-policy.md. /dashboard never redirects back.
+  async redirects() {
+    return [{ source: "/", destination: "/dashboard", permanent: false }];
+  },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${backendOrigin()}/api/:path*` }];
   },

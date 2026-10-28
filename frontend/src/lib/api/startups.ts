@@ -1,4 +1,4 @@
-import { api, isNotFound } from "./client";
+import { api, isNotFound, type ServerFetchOptions } from "./client";
 import { logoUrl } from "./uploads";
 import type { ScoreFactors, Startup } from "@/types/entities";
 
@@ -29,6 +29,7 @@ interface RawStartup {
   team?: { name: string; title: string; isFounder: boolean; linkedin?: string | null }[];
   rounds?: Startup["rounds"];
   investorIds?: string[];
+  investorCount?: number;
 }
 
 const emptyTraction = (): Startup["traction"] => ({ revenue: "—", growth: "—", customers: "—", users: "—", partnerships: 0, pilots: 0, markets: "—", awards: "—" });
@@ -67,6 +68,7 @@ function mapStartup(r: RawStartup): Startup {
     rounds: r.rounds ?? [],
     investorsList: [],
     investorIds: r.investorIds ?? [],
+    investorCount: r.investorCount ?? r.investorIds?.length ?? 0,
     traction: r.traction ?? emptyTraction(),
     logo: r.logo ?? r.name.slice(0, 2).toUpperCase(),
     logoUrl: logoUrl(r.logoImageId),
@@ -90,9 +92,9 @@ export async function fetchStartups(): Promise<Startup[]> {
   return res.items.map(mapStartup);
 }
 
-export async function fetchStartupBySlug(slug: string): Promise<Startup | null> {
+export async function fetchStartupBySlug(slug: string, server?: ServerFetchOptions): Promise<Startup | null> {
   try {
-    const raw = await api.get<RawStartup>(`/startups/${slug}`);
+    const raw = await api.get<RawStartup>(`/startups/${slug}`, server);
     return mapStartup(raw);
   } catch (e) {
     if (isNotFound(e)) return null;

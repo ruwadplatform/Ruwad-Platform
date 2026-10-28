@@ -12,6 +12,7 @@ import { requireAuth } from "@/lib/store";
 import { compareEvents, eventStatusOf, formatEventDates, safeHttpUrl } from "@/lib/content-format";
 import { AddToCalendar } from "@/components/intelligence/AddToCalendar";
 import { useStartups, useInvestors, useHubs, useNews, useEvents, useReports } from "@/hooks/use-directory-data";
+import { useEcosystemSnapshot } from "@/hooks/use-analytics";
 import { initials } from "@/lib/scoring";
 import { FEATURED_STARTUP_SLUGS } from "@/lib/featured";
 import { regBadgeClass } from "@/lib/widgets";
@@ -89,12 +90,12 @@ function DashboardIntro({ loggedIn, firstName }: { loggedIn: boolean; firstName?
         </>
       ) : loggedIn && firstName ? (
         <>
-          <h1 className="fs-22">{greet}, {firstName}.</h1>
+          <h2 className="fs-22">{greet}, {firstName}.</h2>
           <p className="muted fs-13" style={{ marginTop: 6 }}>Here&apos;s what&apos;s happening across the healthcare innovation ecosystem.</p>
         </>
       ) : (
         <>
-          <h1 className="fs-22">Welcome to RUWĀD.</h1>
+          <h2 className="fs-22">Welcome to RUWĀD.</h2>
           <p className="muted fs-13" style={{ marginTop: 6 }}>The Saudi &amp; MENA healthcare innovation ecosystem, mapped.</p>
         </>
       )}
@@ -206,7 +207,9 @@ function EcosystemSnapshot() {
   const { data: STARTUPS } = useStartups();
   const { data: INVESTORS } = useInvestors();
   const { data: HUBS_ENABLERS } = useHubs();
-  const trackedFunding = STARTUPS.reduce((sum, s) => sum + (s.fundingTotal || 0), 0);
+  // The ecosystem-wide total comes from the aggregate endpoint: the per-company figures it is made of are for members.
+  const { data: snapshot } = useEcosystemSnapshot();
+  const trackedFunding = snapshot?.trackedFundingSar;
   const catCounts: Record<string, number> = {};
   STARTUPS.forEach((s) => { catCounts[s.category] = (catCounts[s.category] || 0) + 1; });
   const topEntry = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0];
@@ -217,7 +220,7 @@ function EcosystemSnapshot() {
       <h3 className="fs-14" style={{ marginBottom: 4 }}>Ecosystem snapshot</h3>
       <p className="muted small" style={{ marginBottom: 16 }}>Live counts from RUWĀD&apos;s tracked directories — no trend claims, since there&apos;s no historical data yet to compute one honestly.</p>
       <div className="kpi-row">
-        <div className="kpi"><div className="k-label">Tracked Funding</div><div className="k-val fs-16">SAR {trackedFunding.toFixed(1)}M</div><div className="k-delta">{STARTUPS.length} startups</div></div>
+        <div className="kpi"><div className="k-label">Tracked Funding</div><div className="k-val fs-16">{trackedFunding != null ? `SAR ${trackedFunding.toFixed(1)}M` : "—"}</div><div className="k-delta">{STARTUPS.length} startups</div></div>
         <div className="kpi"><div className="k-label">Top Category</div><div className="k-val fs-16">{topCatName}</div><div className="k-delta">{topCatCount} venture{topCatCount === 1 ? "" : "s"}</div></div>
         <div className="kpi"><div className="k-label">Active Investors</div><div className="k-val fs-16">{INVESTORS.length}</div><div className="k-delta">tracked in directory</div></div>
         <div className="kpi"><div className="k-label">Hubs &amp; Programs</div><div className="k-val fs-16">{HUBS_ENABLERS.length}</div><div className="k-delta">{openHubs} open now</div></div>

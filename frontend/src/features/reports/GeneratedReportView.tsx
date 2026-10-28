@@ -85,8 +85,8 @@ export function GeneratedReportView({ report: r }: { report: Report }) {
   const investorDists = dists(INVESTOR_DISTS);
 
   const govSrc = src.filter((s) => s.sourceType === "government" || s.topic === "government" || s.topic === "regulation");
-  const marketSrc = src.filter((s) => MARKET_TOPICS.has(s.topic) && !govSrc.includes(s));
-  const fundingSrc = src.filter((s) => FUNDING_TOPICS.has(s.topic)).sort(byNewest);
+  const marketSrc = src.filter((s) => MARKET_TOPICS.has(s.topic ?? "") && !govSrc.includes(s));
+  const fundingSrc = src.filter((s) => FUNDING_TOPICS.has(s.topic ?? "")).sort(byNewest);
   const newsSrc = src.filter((s) => s.topic === "news").sort(byNewest);
   const developments = subject ? [...fundingSrc, ...newsSrc].sort(byNewest) : newsSrc;
   const ms = g.marketSize;
@@ -238,9 +238,9 @@ export function GeneratedReportView({ report: r }: { report: Report }) {
   if (st.companies.length) {
     add("companies", subject ? "Peer companies on RUWĀD" : "Key companies", (
       <>
-        <p className="fs-12 muted mb-12"><Tag tone="internal">RUWĀD data</Tag> &nbsp;Companies listed on RUWĀD{subject ? " in the same sector" : ", ranked by recorded funding"}.</p>
+        <p className="fs-12 muted mb-12"><Tag tone="internal">RUWĀD data</Tag> &nbsp;Companies listed on RUWĀD{subject ? " in the same sector" : st.companies.some((c) => c.fundingTotal != null) ? ", ranked by recorded funding" : ""}.</p>
         <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8, margin: 0 }}>
-          {st.companies.map((c) => <li key={c.slug} className="panel panel-pad fs-13"><Link href={`/startups/${c.slug}`} style={{ fontWeight: 600 }}>{c.name}</Link> · {c.category} · {c.stage}{c.city ? ` · ${c.city}` : ""}{c.fundingTotal > 0 ? ` · ${money(c.fundingTotal)} raised` : ""}</li>)}
+          {st.companies.map((c) => <li key={c.slug} className="panel panel-pad fs-13"><Link href={`/startups/${c.slug}`} style={{ fontWeight: 600 }}>{c.name}</Link> · {c.category} · {c.stage}{c.city ? ` · ${c.city}` : ""}{c.fundingTotal != null && c.fundingTotal > 0 ? ` · ${money(c.fundingTotal)} raised` : ""}</li>)}
         </ul>
       </>
     ));
@@ -261,7 +261,7 @@ export function GeneratedReportView({ report: r }: { report: Report }) {
       {src.length ? (
         <div className="panel" style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", minWidth: 560 }}>
-            <thead><tr style={{ textAlign: "left" }}><th style={{ padding: 10 }}>Source</th><th>Type</th><th>Published</th><th>Retrieved</th><th>Search query</th></tr></thead>
+            <thead><tr style={{ textAlign: "left" }}><th style={{ padding: 10 }}>Source</th><th>Type</th><th>Published</th><th>Retrieved</th>{src.some((x) => x.query) && <th>Search query</th>}</tr></thead>
             <tbody>
               {src.map((s) => (
                 <tr key={s.id} style={{ borderTop: "1px solid var(--border)", verticalAlign: "top" }}>
@@ -269,7 +269,7 @@ export function GeneratedReportView({ report: r }: { report: Report }) {
                   <td>{s.sourceTypeLabel}</td>
                   <td>{s.publishedAt ? fmtDate(s.publishedAt) : s.publishedText ?? "—"}</td>
                   <td>{fmtDate(s.retrievedAt)}</td>
-                  <td className="muted">{s.query}</td>
+                  {src.some((x) => x.query) && <td className="muted">{s.query}</td>}
                 </tr>
               ))}
             </tbody>
@@ -282,7 +282,7 @@ export function GeneratedReportView({ report: r }: { report: Report }) {
   add("methodology", "Methodology", (
     <>
       <ul style={{ paddingLeft: 18, display: "grid", gap: 6 }}>{g.methodology.map((m, i) => <li key={i} className="fs-13">{m}</li>)}</ul>
-      <p className="fs-12 muted mt-8">{g.research.searchesUsed} web search{g.research.searchesUsed === 1 ? "" : "es"} run, {g.research.cacheHits} answered from saved results, {g.research.sourcesKept} sources kept.</p>
+      <p className="fs-12 muted mt-8">{g.research.searchesUsed != null ? `${g.research.searchesUsed} web search${g.research.searchesUsed === 1 ? "" : "es"} run, ${g.research.cacheHits ?? 0} answered from saved results, ${g.research.sourcesKept ?? src.length} sources kept.` : `${src.length} source${src.length === 1 ? "" : "s"} kept.`}</p>
     </>
   ));
 

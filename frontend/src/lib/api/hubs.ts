@@ -1,4 +1,4 @@
-import { api, isNotFound } from "./client";
+import { api, isNotFound, type ServerFetchOptions } from "./client";
 import { logoUrl } from "./uploads";
 import type { Hub, HubPortfolioItem } from "@/types/entities";
 
@@ -69,9 +69,9 @@ export async function fetchHubs(): Promise<Hub[]> {
   return res.items.map(mapHub);
 }
 
-export async function fetchHubBySlug(slug: string): Promise<Hub | null> {
+export async function fetchHubBySlug(slug: string, server?: ServerFetchOptions): Promise<Hub | null> {
   try {
-    const raw = await api.get<RawHub>(`/hubs/${slug}`);
+    const raw = await api.get<RawHub>(`/hubs/${slug}`, server);
     return mapHub(raw);
   } catch (e) {
     if (isNotFound(e)) return null;

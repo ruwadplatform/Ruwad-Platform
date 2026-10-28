@@ -33,6 +33,11 @@ export class UsersService {
     return this.users.findOne({ where: [{ role: UserRole.RUWAD_ADMIN, status: UserStatus.ACTIVE }, { role: UserRole.SUPER_ADMIN, status: UserStatus.ACTIVE }], order: { createdAt: "ASC" } });
   }
 
+  /** Whether the account behind a session token still exists and is ACTIVE. Called on every authenticated request, so it reads one indexed row and nothing else. */
+  async isActive(id: string): Promise<boolean> {
+    return (await this.users.count({ where: { id, status: UserStatus.ACTIVE } })) > 0;
+  }
+
   async findByIdOrThrow(id: string): Promise<User> {
     const user = await this.users.findOne({ where: { id } });
     if (!user) throw new NotFoundException("User not found");

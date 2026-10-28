@@ -9,12 +9,16 @@ import { DirectorySharedService } from "../directory-shared/directory-shared.ser
 import { EntityKind } from "../common/enums";
 import { initials, slugify } from "../common/slug.util";
 import { paginate, PaginatedResult } from "../common/pagination.dto";
+import { AccessService } from "../visibility/access.service";
+import { multinationalDetail, multinationalListItem } from "../visibility/field-policy";
+import { Viewer } from "../visibility/viewer";
 
 @Injectable()
 export class MultinationalsService {
   constructor(
     @InjectRepository(Multinational) private readonly repo: Repository<Multinational>,
     private readonly shared: DirectorySharedService,
+    private readonly access: AccessService,
   ) {}
 
   private async uniqueSlug(name: string, excludeId?: string): Promise<string> {
@@ -66,7 +70,8 @@ export class MultinationalsService {
     });
   }
 
-  async findAll(query: QueryMultinationalsDto): Promise<PaginatedResult<Record<string, unknown>>> {
+  async findAll(query: QueryMultinationalsDto, viewer: Viewer): Promise<PaginatedResult<Record<string, unknown>>> {
+    const access = this.access.forList(viewer);
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const qb = this.repo.createQueryBuilder("m");
@@ -78,25 +83,26 @@ export class MultinationalsService {
     const [rows, total] = await qb.getManyAndCount();
     const items = await Promise.all(rows.map(async (m) => {
       const products = await this.shared.getProducts(EntityKind.MULTINATIONAL, m.id);
-      return {
+      return multinationalListItem({
         id: m.id, slug: m.slug, name: m.name, logo: initials(m.name), logoImageId: m.logoImageId ?? null, category: m.category, country: m.country,
         hq: m.hq, tagline: m.tagline, website: m.website, employees: m.employees, companySize: m.companySize,
         rdCenters: m.rdCenters, partnershipInterest: m.partnershipInterest, saudiOffice: m.saudiOffice,
         countriesActiveIn: m.countriesActiveIn, productCount: products.length,
-      };
+      }, access);
     }));
     return paginate(items, total, page, limit);
   }
 
-  async findBySlugOrThrow(slug: string): Promise<Record<string, unknown>> {
+  async findBySlugOrThrow(slug: string, viewer: Viewer): Promise<Record<string, unknown>> {
     const m = await this.repo.findOne({ where: { slug } });
     if (!m) throw new NotFoundException("Multinational not found");
+    const access = await this.access.forRecord(viewer, EntityKind.MULTINATIONAL, m.id);
     // No `documents` in the public payload — see DataRoomService.status().
     const [products, partnerships, contact] = await Promise.all([
       this.shared.getProducts(EntityKind.MULTINATIONAL, m.id),
       this.shared.getPartnerships(EntityKind.MULTINATIONAL, m.id),
       this.shared.getContact(EntityKind.MULTINATIONAL, m.id),
     ]);
-    return { ...m, logo: initials(m.name), products, partnerships, contact };
+    return multinationalDetail({ ...m, logo: initials(m.name), products, partnerships, contact }, access);
   }
 }

@@ -133,7 +133,7 @@ function TabBody({ tab, v, loggedIn }: { tab: Tab; v: Investor; loggedIn: boolea
           </div>
           {hydrated && capped && (
             <div className="panel panel-pad mt-16">
-              <LockedTeaser preview={`${items.length} portfolio companies total`} title="Unlock Complete Portfolio" body="See this investor's complete portfolio, not just a preview." blurLines={2} cta="Unlock Complete Portfolio" />
+              <LockedTeaser preview={`${v.portfolioTotal ?? items.length} portfolio companies total`} title="Unlock Complete Portfolio" body="See this investor's complete portfolio, not just a preview." blurLines={2} cta="Unlock Complete Portfolio" />
             </div>
           )}
         </>

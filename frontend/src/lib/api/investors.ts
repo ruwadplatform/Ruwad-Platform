@@ -1,4 +1,4 @@
-import { api, isNotFound } from "./client";
+import { api, isNotFound, type ServerFetchOptions } from "./client";
 import { logoUrl } from "./uploads";
 import type { Investor } from "@/types/entities";
 
@@ -39,6 +39,7 @@ function mapInvestor(r: RawInvestor): Investor {
     exits: r.exits,
     hcDeals: r.hcDeals,
     portfolio: portfolio.length ? portfolio.map((p) => p.name) : new Array(r.portfolioSize ?? 0).fill(""),
+    portfolioTotal: r.portfolioSize ?? portfolio.length,
     portfolioDetailed: portfolio.map((p) => ({ ...p, logoUrl: logoUrl(p.logoImageId) })),
     logo: r.logo ?? r.name.slice(0, 2).toUpperCase(),
     logoUrl: logoUrl(r.logoImageId),
@@ -58,9 +59,9 @@ export async function fetchInvestors(): Promise<Investor[]> {
   return res.items.map(mapInvestor);
 }
 
-export async function fetchInvestorBySlug(slug: string): Promise<Investor | null> {
+export async function fetchInvestorBySlug(slug: string, server?: ServerFetchOptions): Promise<Investor | null> {
   try {
-    const raw = await api.get<RawInvestor>(`/investors/${slug}`);
+    const raw = await api.get<RawInvestor>(`/investors/${slug}`, server);
     return mapInvestor(raw);
   } catch (e) {
     if (isNotFound(e)) return null;

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { RuwadIcon, type RuwadIconName } from "@/components/icons/ruwad-icon";
 import { useStartups, useInvestors, useHubs, useResearchInstitutions, useMultinationals } from "@/hooks/use-directory-data";
+import { useEcosystemSnapshot } from "@/hooks/use-analytics";
 import { PageHeader } from "@/components/shared/PageHeader";
 
 /** Ported from renderEcosystem() (js/ecosystem.js) — the `.eco-metric-row`
@@ -18,7 +19,9 @@ export function EcosystemPage() {
   const { data: HUBS } = useHubs();
   const { data: RESEARCH_INSTITUTIONS } = useResearchInstitutions();
   const { data: MULTINATIONALS } = useMultinationals();
-  const trackedFunding = STARTUPS.reduce((a, s) => a + (s.fundingTotal || 0), 0);
+  // The ecosystem-wide total comes from the aggregate endpoint: the per-company figures it is made of are for members.
+  const { data: snapshot } = useEcosystemSnapshot();
+  const trackedFunding = snapshot?.trackedFundingSar;
 
   const categories: { label: string; icon: RuwadIconName; count: number; route: string }[] = [
     { label: "Startups", icon: "startups", count: STARTUPS.length, route: "/startups" },
@@ -36,7 +39,7 @@ export function EcosystemPage() {
         <div className="eco-metric"><b className="mono">{INVESTORS.length}</b><span>Investors Tracked</span></div>
         <div className="eco-metric"><b className="mono">{HUBS.length}</b><span>Hubs &amp; Enablers</span></div>
         <div className="eco-metric"><b className="mono">{RESEARCH_INSTITUTIONS.length}</b><span>Research Institutions</span></div>
-        <div className="eco-metric"><b className="mono">SAR {trackedFunding.toFixed(1)}M</b><span>Tracked Funding</span></div>
+        <div className="eco-metric"><b className="mono">{trackedFunding != null ? `SAR ${trackedFunding.toFixed(1)}M` : "—"}</b><span>Tracked Funding</span></div>
       </div>
       <div className="category-grid">
         {categories.map((c) => (

@@ -8,11 +8,12 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { createResourceCache, subscribeStoreChange } from "@/lib/api/resource-cache";
 import {
-  fetchAnalyticsOverview, fetchFundingByStage, fetchSectorDistribution, fetchGeographicDistribution,
+  fetchEcosystemSnapshot, fetchAnalyticsOverview, fetchFundingByStage, fetchSectorDistribution, fetchGeographicDistribution,
   fetchInvestorActivity, fetchResearchAnalytics, fetchMultinationalsAnalytics,
   type AnalyticsOverview, type FundingByStageResponse, type SectorDistributionResponse, type GeographicDistributionResponse,
   type InvestorActivityResponse, type ResearchAnalyticsResponse, type MultinationalsAnalyticsResponse,
 } from "@/lib/api/analytics";
+import type { ApiEcosystemSnapshot } from "@/lib/api/types";
 
 export interface AsyncState<T> {
   data: T | null;
@@ -31,6 +32,8 @@ function makeHook<T>(fetcher: () => Promise<T>) {
   };
 }
 
+/** Ecosystem-wide totals only (no per-company figures): the same numbers for every viewer. */
+export const useEcosystemSnapshot = makeHook<ApiEcosystemSnapshot>(fetchEcosystemSnapshot);
 export const useAnalyticsOverview = makeHook<AnalyticsOverview>(fetchAnalyticsOverview);
 export const useFundingByStage = makeHook<FundingByStageResponse>(fetchFundingByStage);
 export const useSectorDistribution = makeHook<SectorDistributionResponse>(fetchSectorDistribution);

@@ -39,12 +39,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div id="shell">
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       <MobileSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="main-col">
         <Suspense fallback={null}>
           <TopHeader onMenuClick={() => setSidebarOpen(true)} hidden={headerHidden} />
         </Suspense>
-        <main className="content">
+        <main className="content" id="main-content" tabIndex={-1}>
           <div className="content-in wide">{children}</div>
         </main>
       </div>

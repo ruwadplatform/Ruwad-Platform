@@ -1,4 +1,4 @@
-import { api, isNotFound } from "./client";
+import { api, isNotFound, type ServerFetchOptions } from "./client";
 import { logoUrl } from "./uploads";
 import type { ResearchInstitution } from "@/types/entities";
 
@@ -64,9 +64,9 @@ export async function fetchResearchInstitutions(): Promise<ResearchInstitution[]
   return res.items.map(mapResearch);
 }
 
-export async function fetchResearchBySlug(slug: string): Promise<ResearchInstitution | null> {
+export async function fetchResearchBySlug(slug: string, server?: ServerFetchOptions): Promise<ResearchInstitution | null> {
   try {
-    const raw = await api.get<RawResearch>(`/research/${slug}`);
+    const raw = await api.get<RawResearch>(`/research/${slug}`, server);
     return mapResearch(raw);
   } catch (e) {
     if (isNotFound(e)) return null;

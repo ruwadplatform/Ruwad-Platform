@@ -76,6 +76,9 @@ export function ManageDataRoomPage({ slug }: { slug: string }) {
     let ok = 0;
     for (const file of picked) {
       if (!(ACCEPTED_EXTENSIONS as readonly string[]).includes(extOf(file.name))) { toast(`${file.name}: unsupported file type.`); continue; }
+      // Same limit the server enforces (and the page advertises), checked before sending so an oversized file gets a clear message instead of a failed transfer.
+      const maxFileBytes = usage?.maxFileBytes ?? 10 * 1024 * 1024;
+      if (file.size > maxFileBytes) { toast(`${file.name}: larger than the ${formatBytes(maxFileBytes)} limit per document.`); continue; }
       setUploading(file.name);
       try {
         await uploadDataRoomFile(startupId, file, category, picked.length === 1 ? title : undefined);

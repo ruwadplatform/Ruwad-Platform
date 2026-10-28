@@ -7,7 +7,7 @@ import * as bcrypt from "bcrypt";
 import { UsersService } from "../users/users.service";
 import { RegisterDto } from "./dto/register.dto";
 import { LoginDto } from "./dto/login.dto";
-import { UserRole } from "../common/enums";
+import { UserRole, UserStatus } from "../common/enums";
 import { User } from "../users/user.entity";
 import { PasswordResetToken } from "./password-reset-token.entity";
 import { ResetPasswordDto } from "./dto/password-reset.dto";
@@ -67,6 +67,8 @@ export class AuthService {
     if (!user) throw new UnauthorizedException("Invalid email or password");
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
     if (!ok) throw new UnauthorizedException("Invalid email or password");
+    // Only after the password is right, so this reveals nothing to someone who does not know it.
+    if (user.status !== UserStatus.ACTIVE) throw new UnauthorizedException("This account is not active. Please contact RUWĀD support.");
     return user;
   }
 

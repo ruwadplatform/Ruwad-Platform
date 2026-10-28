@@ -1,6 +1,9 @@
 import { Controller, Get } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 import { AnalyticsService } from "./analytics.service";
+import { Personalized, ViewerCtx } from "../visibility/personalized";
+import { Viewer, baseAccess } from "../visibility/viewer";
+import { analyticsFundingByStage, analyticsOverview, analyticsSectorDistribution } from "../visibility/field-policy";
 
 @ApiTags("analytics")
 @Controller("analytics")
@@ -13,18 +16,21 @@ export class AnalyticsController {
   }
 
   @Get("overview")
-  overview() {
-    return this.analyticsService.overview();
+  @Personalized()
+  async overview(@ViewerCtx() viewer: Viewer) {
+    return analyticsOverview(await this.analyticsService.overview(), baseAccess(viewer));
   }
 
   @Get("funding-by-stage")
-  fundingByStage() {
-    return this.analyticsService.fundingByStage();
+  @Personalized()
+  async fundingByStage(@ViewerCtx() viewer: Viewer) {
+    return analyticsFundingByStage(await this.analyticsService.fundingByStage(), baseAccess(viewer));
   }
 
   @Get("sector-distribution")
-  sectorDistribution() {
-    return this.analyticsService.sectorDistribution();
+  @Personalized()
+  async sectorDistribution(@ViewerCtx() viewer: Viewer) {
+    return analyticsSectorDistribution(await this.analyticsService.sectorDistribution(), baseAccess(viewer));
   }
 
   @Get("geographic-distribution")

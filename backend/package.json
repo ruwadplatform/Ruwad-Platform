@@ -23,6 +23,7 @@
     "migration:revert:local": "node scripts/dev/local-migrate.js revert",
     "test:advisory": "node scripts/dev/run-advisory-integration.js",
     "start:local": "node scripts/dev/local-backend.js",
+    "test:visibility": "node scripts/dev/run-visibility-integration.js",
     "deploy:start": "npm run migration:run && npm run start:prod",
     "content:refresh": "node scripts/ops/content-refresh.js"
   },

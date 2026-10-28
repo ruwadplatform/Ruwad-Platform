@@ -68,7 +68,7 @@ export function TopHeader({ isPublic = false, onMenuClick, hidden = false }: { i
 
   return (
     <header className={`topheader${hidden ? " header-hidden" : ""}`} id="topheader" ref={rootRef}>
-      <button className="mobile-menu-btn" onClick={onMenuClick}>
+      <button className="mobile-menu-btn" onClick={onMenuClick} aria-label="Open menu">
         <RuwadIcon name="menu" size={20} />
       </button>
       <Link href={isPublic ? "/" : "/dashboard"} className="hdr-brand">
@@ -83,10 +83,10 @@ export function TopHeader({ isPublic = false, onMenuClick, hidden = false }: { i
         }}
       >
         <RuwadIcon name="search" size={15} />
-        <input type="text" name="q" placeholder="Search startups, investors, technologies or hubs" autoComplete="off" />
+        <input type="text" name="q" aria-label="Search RUWĀD" placeholder="Search startups, investors, technologies or hubs" autoComplete="off" />
         <div className="hdr-suggest" id="searchSuggest" />
       </form>
-      <nav className="hdr-nav">
+      <nav className="hdr-nav" aria-label="Main">
         {navReady ? (
           nav.map((top) => (
             <TopNavItem
@@ -140,7 +140,7 @@ function TopNavItem({
   }
   return (
     <div className={`hdr-nav-item${active ? " active" : ""}`} data-nav={top.id} onMouseEnter={onEnter} onMouseLeave={onLeave}>
-      <button className="hdr-nav-link" onClick={onToggle}>
+      <button className="hdr-nav-link" onClick={onToggle} aria-haspopup="true" aria-expanded={open}>
         {top.label}
         <RuwadIcon name="chevron" size={12} />
       </button>
@@ -185,7 +185,7 @@ function HeaderActionsSkeleton() {
 function AddButton() {
   const router = useRouter();
   return (
-    <button className="hdr-icon-btn" title="Submit a Listing" onClick={() => router.push("/submit")}>
+    <button className="hdr-icon-btn" title="Submit a Listing" aria-label="Submit a listing" onClick={() => router.push("/submit")}>
       <RuwadIcon name="plus" size={17} />
     </button>
   );
@@ -196,7 +196,7 @@ function NotifMenu({ open, setOpen }: { open: boolean; setOpen: (v: boolean) => 
   const { loggedIn } = useSession();
   return (
     <div style={{ position: "relative" }}>
-      <button className="hdr-icon-btn" id="notifBtn" title="Notifications" onClick={() => setOpen(!open)}>
+      <button className="hdr-icon-btn" id="notifBtn" title="Notifications" aria-label="Notifications" aria-expanded={open} onClick={() => setOpen(!open)}>
         <RuwadIcon name="bell" size={17} />
         <span className="hdr-badge" style={{ display: loggedIn && unread > 0 ? "block" : "none" }} />
       </button>

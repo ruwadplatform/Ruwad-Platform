@@ -51,7 +51,7 @@ describe("StartupsService.toDetail — public payload never leaks admin-only sco
       })),
     } as unknown as ScoringService;
 
-    const svc = new StartupsService(startupsRepo as any, fakeRepo() as any, fakeRepo() as any, shared as any, investments as any, organizations as any, scoring);
+    const svc = new StartupsService(startupsRepo as any, fakeRepo() as any, fakeRepo() as any, shared as any, investments as any, organizations as any, scoring, {} as any);
     const detail = await svc.toDetail(startup as any);
     const json = JSON.stringify(detail);
 
@@ -73,7 +73,7 @@ describe("StartupsService.toDetail — public payload never leaks admin-only sco
     const startup = { id: "s1", name: "Karaz", verified: "unclaimed", fundingTotal: 0, valuation: 0, founded: 2020, foundedBasis: "ESTIMATED", ruwadScore: null, scoreStatus: ScoreStatus.NOT_CALCULATED };
     const shared = { getSectorNames: jest.fn(async () => []), getTeamMembers: jest.fn(async () => []), getProducts: jest.fn(async () => []), getContact: jest.fn(async () => null) };
     const scoring = { getScoreForStartup: jest.fn(async () => ({ status: ScoreStatus.NOT_CALCULATED, ruwadScore: null, confidenceScore: null, version: "RUWAD-2.0", calculatedAt: new Date().toISOString(), missingFactors: [], factors: {} })) } as unknown as ScoringService;
-    const svc = new StartupsService(fakeRepo([startup]) as any, fakeRepo() as any, fakeRepo() as any, shared as any, { findForTarget: jest.fn(async () => []) } as any, { pendingClaimForEntity: jest.fn(async () => false) } as any, scoring);
+    const svc = new StartupsService(fakeRepo([startup]) as any, fakeRepo() as any, fakeRepo() as any, shared as any, { findForTarget: jest.fn(async () => []) } as any, { pendingClaimForEntity: jest.fn(async () => false) } as any, scoring, {} as any);
     const detail = await svc.toDetail(startup as any);
     expect(detail.founded).toBe(2020); // the public year is unchanged
     expect(JSON.stringify(detail)).not.toMatch(/foundedBasis/);
@@ -83,7 +83,7 @@ describe("StartupsService.toDetail — public payload never leaks admin-only sco
     const startupsRepo = fakeRepo();
     const shared = { setSectors: jest.fn(), setTeamMembers: jest.fn(), setDocuments: jest.fn(), setProducts: jest.fn() };
     const scoring = { recalculateStartupScore: jest.fn(async () => undefined) } as unknown as ScoringService;
-    const svc = new StartupsService(startupsRepo as any, fakeRepo() as any, fakeRepo() as any, shared as any, { findForTarget: jest.fn() } as any, {} as any, scoring);
+    const svc = new StartupsService(startupsRepo as any, fakeRepo() as any, fakeRepo() as any, shared as any, { findForTarget: jest.fn() } as any, {} as any, scoring, {} as any);
 
     const dto = { name: "New Co", category: "Digital Health", subsector: "x", tagline: "x", country: "SA", city: "Riyadh", hq: "Riyadh", founded: 2024, stage: "Seed", businessModel: "B2B", employees: 3, fundingTotal: 0, valuation: 0, desc: "x", problem: "x", solution: "x", advantage: "x", sfda: "N/A", fda: "N/A", ce: "N/A", clinicalStatus: "N/A", patentStatus: "N/A", marketTam: "", marketSam: "", marketSom: "", legalName: "New Co", website: "", email: "", phone: "", linkedin: "" };
     const saved = await svc.create(dto as any);
