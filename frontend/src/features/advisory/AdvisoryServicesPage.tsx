@@ -86,7 +86,7 @@ export function AdvisoryServicesPage() {
       <section className="adv-hero panel">
         <span className="adv-hero-icon" aria-hidden="true"><RuwadIcon name="calendar" size={30} /></span>
         <div className="adv-hero-text">
-          <PageHeader variant="block" title="Advisory Services" description="Connect with specialized professors, scientists, and advisors from Saudi Arabia's leading research institutions." />
+          <PageHeader title="Advisory Services" description="Connect with specialized professors, scientists, and advisors from Saudi Arabia's leading research institutions." />
         </div>
         <div className="adv-hero-actions">
           <button type="button" className="btn btn-outline adv-how-btn" onClick={() => openModal(<HowItWorksModal />, "wide")}>

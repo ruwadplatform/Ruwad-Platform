@@ -78,9 +78,9 @@ function Overview({ v }: { v: Investor }) {
           <StatCard label="Available Capital" value={v.available} />
           <StatCard label="Investments" value={v.investments} />
         </div>
-        <div className="panel panel-pad mb-16"><h3 className="fs-13 mb-12">About</h3><p className="db-text">{v.desc}</p></div>
+        <div className="panel panel-pad mb-16"><h3 className="card-title">About</h3><p className="db-text">{v.desc}</p></div>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Snapshot</h3>
+          <h3 className="card-title">Snapshot</h3>
           <div className="stat-mini-row">
             <StatCard label="Type" size={15} value={v.type} />
             <StatCard label="Exits" value={v.exits} />

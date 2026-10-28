@@ -106,7 +106,7 @@ export function AdminStartupOutcomesPage({ id }: { id: string }) {
       />
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Log a New Event</h3>
+        <h3 className="card-title">Log a New Event</h3>
         <div className="grid-2">
           <div className="field">
             <label>Event Type</label>
@@ -188,7 +188,7 @@ export function AdminStartupOutcomesPage({ id }: { id: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Event History</h3>
+        <h3 className="card-title">Event History</h3>
         {events.length === 0 ? (
           <p className="small muted">No outcome events logged for this startup yet.</p>
         ) : (
@@ -213,7 +213,7 @@ export function AdminStartupOutcomesPage({ id }: { id: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Shadow Predictions</h3>
+        <h3 className="card-title">Shadow Predictions</h3>
         <p className="small muted mb-12">Internal-only model predictions for this startup — never shown publicly and never part of the RUWĀD Score above. See <span style={{ fontFamily: "monospace" }}>/admin/ml-models</span> for the models generating these.</p>
         {predictions === null ? (
           <p className="small muted">Loading…</p>

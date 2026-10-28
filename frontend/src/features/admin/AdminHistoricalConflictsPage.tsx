@@ -31,7 +31,7 @@ function ConflictCompareModal({ a, b, onPrefer, onLeave, onCancel }: { a: Histor
   ];
   return (
     <div className="modal-box modal-box-pad">
-      <h3 className="fs-14 mb-12">Evidence Conflict — {a.fieldKey}</h3>
+      <h3 className="card-title">Evidence Conflict — {a.fieldKey}</h3>
       <div className="scroll-x">
         <div style={{ minWidth: 420 }}>
           <div className="cmp-head mb-8" style={{ gridTemplateColumns: "150px 1fr 1fr" }}>

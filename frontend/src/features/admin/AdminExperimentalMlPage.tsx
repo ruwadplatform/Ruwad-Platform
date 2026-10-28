@@ -99,14 +99,14 @@ export function AdminExperimentalMlPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Latest estimate per startup — distribution of raw model output</h3>
+        <h3 className="card-title">Latest estimate per startup — distribution of raw model output</h3>
         <Distribution data={mon.distribution} />
         <p className="fs-11 muted mt-12">Raw output of an uncalibrated model trained on 15 usable examples; the spread says nothing about real funding odds.</p>
       </div>
 
       {batch && (
         <div className="panel panel-pad mt-16">
-          <h3 className="fs-13 mb-12">Last batch</h3>
+          <h3 className="card-title">Last batch</h3>
           <div className="flex gap-16" style={{ flexWrap: "wrap" }}>
             <StatCard label="Total startups" size={15} value={batch.total} />
             <StatCard label="Sent to model" size={15} value={batch.calledModel} />

@@ -21,7 +21,7 @@ function LockedPanel({ children }: { children?: React.ReactNode }) {
   return (
     <div className="panel panel-pad dr-locked-state">
       <div className="dr-lock-icon"><RuwadIcon name="lock" size={22} /></div>
-      <h3 className="fs-15" style={{ marginTop: 12 }}>Protected Data Room</h3>
+      <h3 className="card-title" style={{ marginTop: 12 }}>Protected Data Room</h3>
       <p className="muted small mt-8" style={{ maxWidth: 420, margin: "8px auto 0" }}>Request access to view confidential documents.</p>
       {children}
     </div>
@@ -86,7 +86,7 @@ export function DataRoomTab({ kind, entityId }: { kind: TabKind; entityId?: stri
     return (
       <div className="panel panel-pad">
         <div className="flex gap-8" style={{ alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
-          <h3 className="fs-15">Data Room</h3>
+          <h3 className="card-title">Data Room</h3>
           <span className="badge badge-good">{state.isOwner ? "You own this profile" : "Access approved"}</span>
         </div>
         {state.isOwner && (

@@ -135,7 +135,7 @@ export function ReportAdminPanel({ onPublishedChange }: { onPublishedChange?: ()
   return (
     <section className="panel panel-pad mt-20 mb-24" aria-label="Generate report (admin)">
       <DefaultReportsAdmin onChanged={onPublishedChange} />
-      <h3 className="fs-15" style={{ fontWeight: 700 }}>Generate a report <span className="badge">Admin</span></h3>
+      <h3 className="card-title" style={{ fontWeight: 700 }}>Generate a report <span className="badge">Admin</span></h3>
       <p className="fs-12 muted mt-8">Combines RUWĀD platform data with public web sources. Generating runs about 5–8 web searches (saved and reused for 24 hours). The report is saved as a draft until you publish it. Opening a report never runs a search.</p>
       <div className="flex gap-8 mt-16" style={{ flexWrap: "wrap", alignItems: "flex-end" }}>
         <label className="fs-12 muted" style={{ display: "grid", gap: 4 }}>Report type *

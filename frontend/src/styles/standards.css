@@ -1,18 +1,15 @@
 /* ==========================================================================
-   RUWĀD — mobile UI standards (Swiss / International Style)
-   Loaded LAST, after every page stylesheet and responsive.css.
-
-   SCOPE: everything that changes how a page LOOKS is inside the 760px mobile breakpoint. Above it (tablet and
-   desktop) the pages look exactly as they did before this file existed — a desktop comparison of 47 signed-in pages
-   against the previous build showed that applying these rules everywhere nudged desktop typography, card spacing and
-   some borders, which was not wanted. Only the neutral pieces below (design tokens, the page-header row, a state
-   modifier, the profile-name class) are global, and they are written to render identically to what they replaced.
+   RUWĀD — platform-wide UI standards (Swiss / International Style)
+   Loaded LAST, after every page stylesheet and responsive.css. This is the single place that defines the
+   rules every page must share, so a page can no longer drift from the rest of the app by carrying its own
+   hard-coded border, control height or card-title size. Page stylesheets still own layout; they must not
+   restate the values below.
 
    Decisions (approved):
-     - On phones, outlines (cards, panels, stat cards, form controls) share ONE blue-tinted border, --border-card.
-       Hairline dividers (row rules, tab underline) stay neutral.
-     - #45AEC8 (--accent) is the brand accent: focus rings, active tab underline, selected states, the profile camera
-       button. Primary buttons stay navy — white text on #45AEC8 is only 2.6:1.
+     - Outlines (cards, panels, stat cards, form controls) use ONE blue-tinted border, --border-card.
+       Hairline dividers inside a card or table (row rules, tab underline) stay the neutral --border.
+     - #45AEC8 (--accent) is the brand accent: focus rings, active tab underline, selected states, the
+       profile camera button. Primary buttons stay navy — white text on #45AEC8 is only 2.6:1.
    ========================================================================== */
 
 :root{
@@ -21,70 +18,100 @@
   --accent-dark:#1F7A92;           /* accent for TEXT on white (5.3:1) */
   --accent-tint:rgba(69,174,200,.14);
   --control-h:40px;                /* inputs, selects */
+  --card-title-size:var(--fs-14);
 }
 
-/* ---- global, visually neutral ---- */
+/* ---- outlines: every card-like surface carries the same border ---- */
+.panel,
+.kpi,
+.stat-mini,
+.insight-card,
+.category-card,
+.entity-card,
+.hub-card,
+.profile-head,
+.sp-head,
+.profile-tabs-wrap,
+.ms-kpi,
+.eco-metric,
+.mm-tile,
+.doc-card,
+.featured-card,
+.settings-plan-card,
+.ms-hero{border-color:var(--border-card)}
 
-/* page header with an optional action: the layout IntelligencePageHeader used to set inline */
+/* the foot of a card is a divider INSIDE it: same tint as its outline */
+.entity-card-foot,
+.hub-card-foot{border-top-color:var(--border-card)}
+
+/* ---- stat cards (.kpi, .stat-mini, .ms-kpi, .eco-metric): same outline (above), same label scale ---- */
+.kpi .k-label,.stat-mini .sm-label{font-size:var(--fs-11);font-weight:600;color:var(--muted);line-height:1.4}
+
+/* ---- form controls: same height, border and focus ring on every page ---- */
+.input,.select{height:var(--control-h);box-sizing:border-box}
+.input,.select,.textarea{border-color:var(--border-card)}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
+.field.invalid .input,.field.invalid .select,.field.invalid .textarea,
+.field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--crit)}
+.phone-input-group:focus-within{box-shadow:0 0 0 3px var(--accent-tint)}
+.phone-input-group:focus-within .phone-code-trigger,.phone-input-group:focus-within>.input{border-color:var(--accent)}
+
+/* ---- keyboard focus: the brand accent, never the navy default ---- */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---- tabs: neutral rule, accent underline on the active tab ---- */
+.tabs button.active{border-bottom-color:var(--accent)}
+
+/* ---- card titles: one size/weight/spacing instead of fs-13…16 + mb-4…16 on each heading ---- */
+.card-title{font-size:var(--card-title-size);font-weight:700;line-height:1.4;margin:0 0 12px;color:var(--text)}
+
+/* ---- panel header band (title + action): same title scale as .card-title ---- */
+.panel-head h3{font-size:var(--card-title-size);font-weight:700}
+
+/* My Startup panel headings follow the same scale */
+.mystartup-page .panel h3{font-size:var(--card-title-size)}
+
+/* ---- hover/selected cards pick up the brand accent ---- */
+.category-card:hover{border-color:var(--accent)}
+
+/* ---- page header: title/description on the left, optional action on the right ---- */
 .page-head-row{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px}
 
-/* a name shown in a header card under the page title is an <h2> (one <h1> per page) styled like the <h1> it replaced */
-.profile-head-main .profile-name{font-size:var(--fs-20);line-height:1.3;font-weight:700;margin:0}
-.ms-hero-main .profile-name{font-size:var(--fs-24);font-weight:700;line-height:1.25;margin:0}
+/* ---- entity profile names: one size across Startups, Investors, Hubs, Research, Multinationals, My Profile, My Startup.
+   The page title is the single <h1>; a name shown in a header card under it is an <h2> with this class. ---- */
+.profile-head-main h1,.sp-head h1,.profile-name{font-size:var(--fs-24);font-weight:700;line-height:1.3;margin:0}
 
-/* the error variant of the shared empty/loading/error block */
+/* ---- empty / loading / error blocks: all three share the .empty-state shape (EmptyState, LoadingState, ErrorState) ---- */
+.empty-state svg{display:block}
 .empty-state.is-error svg{color:var(--crit)}
-.state-spinner{width:30px;height:30px;margin:0 auto 12px;border-radius:var(--radius-pill);border:3px solid var(--border);border-top-color:var(--accent);animation:aiSpin .8s linear infinite}
+.empty-state .btn{margin-top:14px}
+.state-spinner{width:28px;height:28px;margin:0 auto 12px;border-radius:var(--radius-pill);border:3px solid var(--border);border-top-color:var(--accent);animation:aiSpin .8s linear infinite}
 @media (prefers-reduced-motion:reduce){.state-spinner{animation-duration:2.4s}}
 
-/* ==========================================================================
-   Phones (≤760px)
-   ========================================================================== */
+/* ---- multi-step forms on phones ----
+   The step rail becomes a horizontal scroller (forms.css). The Startup form also puts a sentence of hint text inside that rail; as a flex
+   item it was squeezed to ~8px wide and its words stacked one letter per line down the whole form. The rail is only for the step buttons
+   on a phone, so the hint is desktop-only. */
 @media(max-width:760px){
-
-  /* outlines: every card-like surface carries the same border */
-  .panel,.kpi,.stat-mini,.insight-card,.category-card,.entity-card,.hub-card,.profile-head,.sp-head,.profile-tabs-wrap,
-  .ms-kpi,.ms-hero,.eco-metric,.mm-tile,.doc-card,.featured-card,.settings-plan-card{border-color:var(--border-card)}
-  .entity-card-foot,.hub-card-foot{border-top-color:var(--border-card)}
-
-  /* form controls: same height, border and focus ring on every page */
-  .input,.select{height:var(--control-h);box-sizing:border-box}
-  .input,.select,.textarea{border-color:var(--border-card)}
-  .input:focus,.select:focus,.textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
-  .field.invalid .input,.field.invalid .select,.field.invalid .textarea,
-  .field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--crit)}
-  .phone-input-group:focus-within{box-shadow:0 0 0 3px var(--accent-tint)}
-  .phone-input-group:focus-within .phone-code-trigger,.phone-input-group:focus-within>.input{border-color:var(--accent)}
-
-  /* keyboard focus: the brand accent */
-  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-
-  /* tabs: accent underline on the active tab */
-  .tabs button.active{border-bottom-color:var(--accent)}
-
-  /* card and panel titles: one size and weight instead of 13–16px in four weights */
-  .panel h3,.panel-head h3{font-size:var(--fs-14);font-weight:700}
-
-  /* entity names in header cards: one size across Startups, Investors, Hubs, Research, Multinationals, My Profile, My Startup */
-  .profile-head-main h1,.profile-head-main .profile-name,.sp-head h1,.ms-hero-main .profile-name{font-size:var(--fs-22);line-height:1.3}
-
-  /* multi-step forms: the Startup form puts a hint sentence inside the step rail; as a flex item in the phone rail it was squeezed to
-     ~8px wide and its words stacked one letter per line. The rail is only for step buttons on a phone. */
   .form-steps>p{display:none}
+}
 
-  /* multi-step form action bar: each group is a full-width row of even, 44px buttons */
+/* ---- multi-step form action bar on phones: each group is a full-width row of even, 44px buttons ---- */
+@media(max-width:760px){
   .form-sticky-actions{padding:10px 12px;gap:8px}
   .form-sticky-actions>.flex{flex:1 1 100%;gap:8px;flex-wrap:wrap}
   .form-sticky-actions>.flex>.btn{flex:1 1 auto;min-height:44px}
+}
 
-  /* the floating chat button sat on top of the form's Next button; lift it above the action bar while a form is open (the Edit Startup bar is three rows tall at 320px) */
-  body:has(.form-sticky-actions) .fab{bottom:190px}
+/* The floating chat button sat on top of the form's Next button; lift it above the action bar while a form is open */
+@media(max-width:760px){
+  body:has(.form-sticky-actions) .fab{bottom:130px}
+}
 
-  /* inline multi-column grids (`1fr 320px`, `2fr 1fr`, `1fr 1fr`) beat the stacking rule in responsive.css, leaving a 320px rail or two ~90px
-     columns on a phone: any inline fraction-based insight-row is one column */
+/* ---- inline multi-column grids on phones ----
+   Some pages pass an inline column template (`1fr 320px`, `2fr 1fr`, `1fr 1fr`) which beats the stacking rule in responsive.css, leaving
+   a 320px rail or two ~90px columns on a phone. Any inline fraction-based insight-row is one column at the 760px mobile breakpoint. */
+@media(max-width:760px){
   .insight-row[style*="fr "]{grid-template-columns:1fr !important}
-
-  /* two-column stat grids (the dashboard has five cards) leave an empty half-row when the count is odd: the last card takes the full width */
-  .kpi-row>:last-child:nth-child(odd),.eco-metric-row>:last-child:nth-child(odd){grid-column:1/-1}
   .btn-sm{height:34px}
 }

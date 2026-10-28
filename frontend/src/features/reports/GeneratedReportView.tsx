@@ -109,7 +109,7 @@ export function GeneratedReportView({ report: r }: { report: Report }) {
         {headline.length > 0 && <Kpis items={headline} />}
         {subject && (
           <div className="mt-16">
-            <h3 className="fs-15 mb-8" style={{ fontWeight: 700 }}>{subject.name}</h3>
+            <h3 className="card-title" style={{ fontWeight: 700 }}>{subject.name}</h3>
             <Kpis items={subject.facts} />
             {subject.peers.length > 0 && <div className="mt-12"><Kpis items={subject.peers.map((m) => ({ ...m, label: `Peers: ${m.label}` }))} /></div>}
           </div>
@@ -174,7 +174,7 @@ export function GeneratedReportView({ report: r }: { report: Report }) {
         <Charts dists={fundingDists} />
         {sought.length > 0 && (
           <div className="mt-16">
-            <h3 className="fs-15 mb-8" style={{ fontWeight: 700 }}>Funding being sought</h3>
+            <h3 className="card-title" style={{ fontWeight: 700 }}>Funding being sought</h3>
             <p className="fs-12 muted mb-8"><Tag tone="internal">RUWĀD data</Tag> &nbsp;Targets these companies state they are raising. This is not money raised.</p>
             <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8, margin: 0 }}>
               {sought.map((c) => <li key={c.slug} className="panel panel-pad fs-13"><Link href={`/startups/${c.slug}`} style={{ fontWeight: 600 }}>{c.name}</Link> · {c.stage} · seeking {c.target}</li>)}
@@ -183,7 +183,7 @@ export function GeneratedReportView({ report: r }: { report: Report }) {
         )}
         {fundingSrc.length > 0 && (
           <div className="mt-16">
-            <h3 className="fs-15 mb-8" style={{ fontWeight: 700 }}>Funding coverage from external sources</h3>
+            <h3 className="card-title" style={{ fontWeight: 700 }}>Funding coverage from external sources</h3>
             <SourceList items={fundingSrc} empty="" />
           </div>
         )}

@@ -80,7 +80,7 @@ function Overview({ h }: { h: Hub }) {
           <StatCard label="Focus Sectors" value={h.healthcareFocus.length} />
         </div>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">About</h3>
+          <h3 className="card-title">About</h3>
           <p className="db-text">{h.about}</p>
         </div>
       </div>

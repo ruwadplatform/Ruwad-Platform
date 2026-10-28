@@ -22,7 +22,13 @@ export interface AdvisoryAutomationConfig {
   attendanceMinMinutes: number;
   /** NOT APPROVED: when true, a consultation where both parties attended is completed automatically. Default off. */
   autoComplete: boolean;
+  /** The most consultation requests one founder may have waiting for an answer at once, across every advisor (owner decision, Step 6: 2).
+   * Only PENDING requests count, and one whose expiry time has passed no longer does, even before the scheduler has swept it. */
+  maxPendingPerFounder: number;
 }
+
+/** Leave ADVISORY_MAX_PENDING_REQUESTS unset in production: this is the agreed limit. */
+export const DEFAULT_MAX_PENDING_REQUESTS = 2;
 
 const num = (v: string | undefined, fallback: number, min: number, max: number) => {
   const n = v === undefined || v.trim() === "" ? NaN : Number(v);
@@ -40,5 +46,6 @@ export function readAutomationConfig(get: (key: string) => string | undefined): 
     reviewGraceMinutes: num(get("ADVISORY_REVIEW_GRACE_MINUTES"), 30, 5, 24 * 60),
     attendanceMinMinutes: num(get("ADVISORY_ATTENDANCE_MIN_MINUTES"), 5, 1, 120),
     autoComplete: get("ADVISORY_AUTOCOMPLETE_ENABLED")?.trim() === "true",
+    maxPendingPerFounder: num(get("ADVISORY_MAX_PENDING_REQUESTS"), DEFAULT_MAX_PENDING_REQUESTS, 1, 50),
   };
 }

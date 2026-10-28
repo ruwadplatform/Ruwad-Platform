@@ -48,7 +48,7 @@ export function OpportunitiesPage() {
 
   return (
     <div className="opportunities-page">
-      <PageHeader variant="block" title="Opportunities Marketplace" description="Every accelerator, incubator, sandbox and funding program currently listed across RUWĀD&apos;s Hubs &amp; Enablers directory — one applyable list instead of an organization-by-organization search." />
+      <PageHeader title="Opportunities Marketplace" description="Every accelerator, incubator, sandbox and funding program currently listed across RUWĀD&apos;s Hubs &amp; Enablers directory — one applyable list instead of an organization-by-organization search." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search programs or organizations" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <select className="select" style={{ width: "auto" }} value={status} onChange={(e) => setStatus(e.target.value as "all" | "open" | "closed")}>

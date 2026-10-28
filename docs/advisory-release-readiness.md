@@ -2,7 +2,15 @@
 
 Status: local review on branch `feature/advisory-services`. Nothing here has been pushed, deployed, merged into `master`, or applied to production. Production was read only (one read-only session, SELECT only, masked output).
 
-## 1. Recommendation
+## Update, Step 6 (2026-10-28): what changed since this audit
+
+The owner chose **one coordinated release** (deploy and activate together) instead of a dark deploy, confirmed that Render is stopped, that the production design stays unchanged, and that a founder may have at most **2 pending requests**. As a result:
+
+- Risk 1 (no cap on pending requests) is **resolved**: limit of 2 per founder, enforced under a per-founder lock, tested with simultaneous requests (also proven to fail without the lock).
+- Section 6 (UI commits) is **resolved**: `0cad289` and `b38e650` are neutralised; the existing site was verified identical to production on 45 pages at desktop and phone width.
+- The "dark deploy first" recommendation below is **replaced** by the sequence in `advisory-launch-runbook.md`, which also contains the GO / NO-GO. Everything else in this document is still accurate.
+
+## 1. Recommendation (Step 5, superseded by the runbook)
 
 **CONDITIONAL GO, in two stages.**
 

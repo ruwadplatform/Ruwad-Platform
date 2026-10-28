@@ -110,7 +110,7 @@ export function MyHistoricalDataPage({ slug }: { slug: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">{editing ? "Revise entry" : "Add an entry"}</h3>
+        <h3 className="card-title">{editing ? "Revise entry" : "Add an entry"}</h3>
         {editing?.reviewNotes && <p className="small mb-12" style={{ color: "var(--warn)" }}>RUWĀD asked: {editing.reviewNotes}</p>}
         <div className="field">
           <label>What would you like to add?</label>
@@ -164,7 +164,7 @@ export function MyHistoricalDataPage({ slug }: { slug: string }) {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Your entries</h3>
+        <h3 className="card-title">Your entries</h3>
         {entries.length === 0 ? <p className="small muted">Nothing added yet.</p> : (
           <div className="scroll-x">
             <table className="data-table">

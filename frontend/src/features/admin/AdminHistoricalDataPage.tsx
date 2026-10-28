@@ -97,7 +97,7 @@ export function AdminHistoricalDataPage() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Import a CSV</h3>
+        <h3 className="card-title">Import a CSV</h3>
         <div className="flex gap-8 mb-12" style={{ flexWrap: "wrap", alignItems: "center" }}>
           <span className="small muted">Download a template first:</span>
           <button className="btn btn-outline btn-sm" onClick={() => downloadHistoricalTemplate("features")}>Features CSV</button>
@@ -131,7 +131,7 @@ export function AdminHistoricalDataPage() {
 
       {metrics && (
         <div className="panel panel-pad mt-16">
-          <h3 className="fs-13 mb-12">Historical Data Quality</h3>
+          <h3 className="card-title">Historical Data Quality</h3>
           <div className="stat-mini-row">
             <StatCard label="Companies Matched" size={15} value={metrics.companiesMatched} />
             <StatCard label="Unmatched" size={15} value={metrics.companiesUnmatched} />
@@ -155,7 +155,7 @@ export function AdminHistoricalDataPage() {
       )}
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Import Batches</h3>
+        <h3 className="card-title">Import Batches</h3>
         {batches === null ? (
           <p className="small muted">Loading…</p>
         ) : batches.length === 0 ? (

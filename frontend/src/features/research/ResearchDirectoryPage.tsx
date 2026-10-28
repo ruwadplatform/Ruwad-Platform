@@ -84,7 +84,7 @@ export function ResearchDirectoryPage() {
 
   return (
     <div className="research-directory-page">
-      <PageHeader variant="block" title="Research &amp; Academia" description="Universities, research institutions and academic healthcare centers across Saudi Arabia &amp; the region." />
+      <PageHeader title="Research &amp; Academia" description="Universities, research institutions and academic healthcare centers across Saudi Arabia &amp; the region." />
       <div className="toolbar">
         <div className="toolbar-search"><RuwadIcon name="search" size={14} /><input placeholder="Search institutions" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <button className="btn btn-outline" onClick={openFilters}><RuwadIcon name="filter" size={14} /> Filters</button>

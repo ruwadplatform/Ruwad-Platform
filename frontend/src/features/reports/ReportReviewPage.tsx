@@ -83,11 +83,11 @@ export function ReportReviewPage({ token, action }: { token: string; action?: "a
         </dl>
       </section>
 
-      <section className="panel panel-pad mb-16"><h3 className="fs-15 mb-8" style={{ fontWeight: 700 }}>Description</h3><p className="fs-14" style={{ whiteSpace: "pre-line", margin: 0 }}>{info.description}</p></section>
-      <section className="panel panel-pad mb-16"><h3 className="fs-15 mb-8" style={{ fontWeight: 700 }}>Executive summary</h3><p className="fs-14" style={{ whiteSpace: "pre-line", margin: 0 }}>{info.executiveSummary}</p></section>
+      <section className="panel panel-pad mb-16"><h3 className="card-title" style={{ fontWeight: 700 }}>Description</h3><p className="fs-14" style={{ whiteSpace: "pre-line", margin: 0 }}>{info.description}</p></section>
+      <section className="panel panel-pad mb-16"><h3 className="card-title" style={{ fontWeight: 700 }}>Executive summary</h3><p className="fs-14" style={{ whiteSpace: "pre-line", margin: 0 }}>{info.executiveSummary}</p></section>
 
       <section className="panel panel-pad mb-16" style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-        <h3 className="fs-15" style={{ fontWeight: 700, margin: 0, width: "100%" }}>The report</h3>
+        <h3 className="card-title" style={{ fontWeight: 700, margin: 0, width: "100%" }}>The report</h3>
         {info.hasFile && <a className="btn btn-primary" href={reviewFileUrl(token)} target="_blank" rel="noopener noreferrer">Open uploaded PDF</a>}
         {reportHref && <a className="btn btn-outline" href={reportHref} target="_blank" rel="noopener noreferrer">Open report link</a>}
         {!info.hasFile && !reportHref && <span className="muted fs-13">No file or link was provided.</span>}
@@ -95,7 +95,7 @@ export function ReportReviewPage({ token, action }: { token: string; action?: "a
 
       {info.sources.length > 0 && (
         <section className="panel panel-pad mb-16">
-          <h3 className="fs-15 mb-8" style={{ fontWeight: 700 }}>Sources</h3>
+          <h3 className="card-title" style={{ fontWeight: 700 }}>Sources</h3>
           <ul style={{ paddingLeft: 18, display: "grid", gap: 6, margin: 0 }}>
             {info.sources.map((s, i) => { const href = safeHref(s.url); return <li key={i} className="fs-13">{href ? <a href={href} target="_blank" rel="noopener noreferrer" style={{ overflowWrap: "anywhere" }}>{s.title}</a> : s.title}{href ? <span className="muted"> — {href}</span> : null}</li>; })}
           </ul>

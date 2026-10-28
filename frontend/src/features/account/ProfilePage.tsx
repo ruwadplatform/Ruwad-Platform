@@ -144,7 +144,7 @@ export function ProfilePage() {
       </div>
 
       <div className="panel panel-pad mt-20">
-        <h3 className="fs-13 mb-16">Account Information</h3>
+        <h3 className="card-title">Account Information</h3>
         {editing ? (
           <>
             <div className="grid-2">

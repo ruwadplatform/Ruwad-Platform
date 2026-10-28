@@ -30,7 +30,7 @@ export function ReadinessV2Panel() {
     <>
       <div className="panel panel-pad mt-16">
         <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <h3 className="fs-13">Readiness V2 — {d.focusTarget}</h3>
+          <h3 className="card-title">Readiness V2 — {d.focusTarget}</h3>
           <span className={`badge ${v2.ready ? "badge-good" : "badge-warn"}`}>{v2.ready ? "Ready" : "Not ready — training blocked"}</span>
         </div>
         <p className="small muted mt-8">Counts training-eligible snapshots only, labels a negative only where the outcome family was attested through the window, and excludes not-applicable features from coverage. Thresholds are unchanged.</p>
@@ -57,7 +57,7 @@ export function ReadinessV2Panel() {
 
       <div className="insight-row mt-16" style={{ gridTemplateColumns: "1fr 1fr" }}>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Snapshots by training eligibility</h3>
+          <h3 className="card-title">Snapshots by training eligibility</h3>
           <div className="stat-mini-row">
             <StatCard label="Training-eligible" size={15} value={d.snapshots.eligible} />
             <StatCard label="Analysis-only" size={15} value={d.snapshots.analysisOnly} />
@@ -67,7 +67,7 @@ export function ReadinessV2Panel() {
           <p className="small muted mt-8">Outcome-aware (legacy) snapshots are kept for analysis and never enter the default training export.</p>
         </div>
         <div className="panel panel-pad">
-          <h3 className="fs-13 mb-12">Evidence &amp; review queue</h3>
+          <h3 className="card-title">Evidence &amp; review queue</h3>
           <div className="stat-mini-row">
             <StatCard label="Verified evidence" size={15} value={<>{d.evidence.verifiedPct}%</>} />
             <StatCard label="Open conflicts" size={15} value={d.evidence.openConflicts} />
@@ -81,7 +81,7 @@ export function ReadinessV2Panel() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Core feature applicability (eligible snapshots)</h3>
+        <h3 className="card-title">Core feature applicability (eligible snapshots)</h3>
         <div className="scroll-x">
           <table className="data-table">
             <thead><tr><th>Feature</th><th>With value</th><th>Applicable, missing</th><th>Unknown</th><th>Not applicable</th></tr></thead>
@@ -96,7 +96,7 @@ export function ReadinessV2Panel() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Outcome coverage attested, by family</h3>
+        <h3 className="card-title">Outcome coverage attested, by family</h3>
         <div className="scroll-x">
           <table className="data-table">
             <thead><tr><th>Outcome family</th><th>Startups attested</th><th>Earliest through</th><th>Latest through</th></tr></thead>
@@ -111,7 +111,7 @@ export function ReadinessV2Panel() {
       </div>
 
       <div className="panel panel-pad mt-16">
-        <h3 className="fs-13 mb-12">Labels by target (V2, eligible snapshots)</h3>
+        <h3 className="card-title">Labels by target (V2, eligible snapshots)</h3>
         <div className="scroll-x">
           <table className="data-table">
             <thead><tr><th>Target</th><th>Family</th><th>Positive</th><th>Negative</th><th>Unknown</th><th>Not matured</th><th>Other</th></tr></thead>

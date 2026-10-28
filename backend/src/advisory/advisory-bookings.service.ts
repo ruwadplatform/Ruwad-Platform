@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "crypto";
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
 import { DataSource, EntityManager, In, Repository } from "typeorm";
@@ -165,6 +165,12 @@ export class AdvisoryBookingsService {
       });
       try {
         await this.ds.transaction(async (m) => {
+          // The limit is checked and the row inserted under one per-founder lock, so simultaneous requests cannot all see "1 waiting" and slip past it.
+          await m.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`advisory-pending:${user.userId}`]);
+          const open = (await m.query(`SELECT count(*)::int AS n FROM advisory_bookings WHERE "requestedByUserId" = $1 AND "status" = 'PENDING' AND ("expiresAt" IS NULL OR "expiresAt" > $2)`, [user.userId, now])) as { n: number }[];
+          const limit = this.automation.maxPendingPerFounder;
+          // 429, not 409: the booking form treats a 409 as "that slot was taken" and offers other times, which would be wrong here.
+          if ((open[0]?.n ?? 0) >= limit) throw new HttpException(`You already have ${limit} consultation request${limit === 1 ? "" : "s"} waiting for an answer. Wait for a reply, or cancel ${limit === 1 ? "it" : "one"}, before sending another.`, HttpStatus.TOO_MANY_REQUESTS);
           await m.save(booking);
           await this.log(m, booking, user.userId, "FOUNDER", "CREATED", null, BookingStatus.PENDING, { startsAt: booking.startsAt.toISOString() });
         });

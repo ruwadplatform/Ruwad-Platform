@@ -122,7 +122,9 @@ suite("Advisory Services — integration (local Postgres)", () => {
   async function buildApp(enabled: boolean, extra: Record<string, string> = {}) {
     const moduleRef = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true, load: [() => ({ JWT_SECRET: SECRET, ADVISORY_ENABLED: enabled ? "true" : undefined, ADVISORY_EMAIL_MODE: "mock", NODE_ENV: "test", ...extra })] }),
+        // This suite books many consultations as one founder, so the "2 waiting requests per founder" limit is lifted here; the tests for the limit build
+        // their own app with the production default (ADVISORY_MAX_PENDING_REQUESTS: "" means unset).
+        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true, load: [() => ({ JWT_SECRET: SECRET, ADVISORY_ENABLED: enabled ? "true" : undefined, ADVISORY_EMAIL_MODE: "mock", NODE_ENV: "test", ADVISORY_MAX_PENDING_REQUESTS: "1000", ...extra })] }),
         TypeOrmModule.forRoot({ type: "postgres", url: assertLocalDatabase(LOCAL_DATABASE_URL), ssl: false, autoLoadEntities: true, synchronize: false }),
         PassportModule,
         JwtModule.register({ secret: SECRET, signOptions: { expiresIn: "1h" } }),
@@ -1594,6 +1596,126 @@ suite("Advisory Services — integration (local Postgres)", () => {
     expect(mine.find((x) => x.id === b.id)).toMatchObject({ needsReview: true, attendanceOutcome: "ADVISOR_NO_SHOW" });
     expect((await api("advisorUser").post(`/advisory/advisor/bookings/${b.id}/complete`)).status).toBe(201);
     expect(await row(b.id)).toMatchObject({ status: "COMPLETED", needsReview: false, attendanceOutcome: "ATTENDED_BOTH" });
+  });
+
+  // ---- at most 2 requests waiting per founder ---------------------------------------------------------------------------------------------
+  // The rest of this suite runs with a very high limit (it books freely as one founder); these tests build an app with the PRODUCTION default.
+
+  describe("a founder may have at most 2 consultation requests waiting for an answer", () => {
+    let cap: { app: INestApplication; jwt: JwtService };
+    const asCap = (who: string) => {
+      const send = (m: "get" | "post", p: string, body: object = {}) => request(cap.app.getHttpServer())[m](`/api${p}`).set("Authorization", `Bearer ${tokenOf.get(who)}`).send(body);
+      return { get: (p: string) => send("get", p), post: (p: string, body: object = {}) => send("post", p, body) };
+    };
+    const bookCap = (who: string, startupId: string, startsAt: string) => asCap(who).post("/advisory/bookings", { advisor: advSlug, serviceId: svc30, startupId, startsAt });
+    const pendingOf = async (userId: string) => (await db.query(`SELECT count(*)::int AS n FROM advisory_bookings WHERE "requestedByUserId" = $1 AND status = 'PENDING'`, [userId])).rows[0].n as number;
+    const slotsOn = async (dayN: number) => slots(advSlug, svc30, day(dayN));
+
+    beforeAll(async () => { cap = await buildApp(true, { ADVISORY_MAX_PENDING_REQUESTS: "" }); }); // "" = not set: the default, 2
+    afterAll(async () => { await cap?.app.close(); });
+
+    it("the third request is refused with a clear message and creates nothing; the first two are accepted", async () => {
+      const f = await makeUser("capFounder1");
+      await member(f, startupA, "OWNER");
+      const s = await slotsOn(43);
+      expect((await bookCap("capFounder1", startupA, s[0]!.startsAt)).status).toBe(201);
+      expect((await bookCap("capFounder1", startupA, s[2]!.startsAt)).status).toBe(201);
+      const third = await bookCap("capFounder1", startupA, s[4]!.startsAt);
+      expect(third.status).toBe(429);
+      expect(String(third.body.message)).toMatch(/already have 2 consultation requests waiting/i);
+      expect(await pendingOf(f)).toBe(2);
+      expect((await db.query(`SELECT count(*)::int AS n FROM advisory_bookings WHERE "requestedByUserId" = $1`, [f])).rows[0].n).toBe(2); // the refused one left no row behind
+      expect((await asCap("capFounder1").get(`/advisory/advisors/${advSlug}/slots?serviceId=${svc30}&date=${day(43)}`)).body.slots.some((x: { startsAt: string }) => x.startsAt === s[4]!.startsAt)).toBe(true); // and its slot is still free
+    });
+
+    it("cancelling, an advisor's approval or an advisor's decline each free a place", async () => {
+      const f = await makeUser("capFounder2");
+      await member(f, startupA, "OWNER");
+      const s = await slotsOn(44);
+      const first = (await bookCap("capFounder2", startupA, s[0]!.startsAt)).body;
+      const second = (await bookCap("capFounder2", startupA, s[2]!.startsAt)).body;
+      expect((await bookCap("capFounder2", startupA, s[4]!.startsAt)).status).toBe(429);
+      expect((await asCap("capFounder2").post(`/advisory/bookings/${first.id}/cancel`, {})).status).toBe(201); // cancel → one place is free
+      const third = await bookCap("capFounder2", startupA, s[4]!.startsAt);
+      expect(third.status).toBe(201);
+      expect((await bookCap("capFounder2", startupA, s[6]!.startsAt)).status).toBe(429);
+      expect((await api("advisorUser").post(`/advisory/advisor/bookings/${second.id}/approve`)).status).toBe(201); // approval → PENDING no more
+      const fourth = await bookCap("capFounder2", startupA, s[6]!.startsAt);
+      expect(fourth.status).toBe(201);
+      expect((await bookCap("capFounder2", startupA, s[8]!.startsAt)).status).toBe(429);
+      expect((await api("advisorUser").post(`/advisory/advisor/bookings/${third.body.id}/reject`, { note: "Not available" })).status).toBe(201); // decline → free
+      expect((await bookCap("capFounder2", startupA, s[8]!.startsAt)).status).toBe(201);
+      expect(await pendingOf(f)).toBe(2); // fourth + the new one; the approved one is CONFIRMED and does not count
+    });
+
+    it("a request whose expiry time has passed no longer counts, even before the scheduler sweeps it", async () => {
+      const f = await makeUser("capFounder3");
+      await member(f, startupA, "OWNER");
+      const s = await slotsOn(45);
+      const a = (await bookCap("capFounder3", startupA, s[0]!.startsAt)).body;
+      expect((await bookCap("capFounder3", startupA, s[2]!.startsAt)).status).toBe(201);
+      expect((await bookCap("capFounder3", startupA, s[4]!.startsAt)).status).toBe(429);
+      await db.query(`UPDATE advisory_bookings SET "expiresAt" = now() - interval '1 minute' WHERE id = $1`, [a.id]);
+      expect((await bookCap("capFounder3", startupA, s[4]!.startsAt)).status).toBe(201);
+    });
+
+    it("the limit follows the founder across startups, and never affects another founder", async () => {
+      const f = await makeUser("capFounder4");
+      const other = await makeUser("capFounder5");
+      await member(f, startupA, "OWNER");
+      await member(f, startupB, "OWNER");
+      await member(other, startupA, "OWNER");
+      const s = await slotsOn(46);
+      expect((await bookCap("capFounder4", startupA, s[0]!.startsAt)).status).toBe(201);
+      expect((await bookCap("capFounder4", startupB, s[2]!.startsAt)).status).toBe(201);
+      expect((await bookCap("capFounder4", startupA, s[4]!.startsAt)).status).toBe(429); // two startups, still one founder
+      expect((await bookCap("capFounder5", startupA, s[4]!.startsAt)).status).toBe(201); // somebody else is not limited by them
+      expect((await bookCap("capFounder5", startupA, s[6]!.startsAt)).status).toBe(201);
+      expect((await bookCap("capFounder5", startupA, s[8]!.startsAt)).status).toBe(429);
+    });
+
+    it("simultaneous requests cannot slip past the limit: 8 at once for 8 free slots give exactly 2 accepted", async () => {
+      const f = await makeUser("capFounder6");
+      await member(f, startupA, "OWNER");
+      const s = await slotsOn(47);
+      const picks = [0, 2, 4, 6, 8, 10, 12, 14].map((i) => s[i]!.startsAt);
+      const results = await Promise.all(picks.map((at) => bookCap("capFounder6", startupA, at)));
+      const codes = results.map((r) => r.status).sort();
+      expect(codes).toEqual([201, 201, 429, 429, 429, 429, 429, 429]);
+      expect(await pendingOf(f)).toBe(2);
+    });
+
+    it("simultaneous requests from many founders are each limited to 2, independently", async () => {
+      const founders = await Promise.all(["capFounder7", "capFounder8", "capFounder9"].map(async (n) => { const id = await makeUser(n); await member(id, startupA, "OWNER"); return { n, id }; }));
+      const days = await Promise.all([34, 35, 36].map((d) => slotsOn(d))); // one day each: a day has about 16 half-hour slots
+      const jobs = founders.flatMap((f, fi) => [0, 1, 2, 3, 4].map((k) => ({ who: f.n, at: days[fi]![k * 2]!.startsAt })));
+      const results = await Promise.all(jobs.map((j) => bookCap(j.who, startupA, j.at)));
+      for (const f of founders) {
+        const mine = results.filter((_, i) => jobs[i]!.who === f.n).map((r) => r.status).sort();
+        expect(mine).toEqual([201, 201, 429, 429, 429]);
+        expect(await pendingOf(f.id)).toBe(2);
+      }
+    });
+
+    it("the limit is a setting that cannot be misread: a wrong value falls back to 2, a value of 1 is honoured", async () => {
+      const f = await makeUser("capFounder10");
+      await member(f, startupA, "OWNER");
+      const one = await buildApp(true, { ADVISORY_MAX_PENDING_REQUESTS: "1" });
+      const junk = await buildApp(true, { ADVISORY_MAX_PENDING_REQUESTS: "banana" });
+      try {
+        const s = await slotsOn(49);
+        const post = (a: INestApplication, at: string) => request(a.getHttpServer()).post("/api/advisory/bookings").set("Authorization", `Bearer ${tokenOf.get("capFounder10")}`).send({ advisor: advSlug, serviceId: svc30, startupId: startupA, startsAt: at });
+        expect((await post(one.app, s[0]!.startsAt)).status).toBe(201);
+        const refused = await post(one.app, s[2]!.startsAt);
+        expect(refused.status).toBe(429);
+        expect(String(refused.body.message)).toMatch(/already have 1 consultation request waiting/i);
+        expect((await post(junk.app, s[2]!.startsAt)).status).toBe(201); // "banana" → default 2, and one is already waiting
+        expect((await post(junk.app, s[4]!.startsAt)).status).toBe(429);
+      } finally {
+        await junk.app.close();
+        await one.app.close();
+      }
+    });
   });
 
   // ---- the master switch ------------------------------------------------------------------------------------------------------------------

@@ -54,7 +54,7 @@ export function MarketMapPage() {
 
   return (
     <div>
-      <PageHeader variant="block" title="Market Map" description={<>Every tracked startup, investor, hub, research institution and multinational grouped by healthcare category — the same {HC_CATEGORIES.length}-category taxonomy used across RUWĀD&apos;s filters, not a separate dataset.</>} />
+      <PageHeader title="Market Map" description={<>Every tracked startup, investor, hub, research institution and multinational grouped by healthcare category — the same {HC_CATEGORIES.length}-category taxonomy used across RUWĀD&apos;s filters, not a separate dataset.</>} />
       <div className="mm-grid mt-16">
         {rows.map((r) => {
           const pct = Math.round((r.total / maxTotal) * 100);
