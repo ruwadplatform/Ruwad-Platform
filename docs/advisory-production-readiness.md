@@ -141,11 +141,19 @@ Before going live, also settle:
 
 ## 8. Local tooling (never touches production)
 
-All of these refuse any database that is not on this machine (`backend/scripts/dev/local-db-guard.js`):
+All of these refuse any database that is not the local embedded Postgres (this machine, port 55432) and refuse to start if the shell names a production host (`backend/scripts/dev/local-db-guard.js`, `local-env.js`):
 
 ```
 npm run db:local               start the local Postgres (port 55432)
 npm run migration:run:local    apply every migration, advisory ones included, to the local database
-npm run start:local            start the built backend on the local database, mock email, throwaway JWT secret
+npm run start:local            start the built backend on the local database: mock email, mock video, throwaway JWT secret
 npm run test:advisory          the integration suite (real Postgres, concurrency, permissions)
+npm run test:visibility        the access-control and session integration suite
+
+(in frontend/)
+npm run build:local            build the site against the local backend only
+npm run start:local            serve that build on port 5174 (refuses a build that was not made by build:local)
+npm run dev:local              next dev on port 5174, API pinned to the local backend
 ```
+
+`backend/.env` holds production credentials, so the local backend never reads it: it is started from an empty directory with an explicit environment (a few system variables plus local values). Test and migration runs get the shell environment with every secret removed and the email/video mode switches unset (the app default is mock). Real Daily is an explicit opt-in: set `LOCAL_DAILY_DOMAIN` and run `npm run start:local -- --real-daily`; only the Daily key is read from `backend/.env`, inside the process, and it is never printed. Without the flag no Daily call can be made.
