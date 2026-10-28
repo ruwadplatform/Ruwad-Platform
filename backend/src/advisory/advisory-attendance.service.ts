@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectDataSource, InjectRepository } from "@nestjs/typeorm";
-import { DataSource, IsNull, Repository } from "typeorm";
+import { DataSource, EntityManager, IsNull, Repository } from "typeorm";
 import { AuthUser } from "../common/decorators/current-user.decorator";
 import { EntityKind, MembershipRole } from "../common/enums";
 import { EntityMembership } from "../organizations/entity-membership.entity";
@@ -10,7 +10,7 @@ import { AdvisoryAdvisor, AdvisoryBooking, AdvisoryBookingEvent, AdvisoryMeeting
 import { AttendanceOutcome, BookingParty, BookingStatus } from "./advisory.enums";
 import { AdvisoryAutomationConfig, readAutomationConfig } from "./advisory-config";
 import { AdvisoryBookingsService, BookingView } from "./advisory-bookings.service";
-import { AttendanceSummary, Presence, decideOutcome, summarizeAttendance, verifyDailyWebhook } from "./attendance-logic";
+import { AttendanceSummary, Presence, WebhookCheck, checkDailyWebhook, decideOutcome, summarizeAttendance } from "./attendance-logic";
 import { assertTransition } from "./booking-state";
 import { meetingState, meetingWindow } from "./meeting-window";
 import { VIDEO_PROVIDER, VideoProvider } from "./video/video-provider";
@@ -23,24 +23,30 @@ export const MANUAL_OUTCOMES: AttendanceOutcome[] = ["ATTENDED_BOTH", "FOUNDER_N
 const toDate = (v: unknown): Date | null => {
   const n = typeof v === "string" && v.trim() !== "" ? Number(v) : v;
   if (typeof n !== "number" || !Number.isFinite(n)) return null;
-  return new Date(n > 1e12 ? n : n * 1000); // unix seconds, or milliseconds
+  return new Date(n > 1e12 ? n : n * 1000); // unix seconds (Daily sends fractions, e.g. 1708972291.567), or milliseconds
 };
 
 export interface WebhookResult { status: "processed" | "duplicate" | "ignored" | "test" }
+
+/** Anything that can run a query: the DataSource, or the EntityManager of an open transaction. */
+type Db = Pick<DataSource, "query">;
 
 /** Who was in the meeting room and when, and what to do about a consultation that has ended.
  *
  * Presence comes from two places and never from the browser of a REAL meeting: Daily's signed webhooks (participant.joined / participant.left), and, for a
  * SIMULATED room only, the page itself (there is no provider to ask). A person recording the outcome is always a human: the advisor or an administrator.
  *
- * NOTE: the webhook payload field names below follow Daily's documentation as far as it could be read (room, session_id, user_id, joined_at, duration,
- * the event's own id and timestamp). They have NOT been checked against live events: confirm them in the supervised live test before relying on them. */
+ * The webhook payload field names follow Daily's published documentation (envelope: version, type, id, payload, event_ts; payload: room, session_id,
+ * user_id, joined_at in unix SECONDS with a fraction, duration in seconds). They have been checked against that documentation and against signed
+ * events built from it, but NOT yet against a live event from Daily: that is the supervised live test. */
 @Injectable()
 export class AdvisoryAttendanceService {
   private readonly logger = new Logger(AdvisoryAttendanceService.name);
   private readonly video: VideoConfig;
   readonly automation: AdvisoryAutomationConfig;
   private readonly webhookSecret: string;
+  /** How far a webhook's timestamp may be from now. Daily's documentation names no window, so it can be widened (30-3600 s) without a code change. */
+  private readonly webhookToleranceSeconds: number;
 
   constructor(
     config: ConfigService,
@@ -56,6 +62,8 @@ export class AdvisoryAttendanceService {
     this.video = readVideoConfig((k) => config.get<string>(k));
     this.automation = readAutomationConfig((k) => config.get<string>(k));
     this.webhookSecret = (config.get<string>("DAILY_WEBHOOK_SECRET") ?? "").trim();
+    const tolerance = Number((config.get<string>("DAILY_WEBHOOK_TOLERANCE_SECONDS") ?? "").trim());
+    this.webhookToleranceSeconds = Number.isFinite(tolerance) && tolerance >= 30 && tolerance <= 3600 ? Math.round(tolerance) : 300;
   }
 
   // ---- reading ----------------------------------------------------------------------------------------------------------------------------
@@ -65,14 +73,15 @@ export class AdvisoryAttendanceService {
     return { from: w.opensAt, to: w.closesAt };
   }
 
-  async summary(b: AdvisoryBooking, now = new Date()): Promise<AttendanceSummary> {
-    const rows = await this.attendance.find({ where: { bookingId: b.id } });
+  /** `m` reads inside an open transaction, so a change made earlier in that transaction is seen. */
+  async summary(b: AdvisoryBooking, now = new Date(), m?: EntityManager): Promise<AttendanceSummary> {
+    const rows = await (m ? m.getRepository(AdvisoryMeetingAttendance) : this.attendance).find({ where: { bookingId: b.id } });
     return summarizeAttendance(rows.map((r): Presence => ({ role: r.role, joinedAt: r.joinedAt, leftAt: r.leftAt })), this.windowOf(b), now);
   }
 
   /** What the attendance suggests happened (a suggestion for a person to confirm). */
-  async suggestedOutcome(b: AdvisoryBooking, now = new Date()): Promise<AttendanceOutcome> {
-    return decideOutcome(await this.summary(b, now), this.automation.attendanceMinMinutes);
+  async suggestedOutcome(b: AdvisoryBooking, now = new Date(), m?: EntityManager): Promise<AttendanceOutcome> {
+    return decideOutcome(await this.summary(b, now, m), this.automation.attendanceMinMinutes);
   }
 
   // ---- recording presence -------------------------------------------------------------------------------------------------------------------
@@ -86,19 +95,23 @@ export class AdvisoryAttendanceService {
     return null;
   }
 
-  /** Writes a join (idempotent per session) or a leave (which closes that session, even if its join arrives later). */
-  private async upsertPresence(bookingId: string, userId: string, role: BookingParty, sessionKey: string, kind: "joined" | "left", at: Date, source: string): Promise<void> {
+  /** Writes a join (idempotent per session) or a leave (which closes that session, even if its join arrives later, or never arrives).
+   * A leave may carry the stay's own start (`stayStartedAt`: Daily's leave event includes joined_at and duration), so a lost or late join event can't
+   * turn a real stay into a zero-length one. Times only ever move OUTWARD (earliest join, latest leave), so a repeated or reordered event can't shrink
+   * what was recorded. */
+  private async upsertPresence(db: Db, bookingId: string, userId: string, role: BookingParty, sessionKey: string, kind: "joined" | "left", at: Date, source: string, stayStartedAt?: Date): Promise<void> {
     if (kind === "joined") {
-      await this.ds.query(
+      await db.query(
         `INSERT INTO advisory_meeting_attendance ("bookingId", "userId", role, "sessionKey", "joinedAt", source) VALUES ($1, $2, $3, $4, $5, $6)
          ON CONFLICT ("bookingId", "userId", "sessionKey") DO UPDATE SET "joinedAt" = LEAST(advisory_meeting_attendance."joinedAt", EXCLUDED."joinedAt")`,
         [bookingId, userId, role, sessionKey, at, source]);
     } else {
-      // A leave that arrives before its join creates the row with joinedAt = leftAt; the join, when it comes, pulls joinedAt earlier.
-      await this.ds.query(
-        `INSERT INTO advisory_meeting_attendance ("bookingId", "userId", role, "sessionKey", "joinedAt", "leftAt", source) VALUES ($1, $2, $3, $4, $5, $5, $6)
-         ON CONFLICT ("bookingId", "userId", "sessionKey") DO UPDATE SET "leftAt" = GREATEST(COALESCE(advisory_meeting_attendance."leftAt", EXCLUDED."leftAt"), EXCLUDED."leftAt")`,
-        [bookingId, userId, role, sessionKey, at, source]);
+      const startedAt = stayStartedAt && stayStartedAt.getTime() < at.getTime() ? stayStartedAt : at;
+      await db.query(
+        `INSERT INTO advisory_meeting_attendance ("bookingId", "userId", role, "sessionKey", "joinedAt", "leftAt", source) VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT ("bookingId", "userId", "sessionKey") DO UPDATE SET "leftAt" = GREATEST(COALESCE(advisory_meeting_attendance."leftAt", EXCLUDED."leftAt"), EXCLUDED."leftAt"),
+           "joinedAt" = LEAST(advisory_meeting_attendance."joinedAt", EXCLUDED."joinedAt")`,
+        [bookingId, userId, role, sessionKey, startedAt, at, source]);
     }
   }
 
@@ -110,10 +123,10 @@ export class AdvisoryAttendanceService {
     if (meetingState(booking.status, booking.startsAt, booking.endsAt, now, this.video) !== "OPEN") throw new ConflictException("The meeting isn't open.");
     if (event === "joined") {
       const open = await this.attendance.findOne({ where: { bookingId, userId: user.userId, source: "MOCK", leftAt: IsNull() } });
-      if (!open) await this.upsertPresence(bookingId, user.userId, side, `sim-${randomUUID()}`, "joined", now, "MOCK");
+      if (!open) await this.upsertPresence(this.ds, bookingId, user.userId, side, `sim-${randomUUID()}`, "joined", now, "MOCK");
     } else {
       const open = await this.attendance.findOne({ where: { bookingId, userId: user.userId, source: "MOCK", leftAt: IsNull() }, order: { joinedAt: "DESC" } });
-      if (open) await this.upsertPresence(bookingId, user.userId, side, open.sessionKey, "left", now, "MOCK");
+      if (open) await this.upsertPresence(this.ds, bookingId, user.userId, side, open.sessionKey, "left", now, "MOCK");
     }
     return { ok: true };
   }
@@ -121,43 +134,79 @@ export class AdvisoryAttendanceService {
   // ---- Daily's webhook ----------------------------------------------------------------------------------------------------------------------
 
   /** Receives a Daily webhook. The signature is verified against the RAW body first; an unverified request is refused and learns nothing. Anything
-   * verified is acknowledged with success (even if it is ignored) so Daily doesn't keep retrying; duplicates are recognised by event id. */
+   * verified is acknowledged with success (even if it is ignored) so Daily doesn't keep retrying.
+   *
+   * Duplicates are recognised by the event's id AND, as Daily's documentation advises (a rare duplicate can carry a different id), by event type plus
+   * session_id. The "seen" markers and the attendance change are written in ONE transaction: if anything fails, the markers are rolled back too, so
+   * Daily's retry is processed instead of being thrown away as a duplicate.
+   *
+   * Only attendance rows (and, for a consultation already waiting for review, its suggested outcome) are ever written. A webhook never changes a
+   * booking's status, never completes anything, and can only touch the one booking whose unguessable room name it names. Nothing sensitive is logged:
+   * no body, signature, secret, token or header value. */
   async handleDailyWebhook(rawBody: Buffer | undefined, headers: Record<string, string | string[] | undefined>, now = new Date()): Promise<WebhookResult> {
     if (!this.webhookSecret) throw new NotFoundException(); // not configured: as if the endpoint didn't exist
     const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-    if (!rawBody || !verifyDailyWebhook({ secretBase64: this.webhookSecret, timestamp: one(headers["x-webhook-timestamp"]), signature: one(headers["x-webhook-signature"]), rawBody, now })) {
+    const check: WebhookCheck = rawBody
+      ? checkDailyWebhook({ secretBase64: this.webhookSecret, timestamp: one(headers["x-webhook-timestamp"]), signature: one(headers["x-webhook-signature"]), rawBody, now, toleranceSeconds: this.webhookToleranceSeconds })
+      : { ok: false, reason: "missing-header" };
+    if (!check.ok) {
+      this.logger.warn(`Daily webhook refused: ${check.reason}${check.skewSeconds !== undefined ? ` (timestamp ${check.skewSeconds}s from now, allowed ${this.webhookToleranceSeconds}s)` : ""}`);
       throw new UnauthorizedException("Invalid webhook signature.");
     }
     let body: { id?: string; type?: string; event_ts?: number; payload?: Record<string, unknown>; test?: string };
-    try { body = JSON.parse(rawBody.toString("utf8")); } catch { return { status: "ignored" }; }
+    try { body = JSON.parse(rawBody!.toString("utf8")); } catch { return { status: "ignored" }; }
     if (body.test) return { status: "test" };
 
     const payload = body.payload ?? {};
     const type = typeof body.type === "string" ? body.type.slice(0, 60) : "unknown";
-    const eventId = (typeof body.id === "string" && body.id) || `${type}:${String(payload.session_id ?? "")}:${String(body.event_ts ?? "")}`;
-    const fresh = await this.ds.query(`INSERT INTO advisory_webhook_events (id, type) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING RETURNING id`, [eventId.slice(0, 120), type]);
-    if (!Array.isArray(fresh) || fresh.length === 0) return { status: "duplicate" };
+    const sessionId = typeof payload.session_id === "string" && payload.session_id ? payload.session_id : null;
+    const isPresence = type === "participant.joined" || type === "participant.left";
+    const eventId = (typeof body.id === "string" && body.id) || `${type}:${String(sessionId ?? "")}:${String(body.event_ts ?? "")}`;
+    const seenKeys = [eventId.slice(0, 120), ...(isPresence && sessionId ? [`${type}|${sessionId}`.slice(0, 120)] : [])];
 
-    if (type !== "participant.joined" && type !== "participant.left") return { status: "ignored" };
-    const room = typeof payload.room === "string" ? payload.room : typeof payload.room_name === "string" ? payload.room_name : null;
-    const userId = typeof payload.user_id === "string" ? payload.user_id : null;
-    if (!room || !userId) return { status: "ignored" };
-    const booking = await this.bookings.findOne({ where: { meetingRoomName: room } });
-    if (!booking) return { status: "ignored" };
-    const role = await this.roleOf(booking, userId);
-    if (!role) return { status: "ignored" }; // someone who isn't a participant of this consultation: not recorded
-    const sessionKey = String(payload.session_id ?? `${userId}:${room}`).slice(0, 80);
-    const eventTime = toDate(body.event_ts) ?? now;
+    const outcome = await this.ds.transaction(async (m): Promise<{ status: WebhookResult["status"]; why: string }> => {
+      for (const key of seenKeys) {
+        const fresh = await m.query(`INSERT INTO advisory_webhook_events (id, type) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING RETURNING id`, [key, type]);
+        if (!Array.isArray(fresh) || fresh.length === 0) return { status: "duplicate", why: "already processed" };
+      }
+      if (!isPresence) return { status: "ignored", why: "event type not used" };
+      const room = typeof payload.room === "string" ? payload.room : typeof payload.room_name === "string" ? payload.room_name : null;
+      const userId = typeof payload.user_id === "string" ? payload.user_id : null;
+      if (!room || !userId) return { status: "ignored", why: "no room or no user" };
+      const booking = await this.bookings.findOne({ where: { meetingRoomName: room } });
+      if (!booking) return { status: "ignored", why: "unknown room" };
+      const role = await this.roleOf(booking, userId);
+      if (!role) return { status: "ignored", why: "not a participant of that consultation" }; // someone who isn't a participant: not recorded
+      const sessionKey = String(sessionId ?? `${userId}:${room}`).slice(0, 80);
+      const eventTime = toDate(body.event_ts) ?? now;
 
-    if (type === "participant.joined") {
-      await this.upsertPresence(booking.id, userId, role, sessionKey, "joined", toDate(payload.joined_at) ?? eventTime, "WEBHOOK");
-    } else {
-      const joined = toDate(payload.joined_at);
-      const duration = typeof payload.duration === "number" ? payload.duration : null;
-      const left = joined && duration !== null ? new Date(joined.getTime() + duration * 1000) : eventTime;
-      await this.upsertPresence(booking.id, userId, role, sessionKey, "left", left, "WEBHOOK");
-    }
-    return { status: "processed" };
+      if (type === "participant.joined") {
+        await this.upsertPresence(m, booking.id, userId, role, sessionKey, "joined", toDate(payload.joined_at) ?? eventTime, "WEBHOOK");
+      } else {
+        const joined = toDate(payload.joined_at);
+        const duration = typeof payload.duration === "number" && payload.duration >= 0 ? payload.duration : null;
+        const left = joined && duration !== null ? new Date(joined.getTime() + duration * 1000) : eventTime;
+        await this.upsertPresence(m, booking.id, userId, role, sessionKey, "left", left, "WEBHOOK", joined ?? undefined);
+      }
+      await this.refreshSuggestion(m, booking.id, now);
+      return { status: "processed", why: `${role.toLowerCase()} ${type === "participant.joined" ? "joined" : "left"} ${booking.reference}` };
+    });
+    this.logger.log(`Daily webhook ${type}: ${outcome.status} (${outcome.why})`);
+    return { status: outcome.status };
+  }
+
+  /** Late attendance data (a delayed or retried event) for a consultation that is ALREADY waiting for review: the stored suggestion is brought up to
+   * date, and the change is recorded in the booking's history. Nothing else changes: the status stays CONFIRMED and nothing is completed. A consultation
+   * that is not waiting for review, or was already concluded by a person, is left exactly as it is. */
+  private async refreshSuggestion(m: EntityManager, bookingId: string, now: Date): Promise<void> {
+    const peek = await m.findOne(AdvisoryBooking, { where: { id: bookingId } }); // the common case (not waiting for review) takes no lock
+    if (!peek || !peek.needsReview || peek.status !== BookingStatus.CONFIRMED) return;
+    const b = await m.findOne(AdvisoryBooking, { where: { id: bookingId }, lock: { mode: "pessimistic_write" } }); // serialises with a person concluding it
+    if (!b || !b.needsReview || b.status !== BookingStatus.CONFIRMED) return;
+    const suggested = await this.suggestedOutcome(b, now, m);
+    if (suggested === b.attendanceOutcome) return;
+    await m.update(AdvisoryBooking, { id: bookingId }, { attendanceOutcome: suggested });
+    await m.save(m.create(AdvisoryBookingEvent, { bookingId, actorUserId: null, actorRole: "SYSTEM", type: "SUGGESTION_UPDATED", fromStatus: BookingStatus.CONFIRMED, toStatus: BookingStatus.CONFIRMED, details: { from: b.attendanceOutcome, to: suggested, cause: "late attendance data" } }));
   }
 
   // ---- what happened: recorded by a person --------------------------------------------------------------------------------------------------

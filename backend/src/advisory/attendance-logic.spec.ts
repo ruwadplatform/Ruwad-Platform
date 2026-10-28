@@ -1,4 +1,4 @@
-import { OUTCOME_LABEL, Presence, decideOutcome, signDailyWebhook, summarizeAttendance, verifyDailyWebhook } from "./attendance-logic";
+import { OUTCOME_LABEL, Presence, checkDailyWebhook, decideOutcome, signDailyWebhook, summarizeAttendance, verifyDailyWebhook } from "./attendance-logic";
 import { ATTENDANCE_OUTCOMES } from "./advisory.enums";
 
 const at = (hhmm: string) => new Date(`2026-11-10T${hhmm}:00Z`);
@@ -82,6 +82,16 @@ describe("what attendance suggests happened", () => {
   it("every outcome has a human label", () => {
     for (const o of ATTENDANCE_OUTCOMES) expect(OUTCOME_LABEL[o].length).toBeGreaterThan(5);
   });
+
+  it("a short meeting is described truthfully: 3 minutes together is NO_OVERLAP (below the 5 minute minimum), and its label does not claim they were never together", () => {
+    const rows = [p("ADVISOR", "10:00", "10:30"), p("FOUNDER", "10:27", "10:30")];
+    const summary = summarizeAttendance(rows, WINDOW, NOW_AFTER);
+    expect(summary.overlapMinutes).toBe(3);
+    expect(decideOutcome(summary, 5)).toBe("NO_OVERLAP");
+    expect(OUTCOME_LABEL.NO_OVERLAP).not.toMatch(/never at the same time/i); // true for 0 minutes together AND for 3
+    expect(OUTCOME_LABEL.NO_OVERLAP).toMatch(/not together for long enough/i);
+    expect(decideOutcome(summarizeAttendance([p("ADVISOR", "10:00", "10:30"), p("FOUNDER", "10:25", "10:30")], WINDOW, NOW_AFTER), 5)).toBe("ATTENDED_BOTH"); // exactly 5 minutes counts
+  });
 });
 
 describe("Daily webhook signature", () => {
@@ -116,5 +126,39 @@ describe("Daily webhook signature", () => {
   it("the signature is over 'timestamp.body': swapping in another timestamp fails", () => {
     const other = String(Number(ts) + 60);
     expect(verifyDailyWebhook({ secretBase64: secret, timestamp: other, signature: good, rawBody: body, now: new Date(now.getTime() + 60_000) })).toBe(false);
+  });
+
+  it("says WHY it refused, and the reason carries no secret, signature or body", () => {
+    const why = (p: Partial<Parameters<typeof checkDailyWebhook>[0]>) => checkDailyWebhook({ secretBase64: secret, timestamp: ts, signature: good, rawBody: body, now, ...p });
+    expect(why({})).toEqual({ ok: true });
+    expect(why({ timestamp: undefined })).toEqual({ ok: false, reason: "missing-header" });
+    expect(why({ signature: undefined })).toEqual({ ok: false, reason: "missing-header" });
+    expect(why({ timestamp: "soon" })).toEqual({ ok: false, reason: "bad-timestamp" });
+    expect(why({ now: new Date(now.getTime() + 20 * 60_000) })).toEqual({ ok: false, reason: "stale-timestamp", skewSeconds: 1200 });
+    expect(why({ rawBody: body.replace("u1", "u2") })).toEqual({ ok: false, reason: "signature-mismatch" });
+    expect(why({ signature: "not base64 !!" })).toEqual({ ok: false, reason: "signature-mismatch" });
+    for (const r of [why({ now: new Date(now.getTime() + 20 * 60_000) }), why({ rawBody: "tampered" })]) {
+      const text = JSON.stringify(r);
+      expect(text).not.toContain(secret);
+      expect(text).not.toContain(good);
+      expect(text).not.toContain("tampered");
+    }
+  });
+
+  it("the replay window is configurable and still enforced on both sides (a future timestamp is refused too)", () => {
+    const tenMinutesLater = new Date(now.getTime() + 10 * 60_000);
+    expect(checkDailyWebhook({ secretBase64: secret, timestamp: ts, signature: good, rawBody: body, now: tenMinutesLater }).ok).toBe(false); // default 5 minutes
+    expect(checkDailyWebhook({ secretBase64: secret, timestamp: ts, signature: good, rawBody: body, now: tenMinutesLater, toleranceSeconds: 900 }).ok).toBe(true);
+    expect(checkDailyWebhook({ secretBase64: secret, timestamp: ts, signature: good, rawBody: body, now: new Date(now.getTime() + 20 * 60_000), toleranceSeconds: 900 }).ok).toBe(false);
+    expect(checkDailyWebhook({ secretBase64: secret, timestamp: ts, signature: good, rawBody: body, now: new Date(now.getTime() - 10 * 60_000), toleranceSeconds: 300 }).ok).toBe(false); // from the future
+  });
+
+  it("accepts a millisecond timestamp, and a Daily-shaped body with fractional-second times (signed over the exact raw text)", () => {
+    const raw = '{"version":"1.0.0","type":"participant.left","id":"e","payload":{"room":"r","user_id":"u","session_id":"s","joined_at":1708972291.567,"duration":11.419000148773193},"event_ts":1708972303.001}';
+    const msTs = String(now.getTime());
+    expect(checkDailyWebhook({ secretBase64: secret, timestamp: msTs, signature: signDailyWebhook(secret, msTs, raw), rawBody: raw, now }).ok).toBe(true);
+    // reformatting the JSON (even without changing its meaning) breaks the signature: it is checked against the raw bytes
+    const pretty = JSON.stringify(JSON.parse(raw), null, 2);
+    expect(checkDailyWebhook({ secretBase64: secret, timestamp: ts, signature: signDailyWebhook(secret, ts, raw), rawBody: pretty, now }).ok).toBe(false);
   });
 });

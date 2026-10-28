@@ -30,6 +30,7 @@ function describeEvent(e: BookingHistoryEvent): string {
     case "COMPLETED": return "Marked as completed";
     case "NEEDS_REVIEW": return "The consultation ended: waiting for someone to confirm what happened";
     case "OUTCOME_RESOLVED": return `Outcome recorded: ${outcomeLabel(d.outcome) ?? "recorded"}${d.note ? ` (“${d.note}”)` : ""}`;
+    case "SUGGESTION_UPDATED": return `Late attendance data arrived: the suggested outcome is now "${outcomeLabel(d.to) ?? "updated"}"`;
     case "JOIN_REQUESTED": return "Joined the meeting";
     case "EXPIRED": return "Expired: nobody answered in time, so the time was released";
     case "RESCHEDULE_EXPIRED": return "The proposed new time expired unanswered; the original time is unchanged";

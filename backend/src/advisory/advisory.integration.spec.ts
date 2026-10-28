@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import { randomUUID } from "crypto";
-import { INestApplication, ValidationPipe } from "@nestjs/common";
+import { INestApplication, Logger, ValidationPipe } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { JwtModule, JwtService } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
@@ -207,7 +207,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
       await db.query(`DELETE FROM advisory_application_events WHERE "advisorId" = ANY($1)`, [adv]);
       await db.query(`DELETE FROM advisory_advisors WHERE id = ANY($1)`, [adv]);
     }
-    if (db) await db.query(`DELETE FROM advisory_webhook_events WHERE id LIKE $1`, [`${tag}-%`]);
+    if (db) await db.query(`DELETE FROM advisory_webhook_events WHERE id LIKE $1 OR id LIKE $2`, [`${tag}-%`, `%|${tag}-%`]);
     if (db && created.users.length) await db.query(`DELETE FROM entity_memberships WHERE "userId" = ANY($1)`, [created.users]);
     if (db && created.startups.length) await db.query(`DELETE FROM startups WHERE id = ANY($1)`, [created.startups]);
     if (db && created.users.length) await db.query(`DELETE FROM users WHERE id = ANY($1)`, [created.users]);
@@ -1207,23 +1207,23 @@ suite("Advisory Services — integration (local Postgres)", () => {
     const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
     try {
       const send = async (body: string) => (await post(s.app, body, sign(body))).body.status as string;
-      expect(await send(evt(`${tag}-e1`, "participant.joined", ids.owner!, "sess-f", { joined_at: sec(2), event_ts: sec(2) }))).toBe("processed");
-      expect(await send(evt(`${tag}-e1`, "participant.joined", ids.owner!, "sess-f", { joined_at: sec(2), event_ts: sec(2) }))).toBe("duplicate"); // Daily redelivered it
-      expect(await send(evt(`${tag}-e2`, "participant.left", ids.owner!, "sess-f", { joined_at: sec(2), duration: 20 * 60, event_ts: sec(22) }))).toBe("processed");
+      expect(await send(evt(`${tag}-e1`, "participant.joined", ids.owner!, `${tag}-sess-f`, { joined_at: sec(2), event_ts: sec(2) }))).toBe("processed");
+      expect(await send(evt(`${tag}-e1`, "participant.joined", ids.owner!, `${tag}-sess-f`, { joined_at: sec(2), event_ts: sec(2) }))).toBe("duplicate"); // Daily redelivered it
+      expect(await send(evt(`${tag}-e2`, "participant.left", ids.owner!, `${tag}-sess-f`, { joined_at: sec(2), duration: 20 * 60, event_ts: sec(22) }))).toBe("processed");
       // the advisor's LEAVE arrives before their JOIN (out of order)
-      expect(await send(evt(`${tag}-e3`, "participant.left", ids.advisorUser!, "sess-a", { joined_at: sec(0), duration: 28 * 60, event_ts: sec(28) }))).toBe("processed");
-      expect(await send(evt(`${tag}-e4`, "participant.joined", ids.advisorUser!, "sess-a", { joined_at: sec(0), event_ts: sec(0) }))).toBe("processed");
+      expect(await send(evt(`${tag}-e3`, "participant.left", ids.advisorUser!, `${tag}-sess-a`, { joined_at: sec(0), duration: 28 * 60, event_ts: sec(28) }))).toBe("processed");
+      expect(await send(evt(`${tag}-e4`, "participant.joined", ids.advisorUser!, `${tag}-sess-a`, { joined_at: sec(0), event_ts: sec(0) }))).toBe("processed");
       // not recorded: a stranger, an EDITOR member, an unknown room, other event types
-      expect(await send(evt(`${tag}-e5`, "participant.joined", ids.outsider!, "sess-x", { joined_at: sec(3) }))).toBe("ignored");
-      expect(await send(evt(`${tag}-e6`, "participant.joined", ids.editor!, "sess-y", { joined_at: sec(3) }))).toBe("ignored");
-      expect(await send(evt(`${tag}-e7`, "participant.joined", ids.owner!, "sess-z", { joined_at: sec(3) }, "ruwad-no-such-room"))).toBe("ignored");
+      expect(await send(evt(`${tag}-e5`, "participant.joined", ids.outsider!, `${tag}-sess-x`, { joined_at: sec(3) }))).toBe("ignored");
+      expect(await send(evt(`${tag}-e6`, "participant.joined", ids.editor!, `${tag}-sess-y`, { joined_at: sec(3) }))).toBe("ignored");
+      expect(await send(evt(`${tag}-e7`, "participant.joined", ids.owner!, `${tag}-sess-z`, { joined_at: sec(3) }, "ruwad-no-such-room"))).toBe("ignored");
       expect(await send(JSON.stringify({ id: `${tag}-e8`, type: "meeting.started", event_ts: sec(0), payload: { room } }))).toBe("ignored");
 
       const rows = await attendanceOf(b.id);
       expect(rows).toHaveLength(2);
       const f = rows.find((r) => r.userId === ids.owner)!;
       const a = rows.find((r) => r.userId === ids.advisorUser)!;
-      expect(f).toMatchObject({ role: "FOUNDER", source: "WEBHOOK", sessionKey: "sess-f" });
+      expect(f).toMatchObject({ role: "FOUNDER", source: "WEBHOOK", sessionKey: `${tag}-sess-f` });
       expect(new Date(f.leftAt).getTime() - new Date(f.joinedAt).getTime()).toBe(20 * 60_000);
       expect(a).toMatchObject({ role: "ADVISOR" });
       expect(Math.abs(new Date(a.joinedAt).getTime() - start)).toBeLessThan(1000); // the late join moved the start back to when they really arrived (webhook times are whole seconds)
@@ -1234,6 +1234,181 @@ suite("Advisory Services — integration (local Postgres)", () => {
       expect(sum.founder.minutes).toBe(20);
       expect(sum.overlapMinutes).toBe(20);
     } finally { await s.app.close(); }
+  });
+
+  // ---- Daily's webhook: the cases its documentation calls out (fractional seconds, lost / late / duplicate events, retries) ----------------------------
+  /** An event shaped like Daily's documentation: the envelope (version, type, id, payload, event_ts), times in unix SECONDS with a fraction. */
+  const dailyEvent = (type: string, id: string, payload: Record<string, unknown>, eventTs: number) => JSON.stringify({ version: "1.0.0", type, id, payload, event_ts: eventTs });
+  /** Session ids are part of Daily's duplicate key (type + session_id) and are kept forever, so each run's carry its own tag. */
+  const sid = (name: string) => `${tag}-${name}`;
+  /** Seconds with a fraction, as Daily sends them (for example 1708972291.567). */
+  const at = (startMs: number, minutes: number, extraMs = 567) => (startMs + minutes * 60_000 + extraMs) / 1000;
+  /** A confirmed consultation whose meeting is open and whose room exists (the founder joined once through the app). */
+  const withRoom = async (dayN: number) => {
+    const b = await confirmed(dayN, 0);
+    await openNow(b.id);
+    await joinAs("owner", b.id);
+    const r = await row(b.id);
+    return { id: b.id, room: r.meetingRoomName as string, start: new Date(r.startsAt).getTime() };
+  };
+
+  it("Daily-shaped events: a lost JOIN doesn't erase a stay, repeated visits add up, duplicates (even under a different event id) change nothing, and no webhook changes the status", async () => {
+    const { id, room, start } = await withRoom(50);
+    const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
+    try {
+      const send = async (body: string) => (await post(s.app, body, sign(body))).body.status as string;
+      const joined = (u: string, session: string, min: number, evId: string) => dailyEvent("participant.joined", evId, { room, user_id: u, session_id: session, joined_at: at(start, min), owner: false }, at(start, min));
+      const left = (u: string, session: string, from: number, to: number, evId: string) => dailyEvent("participant.left", evId, { room, user_id: u, session_id: session, joined_at: at(start, from), duration: (to - from) * 60 + 0.419, owner: false }, at(start, to));
+
+      // the founder's JOIN event is lost: only the LEAVE arrives, and it still carries the whole stay (joined_at + duration)
+      expect(await send(left(ids.owner!, sid("f1"), 2, 22, `${tag}-t1-a`))).toBe("processed");
+      expect(await send(joined(ids.advisorUser!, sid("a1"), 0, `${tag}-t1-b`))).toBe("processed");
+      expect(await send(left(ids.advisorUser!, sid("a1"), 0, 28, `${tag}-t1-c`))).toBe("processed");
+      // the founder's connection dropped and they came back as a NEW session
+      expect(await send(joined(ids.owner!, sid("f2"), 24, `${tag}-t1-d`))).toBe("processed");
+      expect(await send(left(ids.owner!, sid("f2"), 24, 27, `${tag}-t1-e`))).toBe("processed");
+      // duplicates: the very same event, and the same type + session under a DIFFERENT id (Daily's documentation says that can happen)
+      expect(await send(left(ids.owner!, sid("f1"), 2, 22, `${tag}-t1-a`))).toBe("duplicate");
+      expect(await send(left(ids.owner!, sid("f1"), 2, 22, `${tag}-t1-a-again`))).toBe("duplicate");
+      expect(await send(joined(ids.advisorUser!, sid("a1"), 0, `${tag}-t1-b-again`))).toBe("duplicate");
+
+      const rows = await attendanceOf(id);
+      expect(rows).toHaveLength(3); // f1, f2 and a1: nothing was recorded twice
+      expect(rows.every((r) => r.source === "WEBHOOK")).toBe(true);
+      const f1 = rows.find((r) => r.sessionKey === sid("f1"))!;
+      expect(Math.round((new Date(f1.leftAt).getTime() - new Date(f1.joinedAt).getTime()) / 1000)).toBe(20 * 60); // the whole stay, not zero
+      const sum = (await api("owner").get(`/advisory/bookings/${id}/meeting`)).body.attendance;
+      expect(sum.founder.minutes).toBe(23); // 20 + 3: the gap between the two visits isn't counted
+      expect(sum.advisor.minutes).toBe(28);
+      expect(sum.overlapMinutes).toBe(23);
+
+      // odd or missing fields never crash the endpoint (and never produce a 500)
+      const odd = dailyEvent("participant.left", `${tag}-t1-odd`, { room, user_id: ids.advisorUser!, joined_at: "not-a-number", duration: -5 }, at(start, 28));
+      expect((await post(s.app, odd, sign(odd))).status).toBe(200);
+      // a webhook only records attendance: the consultation itself is untouched
+      expect(await row(id)).toMatchObject({ status: "CONFIRMED", needsReview: false, attendanceOutcome: null, completedAt: null });
+    } finally { await s.app.close(); }
+  });
+
+  it("a webhook that fails halfway isn't lost: Daily's retry is processed (the 'seen' markers roll back with the attendance), and only after that do repeats count as duplicates", async () => {
+    const { id, room, start } = await withRoom(51);
+    const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
+    const spy = jest.spyOn(s.app.get(AdvisoryAttendanceService) as unknown as { upsertPresence: () => Promise<void> }, "upsertPresence").mockRejectedValueOnce(new Error("database unavailable"));
+    try {
+      const body = dailyEvent("participant.joined", `${tag}-t2`, { room, user_id: ids.advisorUser!, session_id: sid("a-retry"), joined_at: at(start, 1) }, at(start, 1));
+      expect((await post(s.app, body, sign(body))).status).toBe(500); // processing failed: Daily will retry
+      expect((await db.query(`SELECT count(*)::int n FROM advisory_webhook_events WHERE id IN ($1, $2)`, [`${tag}-t2`, `participant.joined|${sid("a-retry")}`])).rows[0].n).toBe(0); // nothing marked as seen
+      expect(await attendanceOf(id)).toHaveLength(0);
+      expect((await post(s.app, body, sign(body))).body.status).toBe("processed"); // the retry is NOT thrown away as a duplicate
+      expect(await attendanceOf(id)).toHaveLength(1);
+      expect((await post(s.app, body, sign(body))).body.status).toBe("duplicate");
+      expect(await attendanceOf(id)).toHaveLength(1);
+    } finally { spy.mockRestore(); await s.app.close(); }
+  });
+
+  it("delayed events for a consultation already waiting for review bring its suggestion up to date (with a history entry) but never complete it, and a concluded one is left alone", async () => {
+    const b = await ended(52, 13);
+    const room = `ruwad-it-${tag}-late`;
+    await db.query(`UPDATE advisory_bookings SET "meetingRoomName" = $2, "meetingProvider" = 'daily' WHERE id = $1`, [b.id, room]);
+    const r0 = await row(b.id);
+    const start = new Date(r0.startsAt).getTime(), end = new Date(r0.endsAt);
+    const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
+    try {
+      const send = async (body: string) => (await post(s.app, body, sign(body))).body.status as string;
+      const stay = (u: string, session: string, from: number, to: number, evId: string) => dailyEvent("participant.left", evId, { room, user_id: u, session_id: session, joined_at: at(start, from), duration: (to - from) * 60 }, at(start, to));
+      expect(await send(stay(ids.advisorUser!, sid("a-late"), 0, 30, `${tag}-t3-a`))).toBe("processed"); // only the advisor's events have arrived so far
+      await automation().runOnce(minutesAfter(end, 60), { dryRun: false });
+      expect(await row(b.id)).toMatchObject({ status: "CONFIRMED", needsReview: true, attendanceOutcome: "FOUNDER_NO_SHOW" }); // flagged with what was known
+
+      expect(await send(stay(ids.owner!, sid("f-late"), 1, 29, `${tag}-t3-b`))).toBe("processed"); // the founder's events were delayed
+      expect(await row(b.id)).toMatchObject({ status: "CONFIRMED", needsReview: true, attendanceOutcome: "ATTENDED_BOTH", completedAt: null }); // suggestion updated; NOT completed
+      const updated = (await history(b.id)).filter((h) => h.type === "SUGGESTION_UPDATED");
+      expect(updated).toHaveLength(1);
+      expect(updated[0]!.details).toMatchObject({ from: "FOUNDER_NO_SHOW", to: "ATTENDED_BOTH" });
+      expect(await send(stay(ids.owner!, sid("f-late"), 1, 29, `${tag}-t3-b2`))).toBe("duplicate");
+      expect((await history(b.id)).filter((h) => h.type === "SUGGESTION_UPDATED")).toHaveLength(1); // no change, no new entry
+
+      // a person concludes it; an even later event is recorded as attendance but changes nothing about the consultation
+      expect((await api("advisorUser").post(`/advisory/bookings/${b.id}/outcome`, { outcome: "ATTENDED_BOTH" })).status).toBe(201);
+      expect(await send(stay(ids.owner!, sid("f-later"), 29, 30, `${tag}-t3-c`))).toBe("processed");
+      expect(await row(b.id)).toMatchObject({ status: "COMPLETED", attendanceOutcome: "ATTENDED_BOTH", needsReview: false });
+      expect((await history(b.id)).filter((h) => h.type === "SUGGESTION_UPDATED")).toHaveLength(1);
+      expect(await attendanceOf(b.id)).toHaveLength(3);
+    } finally { await s.app.close(); }
+  });
+
+  it("a webhook can only touch the booking whose room it names: not an unrelated booking, not a participant of a different one, and recording events are ignored", async () => {
+    const a = await confirmed(53, 0);
+    const bk = await confirmed(54, 0, svc30, "owner2", startupB);
+    const roomA = `ruwad-it-${tag}-iso-a`, roomB = `ruwad-it-${tag}-iso-b`;
+    await db.query(`UPDATE advisory_bookings SET "meetingRoomName" = $2 WHERE id = $1`, [a.id, roomA]);
+    await db.query(`UPDATE advisory_bookings SET "meetingRoomName" = $2 WHERE id = $1`, [bk.id, roomB]);
+    const t0 = Date.now();
+    const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
+    try {
+      const send = async (body: string) => (await post(s.app, body, sign(body))).body.status as string;
+      const ev = (type: string, evId: string, room: string, u: string) => dailyEvent(type, evId, { room, user_id: u, session_id: evId, joined_at: at(t0, 0), duration: 60 }, at(t0, 1));
+      // the founder of startup B is not a participant of booking A: ignored, and nothing is written for either booking
+      expect(await send(ev("participant.joined", `${tag}-t4-a`, roomA, ids.owner2!))).toBe("ignored");
+      expect(await send(ev("participant.left", `${tag}-t4-b`, roomA, ids.owner2!))).toBe("ignored");
+      // an EDITOR (not an owner or admin) of startup A, and a stranger, are ignored too
+      expect(await send(ev("participant.joined", `${tag}-t4-c`, roomA, ids.editor!))).toBe("ignored");
+      expect(await send(ev("participant.joined", `${tag}-t4-d`, roomA, ids.outsider!))).toBe("ignored");
+      expect(await attendanceOf(a.id)).toHaveLength(0);
+      expect(await attendanceOf(bk.id)).toHaveLength(0);
+      // the advisor is on both consultations: an event naming room A is recorded against booking A ONLY
+      expect(await send(ev("participant.joined", `${tag}-t4-e`, roomA, ids.advisorUser!))).toBe("processed");
+      expect(await attendanceOf(a.id)).toHaveLength(1);
+      expect(await attendanceOf(bk.id)).toHaveLength(0);
+      // recording and other event types are never acted on (recording stays off; the webhook has no use for them)
+      for (const [i, type] of ["recording.started", "recording.ready-to-download", "meeting.ended", "participant.something-new"].entries()) {
+        expect(await send(dailyEvent(type, `${tag}-t4-r${i}`, { room: roomA, user_id: ids.advisorUser! }, at(t0, 2)))).toBe("ignored");
+      }
+      expect(await attendanceOf(a.id)).toHaveLength(1);
+      expect(await row(a.id)).toMatchObject({ status: "CONFIRMED", needsReview: false, attendanceOutcome: null });
+      expect(await row(bk.id)).toMatchObject({ status: "CONFIRMED", needsReview: false, attendanceOutcome: null });
+    } finally { await s.app.close(); }
+  });
+
+  it("webhook logging carries reasons and counts only: no secret, signature, timestamp header, token or room name ever reaches a log, and the refusal reason is clear", async () => {
+    const { room, start } = await withRoom(55);
+    const lines: string[] = [];
+    const record = (...args: unknown[]) => { lines.push(args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ")); };
+    const spies = (["log", "warn", "error", "debug", "verbose"] as const).map((k) => jest.spyOn(Logger.prototype, k).mockImplementation(record as never));
+    const s = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
+    try {
+      const body = dailyEvent("participant.joined", `${tag}-t5`, { room, user_id: ids.advisorUser!, session_id: sid("a-log"), joined_at: at(start, 1) }, at(start, 1));
+      const goodHeaders = sign(body);
+      const oldTs = String(Math.floor(Date.now() / 1000) - 3600);
+      const staleHeaders = sign(body, oldTs);
+      expect((await post(s.app, body, staleHeaders)).status).toBe(401);
+      expect((await post(s.app, body, sign(body, undefined, Buffer.from("another secret").toString("base64")))).status).toBe(401);
+      expect((await post(s.app, body, { "content-type": "application/json" })).status).toBe(401);
+      expect((await post(s.app, body, goodHeaders)).body.status).toBe("processed");
+      const all = lines.join("\n");
+      expect(all).toMatch(/Daily webhook refused: stale-timestamp \(timestamp -?\d+s from now, allowed 300s\)/);
+      expect(all).toMatch(/Daily webhook refused: signature-mismatch/);
+      expect(all).toMatch(/Daily webhook refused: missing-header/);
+      expect(all).toMatch(/Daily webhook participant\.joined: processed \(advisor joined ADV-/);
+      for (const secret of [WHSEC, Buffer.from(WHSEC, "base64").toString(), goodHeaders["x-webhook-signature"], staleHeaders["x-webhook-signature"], goodHeaders["x-webhook-timestamp"], tokenOf.get("owner")!, tokenOf.get("advisorUser")!, room]) {
+        expect(all).not.toContain(secret);
+      }
+      expect(all).not.toMatch(/eyJ[A-Za-z0-9_-]{10,}/); // no JWT / meeting token
+    } finally { spies.forEach((sp) => sp.mockRestore()); await s.app.close(); }
+  });
+
+  it("the replay window follows DAILY_WEBHOOK_TOLERANCE_SECONDS: a 10 minute old event is refused by default and accepted when the window is widened (Daily's documentation names no window)", async () => {
+    const { room, start } = await withRoom(56);
+    const body = dailyEvent("participant.joined", `${tag}-t6`, { room, user_id: ids.advisorUser!, session_id: sid("a-tol"), joined_at: at(start, 1) }, at(start, 1));
+    const tenMinutesOld = String(Math.floor(Date.now() / 1000) - 600);
+    const strict = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC });
+    const wide = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC, DAILY_WEBHOOK_TOLERANCE_SECONDS: "900" });
+    try {
+      expect((await post(strict.app, body, sign(body, tenMinutesOld))).status).toBe(401);
+      expect((await post(wide.app, body, sign(body, tenMinutesOld))).body.status).toBe("processed");
+      const tooWide = await buildApp(true, { DAILY_WEBHOOK_SECRET: WHSEC, DAILY_WEBHOOK_TOLERANCE_SECONDS: "999999" }); // out of range: falls back to the default
+      try { expect((await post(tooWide.app, body, sign(body, tenMinutesOld))).status).toBe(401); } finally { await tooWide.app.close(); }
+    } finally { await wide.app.close(); await strict.app.close(); }
   });
 
   it("an ended consultation goes into Needs Review with what attendance suggests, once, and only after the grace period", async () => {

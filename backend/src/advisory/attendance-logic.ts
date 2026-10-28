@@ -104,28 +104,35 @@ export const OUTCOME_LABEL: Record<AttendanceOutcome, string> = {
   FOUNDER_NO_SHOW: "The startup didn't attend",
   ADVISOR_NO_SHOW: "The advisor didn't attend",
   BOTH_NO_SHOW: "Neither attended",
-  NO_OVERLAP: "Both joined but never at the same time",
+  NO_OVERLAP: "Both joined, but not together for long enough",
   UNKNOWN: "No attendance was recorded",
 };
 
 // ---- Daily webhook signature ---------------------------------------------------------------------------------------------------------------------
 
+/** Why a webhook was refused. Carries no secret, signature or body: only the reason and, for a stale timestamp, how far off the clock was. */
+export type WebhookCheck = { ok: true } | { ok: false; reason: "missing-header" | "bad-timestamp" | "stale-timestamp" | "signature-mismatch"; skewSeconds?: number };
+
 /** Verifies a Daily webhook: HMAC-SHA256 of "<timestamp>.<raw body>" keyed with the base64-DECODED webhook secret, compared with the base64
  * signature header, in constant time, and only if the timestamp is recent (replay protection). Per Daily's documentation (headers
- * X-Webhook-Signature and X-Webhook-Timestamp); not yet exercised against the live service. */
-export function verifyDailyWebhook(p: { secretBase64: string; timestamp: string | undefined; signature: string | undefined; rawBody: Buffer | string; now: Date; toleranceSeconds?: number }): boolean {
-  if (!p.secretBase64 || !p.timestamp || !p.signature) return false;
+ * X-Webhook-Signature and X-Webhook-Timestamp; the documentation names no tolerance, so it is configurable and defaults to 5 minutes).
+ * Returns the reason when it refuses, so an operator can tell a stale timestamp from a wrong secret without anything sensitive reaching a log. */
+export function checkDailyWebhook(p: { secretBase64: string; timestamp: string | undefined; signature: string | undefined; rawBody: Buffer | string; now: Date; toleranceSeconds?: number }): WebhookCheck {
+  if (!p.secretBase64 || !p.timestamp || !p.signature) return { ok: false, reason: "missing-header" };
   const ts = Number(p.timestamp);
-  if (!Number.isFinite(ts)) return false;
+  if (!Number.isFinite(ts)) return { ok: false, reason: "bad-timestamp" };
   const seconds = ts > 1e12 ? ts / 1000 : ts; // tolerate a millisecond timestamp
-  if (Math.abs(p.now.getTime() / 1000 - seconds) > (p.toleranceSeconds ?? 300)) return false;
+  const skewSeconds = Math.round(p.now.getTime() / 1000 - seconds);
+  if (Math.abs(p.now.getTime() / 1000 - seconds) > (p.toleranceSeconds ?? 300)) return { ok: false, reason: "stale-timestamp", skewSeconds };
   const key = Buffer.from(p.secretBase64, "base64");
   const body = typeof p.rawBody === "string" ? p.rawBody : p.rawBody.toString("utf8");
   const expected = createHmac("sha256", key).update(`${p.timestamp}.${body}`).digest();
   let given: Buffer;
-  try { given = Buffer.from(p.signature, "base64"); } catch { return false; }
-  return given.length === expected.length && timingSafeEqual(given, expected);
+  try { given = Buffer.from(p.signature, "base64"); } catch { return { ok: false, reason: "signature-mismatch" }; }
+  return given.length === expected.length && timingSafeEqual(given, expected) ? { ok: true } : { ok: false, reason: "signature-mismatch" };
 }
+
+export const verifyDailyWebhook = (p: Parameters<typeof checkDailyWebhook>[0]): boolean => checkDailyWebhook(p).ok;
 
 /** Signs a body the way Daily does (used by tests, and handy for a one-off local check). */
 export function signDailyWebhook(secretBase64: string, timestamp: string, rawBody: string): string {

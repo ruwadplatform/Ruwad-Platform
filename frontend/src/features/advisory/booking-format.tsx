@@ -48,7 +48,7 @@ export const OUTCOME_LABEL: Record<string, string> = {
   FOUNDER_NO_SHOW: "The startup didn't attend",
   ADVISOR_NO_SHOW: "The advisor didn't attend",
   BOTH_NO_SHOW: "Neither attended",
-  NO_OVERLAP: "Both joined, but never at the same time",
+  NO_OVERLAP: "Both joined, but not together for long enough",
   UNKNOWN: "No attendance was recorded",
 };
 export const outcomeLabel = (o: string | null | undefined): string | null => (o ? OUTCOME_LABEL[o] ?? o : null);
