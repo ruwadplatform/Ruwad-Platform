@@ -8,10 +8,12 @@ const fs = require("node:fs");
 const { spawnSync } = require("node:child_process");
 const { evaluateEnv, isBase64Secret, isHttpsPublic, PRODUCTION_SITE } = require("./launch-config");
 
+// The values production has today (read from Lightsail deployment 10): the site address the owner uses for links is www, while FRONTEND_URL and the Google redirect stay on vercel.app.
+const VERCEL_APP = "https://ruwad-platform.vercel.app";
 const GOOD = {
   ADVISORY_ENABLED: "true", ADVISORY_VIDEO_PROVIDER: "daily", DAILY_API_KEY: "k".repeat(40), DAILY_DOMAIN: "ruwadstudio", DAILY_WEBHOOK_SECRET: Buffer.alloc(32, 7).toString("base64"),
   ADVISORY_EMAIL_MODE: "live", RESEND_API_KEY: "re_x".repeat(8), EMAIL_FROM: "RUWAD <no-reply@karama.tech>", ADMIN_NOTIFICATION_EMAIL: "admin@example.test",
-  APP_URL: PRODUCTION_SITE, FRONTEND_URL: `${PRODUCTION_SITE},https://ruwad.studio`, ADVISORY_SCHEDULER_ENABLED: "true", NODE_ENV: "production", RUN_MIGRATIONS: "false",
+  APP_URL: PRODUCTION_SITE, FRONTEND_URL: VERCEL_APP, GOOGLE_REDIRECT_URI: `${VERCEL_APP}/api/calendar/callback`, ADVISORY_SCHEDULER_ENABLED: "true", NODE_ENV: "production", RUN_MIGRATIONS: "false",
 };
 
 test("the intended launch environment passes every rule", () => {
@@ -21,10 +23,10 @@ test("the intended launch environment passes every rule", () => {
 });
 
 test("today's production (no Advisory settings) fails exactly the Advisory rules, not the unrelated ones", () => {
-  const today = { NODE_ENV: "production", RUN_MIGRATIONS: "false", RESEND_API_KEY: "re_x".repeat(8), EMAIL_FROM: "a@karama.tech", ADMIN_NOTIFICATION_EMAIL: "a@example.test", APP_URL: PRODUCTION_SITE, FRONTEND_URL: PRODUCTION_SITE };
+  const today = { NODE_ENV: "production", RUN_MIGRATIONS: "false", RESEND_API_KEY: "re_x".repeat(8), EMAIL_FROM: "ruwadplatform@karama.tech", ADMIN_NOTIFICATION_EMAIL: "a@example.test", APP_URL: VERCEL_APP, FRONTEND_URL: VERCEL_APP, GOOGLE_REDIRECT_URI: VERCEL_APP };
   const f = evaluateEnv(today).failing;
-  for (const n of ["ADVISORY_ENABLED", "ADVISORY_VIDEO_PROVIDER", "DAILY_API_KEY", "DAILY_DOMAIN", "DAILY_WEBHOOK_SECRET", "ADVISORY_EMAIL_MODE", "ADVISORY_SCHEDULER_ENABLED"]) assert.ok(f.includes(n), n);
-  for (const n of ["NODE_ENV", "RUN_MIGRATIONS", "RESEND_API_KEY", "APP_URL", "FRONTEND_URL"]) assert.ok(!f.includes(n), n);
+  for (const n of ["ADVISORY_ENABLED", "ADVISORY_VIDEO_PROVIDER", "DAILY_API_KEY", "DAILY_DOMAIN", "DAILY_WEBHOOK_SECRET", "ADVISORY_EMAIL_MODE", "ADVISORY_SCHEDULER_ENABLED", "APP_URL"]) assert.ok(f.includes(n), n); // APP_URL: set to the www address at the release
+  for (const n of ["NODE_ENV", "RUN_MIGRATIONS", "RESEND_API_KEY", "FRONTEND_URL"]) assert.ok(!f.includes(n), n); // FRONTEND_URL is fine as it is
 });
 
 test("each dangerous value is caught", () => {
@@ -36,6 +38,13 @@ test("each dangerous value is caught", () => {
   assert.deepEqual(bad({ DAILY_API_BASE: "http://localhost:9999" }), ["DAILY_API_BASE"]);
   assert.deepEqual(bad({ ADVISORY_EMAIL_MODE: "Live" }), ["ADVISORY_EMAIL_MODE"]); // exactly "live" only
   assert.deepEqual(bad({ APP_URL: "http://localhost:5174" }), ["APP_URL"]);
+  assert.deepEqual(bad({ APP_URL: VERCEL_APP }), ["APP_URL"]); // the owner chose the www address for links
+  assert.deepEqual(bad({ FRONTEND_URL: "http://localhost:5174" }), ["FRONTEND_URL"]);
+  assert.deepEqual(bad({ FRONTEND_URL: "" }), ["FRONTEND_URL"]);
+  // FRONTEND_URL is guarded against the change that would break Google Calendar sign-in, and is NOT forced to the www address
+  assert.deepEqual(bad({ FRONTEND_URL: PRODUCTION_SITE }), ["FRONTEND_URL"]);
+  assert.deepEqual(bad({ FRONTEND_URL: `${VERCEL_APP},${PRODUCTION_SITE}` }), []);
+  assert.deepEqual(bad({ FRONTEND_URL: PRODUCTION_SITE, GOOGLE_REDIRECT_URI: undefined }), []);
   assert.deepEqual(bad({ RUN_MIGRATIONS: "true" }), ["RUN_MIGRATIONS"]);
   assert.deepEqual(bad({ DAILY_WEBHOOK_SECRET: "short" }), ["DAILY_WEBHOOK_SECRET"]);
   assert.deepEqual(bad({ NODE_ENV: "development" }), ["NODE_ENV"]);
