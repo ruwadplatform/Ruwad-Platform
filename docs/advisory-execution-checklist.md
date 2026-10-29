@@ -25,6 +25,9 @@ Prepared 2026-10-29, updated after the owner approved Frankfurt (`eu-central-1`,
 
 ## 2. Database recovery status (read this before step 3)
 
+> **DECISION RECORD (owner, 2026-10-29): OWNER-ACCEPTED RISK. This is not a completed backup.** The owner will not create a separate manual database backup before launch. A production backup system will be implemented and verified **after the feature is published**. The release continues with the guarded migration procedure, the one-transaction safeguard and the before/after snapshot verification. The manual backup will **not** be requested again during the remaining steps unless a **new critical risk** is discovered. A new critical risk means one of: a step-3 stop condition fires and cannot be explained; the snapshot comparison reports PROBLEM (an existing table changed or disappeared); production data is found damaged or missing; or any production change affects data outside the Advisory tables. The risk stays **unresolved** and is listed as such in section 7 until a backup is implemented and its restore has been verified.
+
+
 - **No verified, recoverable backup exists, and none can be shown from here.** The owner deferred the manual dump. Supabase's own backup or point-in-time-recovery status could not be read (no access token; the dashboard is the only place to see it), and the plan's entitlements are unknown.
 - **One indirect signal, not a backup:** production reports WAL archiving on (`archive_mode on`, 1,159 segments archived, 0 failures, latest this morning). That suggests Supabase is archiving, but it does not prove a restore point exists, is retained, or that the owner's plan allows using it. Do not treat it as recovery capability.
 - **The before/after snapshot is evidence, not a backup.** It records row counts and schema fingerprints so we can prove existing tables were not altered. It cannot restore anything.
@@ -50,14 +53,14 @@ Twelve steps, in this order. **Each production-changing step (3, 4, 5, 7, 8, 10,
 | --- | --- | --- | --- |
 | 1 | Renew AWS login; fresh read-only baseline | owner says "start" | **GO** |
 | 2 | Recheck the migration plan (read-only) | with step 1 | **GO** |
-| 3 | Apply the four Advisory migrations | **separate approval** | **GO** (no-backup risk accepted; recorded below) |
+| 3 | Apply the four Advisory migrations | **separate approval** | **GO, prepared and waiting for authorisation** (no backup: OWNER-ACCEPTED RISK, section 2) |
 | 4 | Create the two secret files; apply the Lightsail environment update | **separate approval** | **GO** |
 | 5 | Push the release tip to `master` (backend deploys; Vercel builds, flag still off) | **separate approval; the owner pushes** | **GO** |
 | 6 | Verify the backend and the webhook endpoint (read-only) | with step 5 | **GO** |
 | 7 | Register the Daily.co production webhook | **separate approval** | **GO** (after step 6 passes) |
 | 8 | Set and verify Frankfurt `geo` | **separate approval** | **GO** (before any room exists) |
-| 9 | Responsible team confirms review of Daily's cross-border processing and Saudi PDPL | owner / responsible team | **NO-GO until recorded** |
-| 10 | Add `NEXT_PUBLIC_ADVISORY_ENABLED=true` in Vercel and redeploy | **separate approval** | **NO-GO until step 9 is recorded** (technically ready) |
+| 9 | Responsible team confirms review of Daily's cross-border processing and Saudi PDPL | owner / responsible team | **DEFERRED by the owner; NOT APPROVED. NO-GO until recorded** |
+| 10 | Add `NEXT_PUBLIC_ADVISORY_ENABLED=true` in Vercel and redeploy | **separate approval** | **NO-GO while step 9 is deferred** (technically ready) |
 | 11 | Controlled live smoke test | **separate approval** | follows step 10 |
 | 12 | Monitor for 24 hours | n/a | follows step 11 |
 
@@ -87,19 +90,36 @@ cd "C:\Users\muzza\Desktop\Mohd Muzzammil\Mohd Muzzammil Projects\ruwad"
 
 ### Step 3: apply the four Advisory migrations (separate authorisation)
 
-- **Preconditions:** steps 1 and 2 passed; nobody edits the database during the window; the owner has accepted the no-backup risk (section 2).
-- **Action:**
+**Status: prepared and verified, NOT applied. Waiting for the owner's explicit authorisation.** No backup exists (OWNER-ACCEPTED RISK, section 2); this step proceeds with the guarded tool, the one-transaction safeguard and the snapshot comparison.
+
+- **Verified for this step (2026-10-29):** baseline `docs/evidence/prod-prewindow-20261029-0946.json`, SHA-256 `3370993c7c985ac39b3eb50f31c5cf347fed73fbc4d347d9a4e02f0b4186ed82`; baseline compared with live production: identical, zero drift; plan READY with exactly 4 pending; target database `aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres` is the **same database the running backend uses** (host, port, database, role and credentials hash-identical to Lightsail deployment 10); PostgreSQL 17.6, `btree_gist` installed; production session: statement timeout 2 minutes, no lock or idle-in-transaction timeouts.
+- **Time-of-execution recheck (the first lines of the command below, all read-only):** AWS valid, Lightsail still ACTIVE version 10, `origin/master` still `e78d361`, plan still READY with 4 pending. **If any of them differs from the values in this document, stop.**
+- **Command** (one PowerShell, repository root; nobody edits the database during the run):
   ```powershell
+  cd "C:\Users\muzza\Desktop\Mohd Muzzammil\Mohd Muzzammil Projects\ruwad"
+  aws sts get-caller-identity --profile ruwad --region ap-southeast-2        # must succeed; if expired: aws login --profile ruwad
+  git fetch origin; git rev-parse --short origin/master                       # must print e78d361
+  aws lightsail get-container-services --service-name ruwad-backend --profile ruwad --region ap-southeast-2 --query "containerServices[0].currentDeployment.version" --output text   # must print 10
+  $env:DATABASE_URL = ((Select-String -Path backend\.env -Pattern '^\s*DATABASE_URL\s*=').Line -replace '^\s*DATABASE_URL\s*=\s*','').Trim().Trim('"').Trim("'")
+  node backend/scripts/ops/advisory-migrate.js plan                           # READY, btree_gist installed, 4 pending, target aws-0-ap-southeast-2.pooler.supabase.com:5432
   $h = ((node backend/scripts/ops/advisory-migrate.js plan | Select-String '^target: (\S+):\d+').Matches[0].Groups[1].Value)
-  $env:BACKUP_REFERENCE = "NO-BACKUP-OWNER-ACCEPTED-RISK-YYYY-MM-DD"     # honest text; the guard records it; it is NOT a backup
+  $h                                                                          # must print aws-0-ap-southeast-2.pooler.supabase.com
+  $env:BACKUP_REFERENCE = "NO-BACKUP-OWNER-ACCEPTED-RISK-2026-10-29"          # recorded text; NOT a backup
   $env:ADVISORY_MIGRATION_CONFIRM = "APPLY-ADVISORY-MIGRATIONS-TO $h"
   node backend/scripts/ops/advisory-migrate.js apply
   Remove-Item Env:BACKUP_REFERENCE, Env:ADVISORY_MIGRATION_CONFIRM
-  node backend/scripts/ops/prod-snapshot.js compare docs\evidence\prod-prewindow-YYYYMMDD-HHMM.json
+  node backend/scripts/ops/prod-snapshot.js compare docs\evidence\prod-prewindow-20261029-0946.json
+  Remove-Item Env:DATABASE_URL
   ```
-- **Expected:** `verification: migrations recorded 4/4; Advisory tables present 11/11`, `DONE`; then `EXISTING SCHEMA UNCHANGED` (`migrations 37 -> 41` and small row-count drift are normal). **Verify:** `https://www.ruwad.studio/dashboard` and `<backend>/api/health` still 200 (the running old code ignores the new tables).
-- **Stop if:** `apply` exits non-zero (nothing applied: one transaction; confirm with `plan`), or `compare` prints PROBLEM. **Never run `apply` again after DONE.**
-- **Rollback:** a failure applies nothing. After success, leave the additive tables (the old code ignores them); reverting is a last resort and destroys Advisory data with no backup (runbook section 11, level 5).
+- **Note on the tool's wording:** when `BACKUP_REFERENCE` is missing the tool says it wants "where the verified backup is". The text used here is deliberately the owner-accepted-risk record: it satisfies the tool's length check, the tool echoes it in its output, and it must never be read as evidence that a backup exists.
+- **Expected changes (rehearsed on a production-equivalent scratch copy):** **11 tables** created: `advisory_advisors`, `advisory_application_documents`, `advisory_application_events`, `advisory_availability_exceptions`, `advisory_availability_rules`, `advisory_booking_events`, `advisory_bookings`, `advisory_meeting_attendance`, `advisory_presence_events`, `advisory_services`, `advisory_webhook_events`; **3 enum types** (`advisory_advisors_status_enum`, `advisory_bookings_status_enum` including `EXPIRED`, `advisory_services_typeid_enum`); 24 `IDX_*` indexes and 11 primary keys; 9 check constraints; 1 double-booking exclusion constraint; **no foreign keys**; the `btree_gist` statement is a no-op. **No pre-existing table, enum or index is touched.** (Constraint totals differ between PostgreSQL 17 and 18: do not use them as a gate.)
+- **Expected output:** `CLI exit 0; executed:` the four migrations in order, `verification: migrations recorded 4/4; Advisory tables present 11/11`, `DONE: the Advisory migrations are applied. Do not run apply again.`; then `migrations added:` the four names, `EXISTING SCHEMA UNCHANGED`. Row-count differences in existing tables are informational (the live site keeps writing); `migrations 37 -> 41` is expected.
+- **Duration:** about 1.5 to 2 minutes (about 0.44 s per statement over this link, about 170 statements including start-up), within the 2-minute statement limit.
+- **Transaction behaviour:** all four run in **one transaction**: either all four commit or none. Proven: with migration 4 sabotaged, migrations 1 to 3 rolled back with it (no table, no migration record, no enum or index left). A dropped connection before the commit also rolls back, because the server discards uncommitted work. **If the connection dies exactly at the commit the outcome is unknown: do not re-run `apply`; run `plan`: "pending: 4" means nothing was applied, "ALREADY APPLIED" means it was.** Only new tables are created, so no lock is taken on any existing table.
+- **Verification after the run:** (1) the tool's `DONE` with 4/4 and 11/11; (2) `prod-snapshot.js compare` prints `EXISTING SCHEMA UNCHANGED` (every pre-existing table identical; only `advisory_*` tables added); (3) `https://www.ruwad.studio/dashboard` and `<backend>/api/health` return 200 (the running old code ignores the new tables); (4) `advisory-migrate.js plan` now says `ALREADY APPLIED`.
+- **Stop conditions (stop and tell the owner; do not continue to step 4):** any time-of-execution recheck differs from this document; `plan` says BLOCKED or shows anything other than 4 pending; the target host is not `aws-0-ap-southeast-2.pooler.supabase.com`; `apply` exits non-zero (then run `plan` to confirm nothing was applied); `compare` prints PROBLEM or lists a changed or missing existing table; `/dashboard` or `/api/health` stops returning 200. **Never run `apply` a second time after DONE.** Under the decision record, only an unexplained stop condition counts as a "new critical risk".
+- **Rollback:** a failure applies nothing. After a successful run, **leave the additive tables in place** (the old code ignores them); reverting them (runbook section 11, level 5) destroys their data and is a last resort, and there is no backup to fall back on.
+- **Approval:** required, and not given yet.
 
 ### Step 4: secret files, then the Lightsail environment update (separate authorisation)
 
@@ -185,6 +205,8 @@ node backend/scripts/ops/daily-webhook-production.js probe
 
 ### Step 9: responsible team confirms the cross-border and PDPL review (gate; no command)
 
+**Status (owner, 2026-10-29): DEFERRED. NOT APPROVED.** The review has not been confirmed, and the deferral is not an approval. Steps 1 to 8 may proceed on their own authorisations, but **step 10 (public activation) stays NO-GO until this is recorded as approved.**
+
 - **What must be confirmed and recorded by the owner:** the responsible team has reviewed Daily.co's cross-border processing **in the light of the facts in `advisory-daily-frankfurt-config.md` section 10** (media to Frankfurt; names, ids and IP addresses, logs and account data in Daily's US-hosted systems; no Saudi or Gulf region exists) and the applicable Saudi PDPL requirements, and accepts it, or has instructed changes first (for example neutral display names, or a different arrangement). I cannot make or verify that review.
 - **Blocks:** step 10. **If not confirmed: do not add the Vercel flag.** The backend can stay live with no visible entry point and no meeting can be created. **Rollback:** n/a.
 
@@ -200,7 +222,9 @@ node backend/scripts/ops/daily-webhook-production.js probe
 Runbook section 8, with the administrator account (A) and the second account (B): B applies; A approves; B sets hours and a service; A books the earliest slot (optionally check that a third pending request is refused); B approves; both join (one rejoins) and leave; check each person's attendance; B concludes it; **in Daily's dashboard confirm the session's media region is Frankfurt and recording and transcription are off**; then keep B as the first real advisor or **Suspend** B. Emails go to the owner mailboxes and `ruwadplatform@gmail.com`.
 - **Stop if:** an expected email does not arrive, the room does not open, attendance is not recorded within a minute, the region is not Frankfurt, or an error appears in the Lightsail logs. **Rollback:** Vercel first (hide the feature), then the rest; data is kept.
 
-### Step 12: monitor for 24 hours
+### Step 12: monitor for 24 hours, and the post-publication backup task
+
+**After publication (owner decision, 2026-10-29): implement and verify the production backup system.** "Verified" means a backup exists, is restorable (a restore test into a scratch database with matching table counts), and has a known schedule and retention. Until then the recovery risk stays unresolved (section 7). This is a tracked task, not a launch condition.
 
 Lightsail logs (5xx, email failures), Vercel errors, the Daily webhook state (must stay ACTIVE), Resend delivery, the Needs Review queue, incoming applications. The scheduler runs every 60 seconds.
 
@@ -224,9 +248,9 @@ $env:LIGHTSAIL_ROLLBACK_CONFIRM = "ROLLBACK-LIGHTSAIL ruwad-backend TO-VERSION-1
 
 ## 7. Remaining risks
 
-**Recovery risk (kept separate): the production database has no verified recoverable backup. The owner deferred it; it is an accepted, unresolved recovery risk (section 2).** The snapshot is not a backup.
+**Recovery risk (kept separate): OWNER-ACCEPTED RISK, unresolved. The production database has no verified recoverable backup; this is not a completed backup. The owner will implement and verify a production backup system after publication (section 2, decision record).** The snapshot comparison is evidence that existing tables were not altered; it is not a backup and cannot restore anything.
 
-**Compliance risks (unresolved until step 9 is recorded):**
+**Compliance risks (DEFERRED by the owner, NOT APPROVED; unresolved until step 9 is recorded as approved):**
 1. **Saudi PDPL position of the whole Daily.co arrangement is not established.** Frankfurt covers live media only. Metadata, logs, account data and webhook processing remain in Daily's US-hosted systems, media from Saudi participants crosses the border (to Germany), and Daily's DPA does not mention Saudi law. Regional routing must not be read as compliance.
 2. Frankfurt approval is a technical choice, not approval of all international personal-data processing.
 
@@ -238,4 +262,4 @@ $env:LIGHTSAIL_ROLLBACK_CONFIRM = "ROLLBACK-LIGHTSAIL ruwad-backend TO-VERSION-1
 
 ## 8. Recommendation
 
-**Steps 1 to 8: GO**, each only on the owner's separate authorisation and with the no-backup risk accepted. **Step 9: NO-GO until the responsible team's confirmation is recorded. Step 10 (public activation): NO-GO until step 9 is recorded.** Steps 11 and 12 follow step 10. Everything that can be verified from here is verified; owner confirmations are recorded as owner statements.
+**Steps 1 to 8: GO**, each only on the owner's separate authorisation, with the no-backup risk recorded as an **OWNER-ACCEPTED RISK** (not a backup). **Step 3 is prepared and waiting for authorisation.** **Step 9 is DEFERRED and NOT APPROVED, so step 10 (public activation) is NO-GO.** Steps 11 and 12 follow step 10. Everything that can be verified from here is verified; owner confirmations are recorded as owner statements.

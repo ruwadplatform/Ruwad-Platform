@@ -1,0 +1,317 @@
+{
+  "note": "Counts and schema fingerprints only (no row data). Not a backup.",
+  "takenAt": "2026-10-29T06:47:34.144Z",
+  "tables": {
+    "activity_logs": {
+      "rows": 21,
+      "schema": "76c75dbac1341abdaa7fe9d108754004aab03b169bef181427d6be95e5f9301e"
+    },
+    "ai_summaries": {
+      "rows": 9,
+      "schema": "d979d681482c6c72d962069a3f80690072461cbd985d76ac2b32a2a0e50eacbb"
+    },
+    "calendar_event_links": {
+      "rows": 0,
+      "schema": "c7fd85d00f9586eef0879160c7e68967995b1ba6d3cecbd013aaa466b00aef41"
+    },
+    "contacts": {
+      "rows": 14,
+      "schema": "83361abcfa7a8593c5de456ee32328da1f9bfa1fb52bf241a80a5d0dca133e53"
+    },
+    "content_sync_runs": {
+      "rows": 109,
+      "schema": "53bca58ef4d052762bea43981eb67aa11f2f000289ebbb6298f7d6ce10da12e6"
+    },
+    "data_room_access_requests": {
+      "rows": 3,
+      "schema": "039280d754b38dca14d535adce527081711dec12c112f4a0100592bbcccdca20"
+    },
+    "data_room_files": {
+      "rows": 0,
+      "schema": "a4733546a4fddb03e514a97006181c6c4e836eebf4d539f4c3207a4032086b16"
+    },
+    "entity_documents": {
+      "rows": 7,
+      "schema": "dca8014845b33d99440305195c795af3faac9364f28c08d741eda91d02c20f66"
+    },
+    "entity_memberships": {
+      "rows": 1,
+      "schema": "d893f4cc838d3dff49e825bafa96fca14cd19add62eef38d6a237d8fb5f93f12"
+    },
+    "entity_sectors": {
+      "rows": 32,
+      "schema": "04c93ee258b77ef0b57513edaaa94beb4cfdff3abdff451ec70ee946e85c6c39"
+    },
+    "events": {
+      "rows": 26,
+      "schema": "05f337af1b64a2ac200a0b086a9eb2578187d7d14534901f1beda9382225f87f"
+    },
+    "funding_rounds": {
+      "rows": 19,
+      "schema": "d9bca0e89b86f334b11895447fd570e29cf86e6e97d470ff36260c3ff774b17f"
+    },
+    "google_calendar_connections": {
+      "rows": 0,
+      "schema": "eda2159af783b37976945623b973227ad490c9152a29c1a4ff18b9223ee5db7f"
+    },
+    "historical_import_batches": {
+      "rows": 9,
+      "schema": "ae915ba47a4d99f26246b98a167e02e44e0dda7c97bdc4fead4cc3522cb8dbd8"
+    },
+    "historical_import_rows": {
+      "rows": 45,
+      "schema": "b6ab480892396334a18451a6926b861d075c58266e725aeaf4839df4bfb5f7c6"
+    },
+    "hub_portfolio_items": {
+      "rows": 12,
+      "schema": "3968ad399d76d1297d725f7224181e7e82a6d55705e0912d5521628f1838dfcc"
+    },
+    "hub_programs": {
+      "rows": 0,
+      "schema": "0eadb8e8e323d50df53b3f88b880e49a72da6ef66ea70d703c27934d301cfb5e"
+    },
+    "hubs": {
+      "rows": 8,
+      "schema": "a174b386e61f52c04930a0cc4a02ba770067e28b0c2b214c5a78049e7f589fed"
+    },
+    "introductions": {
+      "rows": 0,
+      "schema": "0243b1934ebdb5defc8645cfe8aa730484932f61034af9c6dbc07b8d3f99fa7a"
+    },
+    "investments": {
+      "rows": 8,
+      "schema": "a334c07a18934861bb9a65c7bf6ff06e55e96ce8566d9a449656050c8fad4fc2"
+    },
+    "investors": {
+      "rows": 11,
+      "schema": "de20b38232936ad56f74bbfbc2129c2fe7686970a47225df78bfcc5a6acaea0c"
+    },
+    "listing_claims": {
+      "rows": 0,
+      "schema": "2894008f4b986a3b616c0db22636b6f227ef0dbd9ed2ed687333d4dca5e1a398"
+    },
+    "migrations": {
+      "rows": 37,
+      "schema": "7ff3c09777c2659b565365e527f2807ac23c917ca1282b19f3bc674c7ca72329"
+    },
+    "ml_models": {
+      "rows": 7,
+      "schema": "b32e7de878bb417cc0d0a4fba2f24bea08a63948cab003fb7ab510616637429b"
+    },
+    "ml_predictions": {
+      "rows": 21,
+      "schema": "6e895572aa63262a28417b1b08347f7baa48500157ca86ceb9bdc1fe20f25055"
+    },
+    "ml_training_runs": {
+      "rows": 6,
+      "schema": "7b86168b31548af7f1c54b6cd0195197ebb0452b95128b26ed0a36c20d41e60c"
+    },
+    "multinationals": {
+      "rows": 12,
+      "schema": "dcbf2b5084865e75081206824d2dc209159325c34775a9cdc7551fe1326ae7b9"
+    },
+    "news_articles": {
+      "rows": 370,
+      "schema": "a6e63f23161de060d7aa481e7f641e6ecbbcb7dd2243e0e88906439744e5e127"
+    },
+    "news_related_entities": {
+      "rows": 0,
+      "schema": "decaf2ab1d76346f67c69729357e2d83971559e64bdd0dba8935151f01e7f79b"
+    },
+    "partnerships": {
+      "rows": 8,
+      "schema": "aaecb9fcee3d4edf6bd70255dfb67683bd29111abf51dd250689d6c81cb55f03"
+    },
+    "password_reset_tokens": {
+      "rows": 3,
+      "schema": "0d01ec8f062782fd9120da6c573e07324332e52ec5570c3cb3c7f45052d56b06"
+    },
+    "products": {
+      "rows": 11,
+      "schema": "0fac8617b7f037a2136cdbc7caa079de32b4b48273344822f19403faa112a375"
+    },
+    "publications": {
+      "rows": 0,
+      "schema": "24968c2e9e7699ab3f2a8af08860eb4b7c15530818f5ef386e25eb910b96dc70"
+    },
+    "report_files": {
+      "rows": 0,
+      "schema": "5ab38c23841f4aecb454e2631eb3b07e97890d190340590d253ece004c883ed6"
+    },
+    "report_review_tokens": {
+      "rows": 0,
+      "schema": "c1ac7c2461aedcfbee87052d82609d82652b8ddef46abbbda5474cd1f69fee50"
+    },
+    "report_submissions": {
+      "rows": 0,
+      "schema": "829f2f3104a2a0873cbf73c57599849f6e78db87c1fd5e8e221b0f0afc6c582d"
+    },
+    "reports": {
+      "rows": 7,
+      "schema": "6c669774a0991488ed933fff1ca256befeef844686acf4598c3730ecd3678157"
+    },
+    "research_cache": {
+      "rows": 62,
+      "schema": "32ccaf273480dcff05c1f9eb3b87c878db6f6024b60e716f2c5722e185909337"
+    },
+    "research_institutions": {
+      "rows": 7,
+      "schema": "85ca4e8e5eeedada8269bceda24d1efd0eebda2a0fd2c58e056c25ac67862019"
+    },
+    "research_projects": {
+      "rows": 0,
+      "schema": "bae002cf205fcac3be57530dd6fdcee72bfb27a4e0c16e56a6dc03caf18a075a"
+    },
+    "research_technologies": {
+      "rows": 0,
+      "schema": "a7462409676343389660f8087c968dd474912d5240b6930f6b5875d2ebbe03ba"
+    },
+    "researchers": {
+      "rows": 0,
+      "schema": "96df3f0556e130eee0eee63ebbd7a30a859d913352a5f55141cbd33c7a981468"
+    },
+    "saved_searches": {
+      "rows": 0,
+      "schema": "cf798e04aa9c664c80bf8a52ab501b020d59c08a9a4474b3e1e22b620c8313e0"
+    },
+    "sectors": {
+      "rows": 11,
+      "schema": "ff6d8db922ef6324d741c32e72a0e825141bf1ab14bc4623cb1a347b3e65ac37"
+    },
+    "startup_external_identities": {
+      "rows": 22,
+      "schema": "e97f9fdedf59dcace2fcee199f9debbf19309f8e28f7e0331da0c169eb3a057a"
+    },
+    "startup_feature_applicability": {
+      "rows": 0,
+      "schema": "d1d815bf1bdccfeb5f386ec22350c60eccf8639f0bf50272d706bf3926d9b621"
+    },
+    "startup_founder_career": {
+      "rows": 0,
+      "schema": "c677a994e1c4652377ff034c42a0bfe0ec994c41ee9c7366b0ece4c41844ec35"
+    },
+    "startup_historical_cohort_members": {
+      "rows": 0,
+      "schema": "6e7ec34dc08073f065c82822cd9940db87c4aaa3cb5c6a3c5b756724ad26cfdb"
+    },
+    "startup_historical_cohorts": {
+      "rows": 0,
+      "schema": "7c32990bb6d0348ddfe0bf594b174357e83c96524d729feac1cdbefaa140a4b6"
+    },
+    "startup_historical_evidence": {
+      "rows": 35,
+      "schema": "48dcae1b1b6b8c91a5d9b547eaf08ecdad7be35594b2d7c0b2448981a572df2f"
+    },
+    "startup_historical_evidence_audit": {
+      "rows": 0,
+      "schema": "a4700421ad3378e75f40180171fb8d89de2bc25b6a68ab7a8b71605902815062"
+    },
+    "startup_historical_submissions": {
+      "rows": 0,
+      "schema": "be48c9e3efd810ab824f33926fae87e83d0b0c19ccf49db6178843666507b5a5"
+    },
+    "startup_ml_feature_snapshots": {
+      "rows": 55,
+      "schema": "b0a87fd7c045295db89e7bab558d4c2381feab51483af58bf88f1d54905d557e"
+    },
+    "startup_outcome_coverage": {
+      "rows": 6,
+      "schema": "a32b7d83720388a88477b23f9db60da8e0f55db6da76567d28da61b88fa08878"
+    },
+    "startup_outcome_events": {
+      "rows": 16,
+      "schema": "f4039d70e0f0531cd924a38548fbbfb1a20ee9f9ad0a24a3fc8f7305254c3a4a"
+    },
+    "startup_score_history": {
+      "rows": 39,
+      "schema": "47efa657c8c6572defe06c93d24d3258eb9d7b27eb7e271ae72daccf51b0522c"
+    },
+    "startup_scoring_feature_audit": {
+      "rows": 0,
+      "schema": "569ada7891f82a3f83d527019cd2fe790ddc8cea333e963c2e8c135cfa71252f"
+    },
+    "startup_scoring_features": {
+      "rows": 20,
+      "schema": "5410f5a517cbed3b08de4c05f27c6e7b557a21d5bf866026ee9c2b605da32798"
+    },
+    "startups": {
+      "rows": 28,
+      "schema": "8d4fdea9c3060ce36a8c93ac8b7b3391e104b8b096d7e729720097dc8b1459a7"
+    },
+    "submission_review_events": {
+      "rows": 65,
+      "schema": "39aac70d63ef9fec52d0b09029d2a68cabb4e251ed32e556bd1cafc384fbd799"
+    },
+    "submissions": {
+      "rows": 18,
+      "schema": "db9424b7d2e6284b43b98d30a1bfe45261e7deeaf2cd8b74f1285868493e3ed3"
+    },
+    "team_members": {
+      "rows": 276,
+      "schema": "2b5ac57361c2c9211e3cd795f636ce4428ffe1dc543adbb4732d60f009da718e"
+    },
+    "uploaded_images": {
+      "rows": 58,
+      "schema": "26df1a5f407678e175c720885ee861540ee30fc374a0ed656fee4e24311e063a"
+    },
+    "user_settings": {
+      "rows": 1,
+      "schema": "e1663276591037b3fa2f5631e03996ab79b1125bc8b3ae261eec0fde95d9f8af"
+    },
+    "users": {
+      "rows": 1,
+      "schema": "6f65edbbc7cf92d3f6ae353d57c98de74de3e6930ed88b5d00a58053012da07f"
+    },
+    "watchlist_items": {
+      "rows": 1,
+      "schema": "d906a6f7b4135aee4399b752297eb2af7fcf13aa0d6c76aecd023104e3e79603"
+    }
+  },
+  "migrations": [
+    "InitialSchema1788897746772",
+    "AddResearchChildTables1788898449982",
+    "AddProfileExtras1788901451414",
+    "AddNewsEntitySlug1788936384552",
+    "AddReportProvenance1788936610626",
+    "AddSubmissionLifecycle1788944890788",
+    "AddLogoUploads1789044122805",
+    "AddOrganizationDetailsAndInterests1789459829097",
+    "AddPasswordResetTokens1789600000000",
+    "AddUserProfileImage1789700000000",
+    "AddHubTypeDetails1789800000000",
+    "AddNewsEventsIngestion1789900000000",
+    "AddGoogleCalendar1790000000000",
+    "AddReportGenerationAndResearchCache1790100000000",
+    "AddUserPhone1790200000000",
+    "AddUserReportSubmissions1790300000000",
+    "AddReportLibraryContent1790400000000",
+    "AddListingClaims1790500000000",
+    "AddRealStartupScoring1790600000000",
+    "AddTeamMemberScoringFields1790700000000",
+    "AddMlOutcomeEvents1790800000000",
+    "AddMlFeatureSnapshots1790900000000",
+    "AddMlTrainingFramework1791000000000",
+    "AddHistoricalDataAcquisition1792000000000",
+    "AddSnapshotSelectionMethod1793000000000",
+    "AddReadinessV2Foundations1793100000000",
+    "AddExperimentalModelStatus1793200000000",
+    "AddExperimentalPredictionFields1793300000000",
+    "AddBackfillScoreTrigger1793400000000",
+    "AddStartupScoringBasis1793500000000",
+    "AddInvestorVerifiedTier1793600000000",
+    "AddInvestorWebsite1793700000000",
+    "DefaultStartupScoringBasisToExistingData1793800000000",
+    "AddTeamMemberLinkedin1793900000000",
+    "CreateDataRoomFiles1794000000000",
+    "CreateAiSummaries1794100000000",
+    "AddAiSummaryWebSources1794200000000"
+  ],
+  "extensions": [
+    "btree_gist 1.7",
+    "pg_stat_statements 1.11",
+    "pgcrypto 1.3",
+    "plpgsql 1.0",
+    "supabase_vault 0.3.1",
+    "uuid-ossp 1.1"
+  ]
+}
