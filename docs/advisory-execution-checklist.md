@@ -1,6 +1,6 @@
 # Advisory Services: launch execution checklist (Step 8)
 
-Prepared 2026-10-29 for release candidate `5ae8522` (runtime code identical to `2998868`). **Nothing in this document has been executed.** Every stage below needs the owner's explicit approval before it runs. All commands are PowerShell, run from the repository root `...\Mohd Muzzammil Projects\ruwad`, and use only scripts that exist in this repository with the arguments they actually support (checked against the code on 2026-10-29). No secret is ever printed, pasted or committed.
+Prepared 2026-10-29 for the release candidate (runtime code identical to `2998868`; see `advisory-daily-region-decision.md` section 7 for which commit to deploy: the final documentation-only tip, not `5ae8522`). **Nothing in this document has been executed.** Every stage below needs the owner's explicit approval before it runs. All commands are PowerShell, run from the repository root `...\Mohd Muzzammil Projects\ruwad`, and use only scripts that exist in this repository with the arguments they actually support (checked against the code on 2026-10-29). No secret is ever printed, pasted or committed. **Updated for the Daily.co regional-routing decision: stage 4b and gate G-DAILY below.**
 
 ## 1. Verification status (what is independent and what is an owner statement)
 
@@ -20,7 +20,7 @@ Prepared 2026-10-29 for release candidate `5ae8522` (runtime code identical to `
 | Vercel production branch `master`, auto-deploy on, flag not configured | **Owner statement** (flag absence also verified from outside) | |
 | Resend shows `karama.tech` Verified | **Owner statement** (DNS records exist, which is consistent) | |
 | Daily billing and usage alert; second smoke-test account; mailbox monitored | **Owner statements** | |
-| Daily.co data-residency arrangement reviewed and approved by the responsible team | **Owner statement.** Recorded as a decision; not something I can verify | |
+| **Daily.co data residency: owner decision is REGION (regional routing), investigated and still OPEN** | **Not approved.** An earlier version of this table wrongly showed this as approved. Routing governs only live media; metadata, logs and webhook data stay with Daily's US systems. Needs the owner's choice of region and mechanism and counsel's re-review: see `advisory-daily-region-decision.md`. **Gate G-DAILY blocks stage 6.** | |
 
 ## 2. Database recovery status (read this before stage 1)
 
@@ -43,7 +43,7 @@ Checked against the code production is running now (`origin/master`):
 
 ## 4. Order of execution
 
-0 baseline and secrets, 1 migrations, 2 environment, 3 merge and backend deploy, 4 backend and endpoint verification, 5 Daily webhook, 6 Vercel activation, 7 live smoke test, 8 watch. **The frontend is last, behind a verified backend and webhook.** Expected elapsed time about 30 to 45 minutes; backend live to feature public about 5 to 10 minutes.
+0 baseline and secrets, 1 migrations, 2 environment, 3 merge and backend deploy, 4 backend and endpoint verification, **4b Daily region (domain `geo`, before any room exists)**, 5 Daily webhook, **gate G-DAILY**, 6 Vercel activation, 7 live smoke test, 8 watch. **The frontend is last, behind a verified backend, webhook and the Daily region decision.** Expected elapsed time about 30 to 45 minutes; backend live to feature public about 5 to 10 minutes.
 
 ## 5. Stage by stage
 
@@ -109,14 +109,14 @@ $env:DATABASE_URL = ((Select-String -Path backend\.env -Pattern '^\s*DATABASE_UR
 
 ### Stage 3: merge to `master` and backend deploy (approval required; the owner performs it)
 
-- **Preconditions:** stages 1 and 2 passed; `git fetch origin` shows `origin/master` still `e78d361`; the candidate is `5ae8522`.
+- **Preconditions:** stages 1 and 2 passed; `git fetch origin` shows `origin/master` still `e78d361`; the candidate is the **final documentation-only tip** of the branch, called `<tip>` below (see `advisory-daily-region-decision.md` section 7: `5ae8522` and `d90a5b1` have identical runtime code; the tip adds only documents). Before pushing, prove it: `git diff --name-only 2998868 <tip> | Select-String -NotMatch '^(docs/|backend/scripts/ops/)'` must print nothing.
 - **How the deploy is triggered (read from `.github/workflows/deploy-backend-lightsail.yml`):** it runs **only on a push to `master`** that touches `backend/**`, `package*.json`, `infra/aws/**` or the workflow, plus manual `workflow_dispatch`. AWS access is a short-lived OIDC token valid only for `master`. It builds the image, deploys it by copying the current deployment's environment and swapping only the image, and waits for ACTIVE and `/api/health`. There is no other GitHub CI in this repository, so a pull request has no test checks: the local test results above are the evidence.
 - **Actions (preferred: exact commits, local `master` untouched):**
   ```powershell
   git fetch origin
   git rev-parse --short origin/master        # must print e78d361
   git push -u origin feature/advisory-services     # publishes the branch; deploys nothing (workflow is master-only); Vercel may build a preview
-  git push origin 5ae8522:refs/heads/master         # fast-forwards master to the verified commit; triggers the Lightsail workflow AND the Vercel production build
+  git push origin <tip>:refs/heads/master         # fast-forwards master to the verified commit; triggers the Lightsail workflow AND the Vercel production build
   ```
   If branch protection refuses the direct push, open a pull request from `feature/advisory-services` and merge it with **Create a merge commit** (the result has the identical tree because `master` has no newer commits). Do not use squash or rebase (they rewrite the verified commits). The local `master` branch is stale and must not be used.
 - **Expected:** one workflow run; the Lightsail deployment list shows a new version (12) ACTIVE with an image newer than `api.8`; Vercel builds the commit with the Advisory flag **still unset**, so the site looks exactly as today.
@@ -140,6 +140,26 @@ $env:DATABASE_URL = ((Select-String -Path backend\.env -Pattern '^\s*DATABASE_UR
 - **Expected:** `health 200`; `[]` and `advisors 200`; `admin 401`; `startups 200`; probe prints `HTTP 401 -> READY (signatures are enforced)`.
 - **Stop if:** advisors is 404 (Advisory off or old image), the probe prints 404 (flag or secret missing) or anything else, or any existing endpoint fails.
 - **Rollback:** as stage 3. **Approval:** the probe sends one unsigned POST to production (it changes nothing); include it in the approval for stage 5.
+
+### Stage 4b: Daily region (approval required; a Daily account setting, not a Lightsail or Vercel change)
+
+- **Preconditions:** the owner has chosen the region and mechanism (recommendation: domain `geo = "eu-central-1"`, Frankfurt, option A in `advisory-daily-region-decision.md`); **0 rooms exist** on the Daily account (`daily-webhook-production.js list` shows `rooms: 0`).
+- **Action (documented Daily request, using the production key from `~\secure\daily-api-key.txt`; no repository script exists for this, so it is a one-off):**
+  ```powershell
+  $k = (Get-Content "$HOME\secure\daily-api-key.txt" -Raw).Trim()
+  Invoke-RestMethod -Method Post -Uri "https://api.daily.co/v1/" -Headers @{ Authorization = "Bearer $k" } -ContentType "application/json" -Body '{"properties":{"geo":"eu-central-1"}}' | Out-Null
+  (Invoke-RestMethod -Uri "https://api.daily.co/v1/" -Headers @{ Authorization = "Bearer $k" }).config.geo      # must print eu-central-1
+  Remove-Variable k
+  ```
+  (The Daily dashboard's domain settings do the same.)
+- **Expected:** the read-back prints `eu-central-1`; nothing else changes.
+- **Verify later:** during the smoke test, check the session's region in Daily's dashboard; I have not verified whether a room read-back shows an inherited domain `geo`.
+- **Stop if:** Daily rejects the property or the read-back differs; do not continue to stage 6 without a confirmed region.
+- **Rollback:** set `geo` back to null through the dashboard or the same request with `null` (how to unset is not documented: try it in the window). No room or data exists to lose.
+
+### Gate G-DAILY (before stage 6, no change)
+
+All three must be true: (1) the owner has chosen the region and mechanism; (2) counsel has re-reviewed the arrangement knowing that routing covers **live media only** and that names, ids and IP addresses reach Daily's US-hosted systems regardless (and has confirmed the PDPL position, which routing alone does not settle); (3) stage 4b is done and read back. If any is missing, **do not add the Vercel flag**: the backend can stay live with no visible entry point, and no meeting can be created.
 
 ### Stage 5: register the Daily webhook (approval required)
 
@@ -194,6 +214,7 @@ node backend/scripts/ops/lightsail-rollback.js apply 10
 
 ## 7. Remaining technical risks
 
+0. **Daily.co data residency / PDPL: OPEN (owner decision REGION).** A launch blocker until gate G-DAILY is satisfied. Separate from, and not a substitute for, the no-backup risk below.
 1. **No recoverable backup (accepted).** The only unmitigated risk in the release.
 2. Daily webhook delivery has never been exercised against production (protocol proven locally in Step 4); billing and the endpoint are owner-confirmed only.
 3. Live email through Resend has never been exercised from this branch; the smoke test is its first real run.
@@ -203,4 +224,4 @@ node backend/scripts/ops/lightsail-rollback.js apply 10
 
 ## 8. Recommendation
 
-**GO**, conditional on the owner's explicit approval of each stage and acceptance of the no-backup risk. Everything that can be verified from here is verified; the six owner confirmations are recorded as owner statements, not as independent checks.
+**GO for stages 0 to 5, NO-GO for stage 6 (public activation) until gate G-DAILY is satisfied**, and in all cases conditional on the owner's explicit approval of each stage and acceptance of the **separately documented** no-backup risk (section 2). Everything that can be verified from here is verified; the owner confirmations are recorded as owner statements, not as independent checks. The earlier line that showed Daily data residency as approved was wrong and has been corrected.
