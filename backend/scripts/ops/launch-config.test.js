@@ -33,6 +33,8 @@ test("each dangerous value is caught", () => {
   const bad = (over) => evaluateEnv({ ...GOOD, ...over }).failing;
   assert.deepEqual(bad({ ADVISORY_MIGRATIONS: "true" }), ["ADVISORY_MIGRATIONS"]);
   assert.deepEqual(bad({ ADVISORY_AUTOCOMPLETE_ENABLED: "true" }), ["ADVISORY_AUTOCOMPLETE_ENABLED"]);
+  assert.deepEqual(bad({ ADVISORY_BOOKINGS_ENABLED: "true" }), ["ADVISORY_BOOKINGS_ENABLED"]); // booking is not open yet: switching it on is flagged
+  assert.deepEqual(bad({ ADVISORY_BOOKINGS_ENABLED: "false" }), []);
   assert.deepEqual(bad({ ADVISORY_MAX_PENDING_REQUESTS: "50" }), ["ADVISORY_MAX_PENDING_REQUESTS"]);
   assert.deepEqual(bad({ ADVISORY_MAX_PENDING_REQUESTS: "2" }), []);
   assert.deepEqual(bad({ DAILY_API_BASE: "http://localhost:9999" }), ["DAILY_API_BASE"]);

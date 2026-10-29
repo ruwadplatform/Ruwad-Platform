@@ -1,6 +1,7 @@
-import { Body, Controller, Delete, Get, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Header, Headers, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, Res, UploadedFiles, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileFieldsInterceptor } from "@nestjs/platform-express";
 import type { Response } from "express";
+import { ConfigService } from "@nestjs/config";
 import { Throttle } from "@nestjs/throttler";
 import { ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -17,6 +18,7 @@ import { AdvisoryAttendanceService } from "./advisory-attendance.service";
 import { AdvisoryMeetingService } from "./advisory-meeting.service";
 import { AdvisoryAdvisor } from "./advisory.entities";
 import { AdvisoryEnabledGuard, ApprovedAdvisorGuard, CurrentAdvisor } from "./advisory.guards";
+import { AdvisoryBookingsEnabledGuard, bookingsEnabled } from "./advisory-bookings-gate";
 import {
   BookingListQueryDto, OutcomeDto, PresenceDto, CreateBookingDto, CreateServiceDto, DatesQueryDto, NoteDto, ProposeRescheduleDto, ReasonDto, ReviewAdvisorDto, SetAvailabilityDto,
   SlotQueryDto, TimeOffDto, UpdateAdvisorProfileDto, UpdateServiceDto, VerificationDto,
@@ -25,6 +27,17 @@ import {
 type ApplicationUploads = { cv?: Express.Multer.File[]; certificates?: Express.Multer.File[]; photo?: Express.Multer.File[] };
 /** Held in memory only long enough to be checked and stored. This stops an oversized upload early; the exact per-type limits are enforced by the service. */
 const APPLICATION_UPLOAD = FileFieldsInterceptor([{ name: "cv", maxCount: 2 }, { name: "certificates", maxCount: 8 }, { name: "photo", maxCount: 2 }], { limits: { fileSize: 2 * 1024 * 1024, files: 12, fields: 4, parts: 20 } });
+
+/** What the public screens need to know before they offer a booking. Public, read-only, nothing secret, never cached. The booking routes enforce the same
+ * switch themselves (AdvisoryBookingsEnabledGuard); this only lets a screen say so before a person fills anything in. */
+@ApiTags("advisory")
+@Controller("advisory/status")
+@UseGuards(AdvisoryEnabledGuard)
+export class AdvisoryStatusController {
+  constructor(private readonly config: ConfigService) {}
+
+  @Get() @Header("Cache-Control", "no-store") status() { return { bookingsEnabled: bookingsEnabled((k) => this.config.get<string>(k)) }; }
+}
 
 /** Public: the directory, profiles and open slots. No sign-in needed, exactly as the screens are public. */
 @ApiTags("advisory")
@@ -47,20 +60,21 @@ export class AdvisoryBookingsController {
   constructor(private readonly bookings: AdvisoryBookingsService, private readonly meeting: AdvisoryMeetingService, private readonly attendance: AdvisoryAttendanceService) {}
 
   @Get("my-startups") myStartups(@CurrentUser() u: AuthUser) { return this.bookings.myStartups(u.userId); }
-  @Post("bookings") create(@CurrentUser() u: AuthUser, @Body() dto: CreateBookingDto) { return this.bookings.create(u, dto); }
+  /** Consultation bookings are switched off by default (ADVISORY_BOOKINGS_ENABLED): the guard answers 403 BOOKINGS_DISABLED before anything is created. */
+  @UseGuards(AdvisoryBookingsEnabledGuard) @Post("bookings") create(@CurrentUser() u: AuthUser, @Body() dto: CreateBookingDto) { return this.bookings.create(u, dto); }
   @Get("bookings/mine") mine(@CurrentUser() u: AuthUser) { return this.bookings.listMine(u); }
   @Get("bookings/:id") detail(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.detail(u, id); }
   @Post("bookings/:id/cancel") cancel(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: ReasonDto) { return this.bookings.cancel(u, id, dto.reason); }
   @Get("bookings/:id/reschedule/dates") rescheduleDates(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.rescheduleDates(u, id); }
   @Get("bookings/:id/reschedule/slots") rescheduleSlots(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Query("date") date: string) { return this.bookings.rescheduleSlots(u, id, date ?? ""); }
-  @Post("bookings/:id/reschedule") propose(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: ProposeRescheduleDto) { return this.bookings.proposeReschedule(u, id, dto); }
-  @Post("bookings/:id/reschedule/accept") accept(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.acceptReschedule(u, id); }
+  @UseGuards(AdvisoryBookingsEnabledGuard) @Post("bookings/:id/reschedule") propose(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: ProposeRescheduleDto) { return this.bookings.proposeReschedule(u, id, dto); }
+  @UseGuards(AdvisoryBookingsEnabledGuard) @Post("bookings/:id/reschedule/accept") accept(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.acceptReschedule(u, id); }
   @Post("bookings/:id/reschedule/decline") decline(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: NoteDto) { return this.bookings.declineReschedule(u, id, dto.note); }
   /** The meeting room's state (not open yet / open / ended) and whether the caller can join now. Visible to the booking's participants and administrators. */
   @Get("bookings/:id/meeting") meetingStatus(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.meeting.status(u, id); }
   /** Join the meeting: returns a short-lived, single-room token. Only the advisor and the startup's owner/admin, only for a CONFIRMED booking, only inside the join window. */
   @Throttle({ default: { limit: 12, ttl: 60_000 } })
-  @Post("bookings/:id/meeting/join") joinMeeting(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.meeting.join(u, id); }
+  @UseGuards(AdvisoryBookingsEnabledGuard) @Post("bookings/:id/meeting/join") joinMeeting(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.meeting.join(u, id); }
   /** A person in a SIMULATED room reports that they joined or left. Refused for real meetings (their attendance comes from the video provider). */
   @Post("bookings/:id/meeting/presence") presence(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: PresenceDto) { return this.attendance.recordPresence(u, id, dto.event); }
   /** The advisor, or an administrator, records what happened at a consultation that has ended (it becomes COMPLETED with that outcome). */
@@ -121,7 +135,7 @@ export class AdvisoryAdvisorController {
   }
 
   @UseGuards(ApprovedAdvisorGuard) @Get("bookings") bookingsList(@CurrentAdvisor() a: AdvisoryAdvisor) { return this.bookings.listForAdvisor(a); }
-  @UseGuards(ApprovedAdvisorGuard) @Post("bookings/:id/approve") approve(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.approve(u, id); }
+  @UseGuards(AdvisoryBookingsEnabledGuard, ApprovedAdvisorGuard) @Post("bookings/:id/approve") approve(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.approve(u, id); }
   @UseGuards(ApprovedAdvisorGuard) @Post("bookings/:id/reject") reject(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string, @Body() dto: NoteDto) { return this.bookings.reject(u, id, dto.note); }
   @UseGuards(ApprovedAdvisorGuard) @Post("bookings/:id/complete") complete(@CurrentUser() u: AuthUser, @Param("id", ParseUUIDPipe) id: string) { return this.bookings.complete(u, id); }
 

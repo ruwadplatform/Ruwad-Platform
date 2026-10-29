@@ -136,6 +136,7 @@
 .adv-summary dd{margin:0;font-weight:600;text-align:right}
 .adv-continue{margin-top:4px}
 .adv-booking-foot{margin:10px 0 0;font-size:var(--fs-12);line-height:1.5;color:var(--muted);text-align:center}
+.adv-contact-link{font-weight:600;color:var(--info);text-decoration:underline;text-underline-offset:2px}
 
 /* ---- booking calendar ---- */
 .adv-cal{margin-top:10px;padding:12px;border:1px solid rgba(37,99,166,.4);border-radius:var(--radius-md);background:var(--bg-1,#fff)}

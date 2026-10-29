@@ -1,6 +1,9 @@
 "use client";
 
 import { useModal } from "@/components/shell/ModalProvider";
+import { BOOKINGS_NOT_OPEN_NOTE } from "./booking-availability";
+import { ContactRuwadLink } from "./ContactRuwadLink";
+import { useBookingsStatus } from "./use-bookings-status";
 
 const STEPS: { title: string; body: string }[] = [
   { title: "Find an advisor", body: "Search or filter by name, institution, specialization or expertise." },
@@ -14,6 +17,7 @@ const STEPS: { title: string; body: string }[] = [
 /** The "How It Works" explainer opened from the Advisory Services header. */
 export function HowItWorksModal() {
   const { closeModal } = useModal();
+  const bookings = useBookingsStatus();
   return (
     <div className="modal-box-pad adv-how">
       <h3 className="fs-15">How Advisory Services works</h3>
@@ -29,6 +33,7 @@ export function HowItWorksModal() {
         ))}
       </ol>
       <p className="small muted mt-16">Advisory Services is being introduced in stages.</p>
+      {bookings !== "open" && <p className="small mt-8"><b>{BOOKINGS_NOT_OPEN_NOTE}</b> <ContactRuwadLink className="adv-contact-link" details={{}}>Contact RUWĀD</ContactRuwadLink></p>}
       <button type="button" className="btn btn-primary btn-block mt-16" onClick={closeModal}>Got it</button>
     </div>
   );

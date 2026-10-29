@@ -3,6 +3,7 @@
  *
  *   npm run build && node scripts/dev/local-backend.js        (npm run start:local)
  *   node scripts/dev/local-backend.js --real-daily            (npm run start:local -- --real-daily)   explicit opt-in, see below
+ *   node scripts/dev/local-backend.js --bookings              (npm run start:local -- --bookings)     switch consultation bookings ON (they are OFF by default, as in production)
  *
  * backend/.env holds production credentials. This runner never lets them reach the local process (see local-env.js):
  *   - it hands the backend an EXPLICIT environment (a few system variables + local values), not a copy of the shell's;
@@ -29,7 +30,7 @@ if (!fs.existsSync(main)) {
 
 let plan;
 try {
-  plan = localBackendEnv({ realDaily: process.argv.includes("--real-daily") });
+  plan = localBackendEnv({ realDaily: process.argv.includes("--real-daily"), bookings: process.argv.includes("--bookings") });
 } catch (e) {
   console.error(`[local-backend] ${e.message.replace(/^local-backend: /, "")}`);
   process.exit(1);

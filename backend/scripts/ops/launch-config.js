@@ -38,6 +38,7 @@ const RULES = [
   { name: "RUN_MIGRATIONS", why: "the container must never apply migrations at start; the one approved migration run is done by hand", check: (v) => v === "false", expect: "false" },
   // Must be absent (or, where noted, at the agreed value):
   { name: "ADVISORY_MIGRATIONS", why: "must NOT be on a running service (it is only for the one migration command)", check: (v) => !isSet(v), expect: "absent", forbidden: true },
+  { name: "ADVISORY_BOOKINGS_ENABLED", why: "online consultation booking is not open yet: absent (or anything but \"true\") keeps every booking route answering 403 BOOKINGS_DISABLED", check: (v) => v !== "true", expect: "absent or not \"true\"", forbidden: true },
   { name: "ADVISORY_AUTOCOMPLETE_ENABLED", why: "automatic completion is not approved", check: (v) => v !== "true", expect: "absent or not \"true\"", forbidden: true },
   { name: "ADVISORY_MAX_PENDING_REQUESTS", why: "the agreed limit is the built-in 2", check: (v) => !isSet(v) || v.trim() === "2", expect: "absent (or 2)", forbidden: true },
   { name: "DAILY_API_BASE", why: "must be Daily's real API", check: (v) => !isSet(v) || /^https:\/\/api\.daily\.co\/v1\/?$/.test(v.trim()), expect: "absent", forbidden: true },

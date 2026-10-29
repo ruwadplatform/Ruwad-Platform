@@ -34,6 +34,9 @@ export function fetchSlots(advisorId: string, serviceId: string, date: string): 
 
 // ---- a founder's bookings --------------------------------------------------------------------------------------------------------------------------
 
+/** Public and read-only: whether online consultation booking is open. The server enforces it on every booking route; this lets the screens say so first. */
+export const fetchAdvisoryStatus = () => api.get<{ bookingsEnabled: boolean }>("/advisory/status");
+
 export const fetchMyStartups = () => api.get<BookableStartup[]>("/advisory/my-startups");
 export const createBooking = (body: { advisor: string; serviceId: string; startupId: string; startsAt: string; description?: string }) => api.post<BookingView>("/advisory/bookings", body);
 export const fetchMyBookings = () => api.get<BookingView[]>("/advisory/bookings/mine");

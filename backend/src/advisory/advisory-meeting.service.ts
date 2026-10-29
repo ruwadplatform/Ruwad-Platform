@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { ConflictException, ForbiddenException, Inject, Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { BookingsDisabledException, bookingsEnabled } from "./advisory-bookings-gate";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { AuthUser } from "../common/decorators/current-user.decorator";
@@ -58,6 +59,7 @@ export interface MeetingStatus {
 export class AdvisoryMeetingService {
   private readonly logger = new Logger(AdvisoryMeetingService.name);
   readonly config: VideoConfig;
+  private readonly bookingsOn: boolean;
   private readonly simulated = new MockVideoProvider();
 
   constructor(
@@ -70,6 +72,7 @@ export class AdvisoryMeetingService {
     private readonly attendance: AdvisoryAttendanceService,
   ) {
     this.config = readVideoConfig((k) => config.get<string>(k));
+    this.bookingsOn = bookingsEnabled((k) => config.get<string>(k));
   }
 
   /** What a booking would use: simulated for demonstrations (and for the mock provider), the configured provider otherwise. */
@@ -97,6 +100,7 @@ export class AdvisoryMeetingService {
   }
 
   async join(user: AuthUser, bookingId: string, now = new Date()): Promise<JoinInfo> {
+    if (!this.bookingsOn) throw new BookingsDisabledException(); // the only code that opens a video room: refused first, before the booking is even read
     const { booking, side } = await this.bookingsService.forMeeting(user, bookingId, false); // acting side only: advisor or startup OWNER/ADMIN
     if (side !== "FOUNDER" && side !== "ADVISOR") throw new ForbiddenException("Only the advisor and the startup can join this consultation.");
     const state = meetingState(booking.status, booking.startsAt, booking.endsAt, now, this.config);

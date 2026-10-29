@@ -11,7 +11,10 @@ import { BookingReviewModal } from "./BookingReviewModal";
 import { RIYADH_TZ, formatClock, formatDateUS, offsetLabel, parseYmd, riyadhDate } from "./advisory-time";
 import type { AdvisorProfile } from "./advisory-types";
 import { localZoneIfDifferent } from "./booking-format";
+import { BOOKINGS_NOT_OPEN_NOTE } from "./booking-availability";
+import { ContactRuwadLink } from "./ContactRuwadLink";
 import { useAsync } from "./use-async";
+import { useBookingsStatus } from "./use-bookings-status";
 
 const MAX_DESCRIPTION = 500;
 
@@ -29,6 +32,7 @@ export const BookingPanel = forwardRef<HTMLElement, {
 }>(function BookingPanel({ advisor, serviceId, onServiceChange, flash }, ref) {
   const { openModal } = useModal();
   const { loggedIn } = useSession();
+  const bookings = useBookingsStatus();
   const ids = { type: useId(), date: useId(), desc: useId(), calendar: useId(), startup: useId() };
   const [now] = useState(() => new Date());
   const today = useMemo(() => riyadhDate(now), [now]);
@@ -58,6 +62,7 @@ export const BookingPanel = forwardRef<HTMLElement, {
   const startupsRes = useAsync(loggedIn ? "startups" : null, fetchMyStartups);
   const startups = startupsRes.data ?? [];
   const startup = startups.find((s) => s.id === startupPick) ?? startups[0] ?? null;
+  const contactWhen = slot ? `${formatDateUS(riyadhDate(new Date(slot.startsAt)))} · ${formatClock(new Date(slot.startsAt), RIYADH_TZ)} (${offsetLabel(new Date(slot.startsAt), RIYADH_TZ)}), Riyadh time` : null;
 
   const shownMonth: CalendarMonth = viewMonth ?? (dateKey ? { y: parseYmd(dateKey).y, m: parseYmd(dateKey).m } : { y: today.y, m: today.m });
   const zone = tzMode === "local" && localTz ? localTz : RIYADH_TZ;
@@ -206,9 +211,11 @@ export const BookingPanel = forwardRef<HTMLElement, {
         Continue Booking <RuwadIcon name="arrow" size={16} />
       </button>
       <p className="adv-booking-foot">
-        {advisor.isDemo
-          ? "Demonstration advisor: a request is recorded as a demonstration and no email is sent."
-          : "Your request goes to the advisor for approval. The time is held for you while they decide. Nothing is charged."}
+        {bookings !== "open"
+          ? <>{BOOKINGS_NOT_OPEN_NOTE} <ContactRuwadLink className="adv-contact-link" details={{ advisorName: advisor.name, serviceName: service.name, when: contactWhen }}>Contact RUWĀD</ContactRuwadLink></>
+          : advisor.isDemo
+            ? "Demonstration advisor: a request is recorded as a demonstration and no email is sent."
+            : "Your request goes to the advisor for approval. The time is held for you while they decide. Nothing is charged."}
       </p>
     </section>
   );

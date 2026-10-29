@@ -18,7 +18,7 @@ import { DailyVideoProvider } from "./video/daily-video-provider";
 import { MockVideoProvider } from "./video/mock-video-provider";
 import { VIDEO_PROVIDER } from "./video/video-provider";
 import { readVideoConfig } from "./video/video-config";
-import { AdvisoryAdminController, AdvisoryAdvisorController, AdvisoryBookingsController, AdvisoryPublicController, AdvisoryWebhookController } from "./advisory.controllers";
+import { AdvisoryAdminController, AdvisoryAdvisorController, AdvisoryBookingsController, AdvisoryPublicController, AdvisoryStatusController, AdvisoryWebhookController } from "./advisory.controllers";
 import { AdvisoryAdvisor, AdvisoryAvailabilityException, AdvisoryApplicationDocument, AdvisoryApplicationEvent, AdvisoryAvailabilityRule, AdvisoryBooking, AdvisoryBookingEvent, AdvisoryMeetingAttendance, AdvisoryService, AdvisoryWebhookEvent } from "./advisory.entities";
 import { AdvisoryEnabledGuard, ApprovedAdvisorGuard } from "./advisory.guards";
 
@@ -40,7 +40,7 @@ import { AdvisoryEnabledGuard, ApprovedAdvisorGuard } from "./advisory.guards";
           : new MockVideoProvider();
       },
     }, AdvisoryEnabledGuard, ApprovedAdvisorGuard],
-  controllers: [AdvisoryPublicController, AdvisoryBookingsController, AdvisoryAdvisorController, AdvisoryAdminController, AdvisoryWebhookController],
+  controllers: [AdvisoryStatusController, AdvisoryPublicController, AdvisoryBookingsController, AdvisoryAdvisorController, AdvisoryAdminController, AdvisoryWebhookController],
   exports: [AdvisoryAdvisorsService, AdvisoryBookingsService, AdvisoryMeetingService],
 })
 export class AdvisoryModule {}

@@ -12,6 +12,7 @@ import { AdvisoryAdvisor, AdvisoryBooking, AdvisoryBookingEvent } from "./adviso
 import { AdvisorStatus, BookingActorRole, BookingParty, BookingStatus } from "./advisory.enums";
 import { AdvisoryAdvisorsService } from "./advisory-advisors.service";
 import { computeExpiresAt, computeProposalExpiresAt } from "./advisory-automation-rules";
+import { BookingsDisabledException, bookingsEnabled } from "./advisory-bookings-gate";
 import { AdvisoryAutomationConfig, readAutomationConfig } from "./advisory-config";
 import { AdvisoryNotificationKind, AdvisoryNotifier } from "./advisory-notifier";
 import { datesWithSlots, isOfferedSlot } from "./advisory-slots";
@@ -85,6 +86,7 @@ function newReference(): string {
 @Injectable()
 export class AdvisoryBookingsService {
   private readonly automation: AdvisoryAutomationConfig;
+  private readonly bookingsOn: boolean;
 
   constructor(
     @InjectDataSource() private readonly ds: DataSource,
@@ -99,6 +101,7 @@ export class AdvisoryBookingsService {
     config: ConfigService,
   ) {
     this.automation = readAutomationConfig((k) => config.get<string>(k));
+    this.bookingsOn = bookingsEnabled((k) => config.get<string>(k));
   }
 
   // ---- permissions ------------------------------------------------------------------------------------------------------------------------
@@ -139,7 +142,14 @@ export class AdvisoryBookingsService {
 
   // ---- create -----------------------------------------------------------------------------------------------------------------------------
 
+  /** The routes that call these are guarded already (AdvisoryBookingsEnabledGuard); this is the same rule once more, so no other caller can create a booking, hold a
+   * slot, confirm a booking or move one while bookings are switched off. It is the first statement: nothing is read, written or emailed first. */
+  private assertBookingsOn() {
+    if (!this.bookingsOn) throw new BookingsDisabledException();
+  }
+
   async create(user: AuthUser, dto: CreateBookingDto, now = new Date()): Promise<BookingView> {
+    this.assertBookingsOn();
     const startsAt = new Date(dto.startsAt);
     if (Number.isNaN(startsAt.getTime())) throw new BadRequestException("That isn't a valid time.");
     const advisor = await this.advisorsSvc.approvedBySlugOrThrow(dto.advisor);
@@ -263,6 +273,7 @@ export class AdvisoryBookingsService {
   // ---- advisor decisions --------------------------------------------------------------------------------------------------------------------
 
   async approve(user: AuthUser, id: string, now = new Date()): Promise<BookingView> {
+    this.assertBookingsOn();
     const b = await this.loadVisible(id);
     await this.actAs(user, b, ["ADVISOR"], "Only this consultation's advisor can approve it.");
     if (b.startsAt <= now) throw new ConflictException("The requested time has already passed.");
@@ -297,6 +308,7 @@ export class AdvisoryBookingsService {
   /** Either party proposes a new time. The original stays CONFIRMED and keeps its slot; the proposed slot is held too, so it can't be taken
    * while the other side decides. Nothing changes for the other party until they accept. */
   async proposeReschedule(user: AuthUser, id: string, dto: ProposeRescheduleDto, now = new Date()): Promise<BookingView> {
+    this.assertBookingsOn();
     const orig = await this.loadVisible(id);
     const side = await this.actAs(user, orig, ["FOUNDER", "ADVISOR"], "Only the advisor or the startup's owner/admin can propose a new time.") as BookingParty;
     if (orig.status !== BookingStatus.CONFIRMED) throw new ConflictException("Only a confirmed consultation can be rescheduled. A pending request can be cancelled and requested again.");
@@ -333,6 +345,7 @@ export class AdvisoryBookingsService {
 
   /** Only the party who did NOT propose can accept. At that moment, atomically, the original becomes RESCHEDULED and the proposal CONFIRMED. */
   async acceptReschedule(user: AuthUser, id: string, now = new Date()): Promise<BookingView> {
+    this.assertBookingsOn();
     const orig = await this.loadVisible(id);
     const proposal = await this.openProposalOrThrow(orig.id);
     const counterparty: BookingParty = proposal.proposedBy === "FOUNDER" ? "ADVISOR" : "FOUNDER";

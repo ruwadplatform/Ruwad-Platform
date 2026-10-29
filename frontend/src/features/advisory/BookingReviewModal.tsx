@@ -11,7 +11,10 @@ import { createBooking } from "@/lib/api/advisory";
 import { stashReturnRoute } from "@/lib/store";
 import { RIYADH_TZ, formatClock, formatDateUS, offsetLabel, riyadhDate } from "./advisory-time";
 import type { AdvisorProfile, AdvisorService, BookableStartup, BookingView } from "./advisory-types";
+import { BOOKINGS_NOT_OPEN_NOTE, BOOKINGS_UNAVAILABLE_MESSAGE, isBookingsDisabledError } from "./booking-availability";
 import { errText } from "./booking-format";
+import { ContactRuwadLink } from "./ContactRuwadLink";
+import { fetchBookingsOpen, useBookingsStatus } from "./use-bookings-status";
 
 export interface BookingDraft {
   advisor: AdvisorProfile;
@@ -36,13 +39,26 @@ export function BookingReviewModal({ draft, onBooked, onSlotTaken }: { draft: Bo
   const [phase, setPhase] = useState<"review" | "sending" | "sent">("review");
   const [error, setError] = useState<{ message: string; taken: boolean } | null>(null);
   const [booking, setBooking] = useState<BookingView | null>(null);
+  /** Set when the server says online booking is not open: the message and the way to arrange a consultation replace Confirm. */
+  const [unavailable, setUnavailable] = useState(false);
+  const bookings = useBookingsStatus();
   const { advisor, service, startup, startsAt, description, timeZone } = draft;
   const start = new Date(startsAt);
   const date = riyadhDate(start);
   const riyadhTime = `${formatClock(start, RIYADH_TZ)} (${offsetLabel(start, RIYADH_TZ)})`;
   const ownTime = timeZone !== RIYADH_TZ ? `${formatClock(start, timeZone)} (${offsetLabel(start, timeZone)})` : null;
 
+  const when = `${formatDateUS(date)} · ${riyadhTime}, Riyadh time`;
+
   async function confirm() {
+    // Online booking is switched off on the server until RUWĀD opens it. Ask it right now (not a cached answer) and, if it is closed, say so and show how to arrange the
+    // consultation instead of asking a signed-out visitor to sign in or sending a request that cannot be made. No booking call is made. Should the answer be wrong or
+    // stale, the server still refuses the booking itself with BOOKINGS_DISABLED and the same message is shown below.
+    setError(null);
+    setPhase("sending");
+    const open = await fetchBookingsOpen(true);
+    setPhase("review");
+    if (!open) { setUnavailable(true); return; }
     if (!loggedIn) {
       stashReturnRoute(window.location.pathname);
       closeModal();
@@ -65,6 +81,7 @@ export function BookingReviewModal({ draft, onBooked, onSlotTaken }: { draft: Bo
       onBooked();
     } catch (e) {
       setPhase("review");
+      if (isBookingsDisabledError(e)) { setUnavailable(true); return; }
       setError({ message: errText(e), taken: e instanceof ApiError && e.status === 409 });
       if (e instanceof ApiError && e.status === 409) onSlotTaken();
     }
@@ -96,6 +113,7 @@ export function BookingReviewModal({ draft, onBooked, onSlotTaken }: { draft: Bo
         ))}
       </dl>
       {error && <p className="adv-review-note adv-review-error" role="alert"><RuwadIcon name="info" size={14} /> {error.message}</p>}
+      {unavailable && <p className="adv-review-note adv-review-error" role="alert"><RuwadIcon name="info" size={14} /> {BOOKINGS_UNAVAILABLE_MESSAGE}</p>}
       {phase === "sent" && booking ? (
         <>
           <p className="adv-review-note"><RuwadIcon name="info" size={14} /> {advisor.isDemo
@@ -108,12 +126,23 @@ export function BookingReviewModal({ draft, onBooked, onSlotTaken }: { draft: Bo
         </>
       ) : (
         <>
-          <p className="adv-review-note"><RuwadIcon name="info" size={14} /> {advisor.isDemo
-            ? "Demonstration advisor: your request is recorded as a demonstration. No email is sent."
-            : "Your request goes to the advisor for approval. The time is held for you while they decide. Nothing is charged."}</p>
+          {!unavailable && (
+            <p className="adv-review-note"><RuwadIcon name="info" size={14} /> {bookings !== "open"
+              ? BOOKINGS_NOT_OPEN_NOTE
+              : advisor.isDemo
+                ? "Demonstration advisor: your request is recorded as a demonstration. No email is sent."
+                : "Your request goes to the advisor for approval. The time is held for you while they decide. Nothing is charged."}</p>
+          )}
           <div className="adv-review-actions">
             {error?.taken
               ? <button type="button" className="btn btn-primary" onClick={closeModal}>Choose another time</button>
+              : unavailable
+              ? (
+                <>
+                  <button type="button" className="btn btn-outline" onClick={closeModal}>Close</button>
+                  <ContactRuwadLink details={{ advisorName: advisor.name, serviceName: service.name, when }} />
+                </>
+              )
               : (
                 <>
                   <button type="button" className="btn btn-outline" onClick={closeModal} disabled={phase === "sending"}>Edit details</button>

@@ -22,6 +22,8 @@ export class ApiError extends Error {
     message: string,
     /** Extra diagnostic text the server only sends to admins. */
     public detail?: string,
+    /** A stable machine-readable code some answers carry (for example BOOKINGS_DISABLED), so a screen can recognise the case without reading the wording. */
+    public code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -47,14 +49,16 @@ async function request<T>(path: string, init?: RequestInit, server?: ServerFetch
   if (!res.ok) {
     let message = res.statusText || `Request failed (${res.status})`;
     let detail: string | undefined;
+    let code: string | undefined;
     try {
       const body = await res.json();
       if (body?.message) message = Array.isArray(body.message) ? body.message.join(", ") : body.message;
       if (typeof body?.detail === "string") detail = body.detail;
+      if (typeof body?.code === "string") code = body.code;
     } catch {
       // response had no JSON body — keep the status-text fallback
     }
-    throw new ApiError(res.status, message, detail);
+    throw new ApiError(res.status, message, detail, code);
   }
 
   if (res.status === 204) return undefined as T;

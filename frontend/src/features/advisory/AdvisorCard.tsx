@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import { RuwadIcon } from "@/components/icons/ruwad-icon";
 import { formatSlot, type NextSlot } from "./advisory-availability";
 import type { AdvisorSummary, ViewMode } from "./advisory-types";
+import { useBookingsStatus } from "./use-bookings-status";
 
 /** A placeholder avatar: the advisor's initials on a tinted square. The demonstration advisors have no photographs, and none are implied. */
 export function AdvisorAvatar({ name, size = 72 }: { name: string; size?: number }) {
@@ -19,6 +22,7 @@ export function advisorHref(id: string): string {
 
 /** One advisor in the directory — the same content in the grid and in the list view. */
 export function AdvisorCard({ advisor, view, nextSlot }: { advisor: AdvisorSummary; view: ViewMode; nextSlot: NextSlot | null }) {
+  const bookings = useBookingsStatus(); // "View & Book" is only promised once the server has opened booking
   return (
     <article className={`adv-card panel${view === "list" ? " is-list" : ""}`} aria-label={advisor.name}>
       <div className="adv-card-main">
@@ -42,8 +46,8 @@ export function AdvisorCard({ advisor, view, nextSlot }: { advisor: AdvisorSumma
             <span className="adv-meta-item"><RuwadIcon name="user" size={14} /> {advisor.yearsExperience}+ years</span>
           )}
         </div>
-        <Link href={advisorHref(advisor.id)} className="btn btn-outline adv-cta" aria-label={`View ${advisor.name} and book a consultation`}>
-          View &amp; Book <RuwadIcon name="arrow" size={14} />
+        <Link href={advisorHref(advisor.id)} className="btn btn-outline adv-cta" aria-label={bookings === "open" ? `View ${advisor.name} and book a consultation` : `View ${advisor.name}`}>
+          {bookings === "open" ? <>View &amp; Book</> : "View profile"} <RuwadIcon name="arrow" size={14} />
         </Link>
       </div>
     </article>

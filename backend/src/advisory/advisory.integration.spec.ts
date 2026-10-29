@@ -15,6 +15,7 @@ const passport = require("passport");
 import { EmailService } from "../email/email.service";
 import { AdvisoryAutomationService, AdvisoryAutomationService as AutomationService } from "./advisory-automation.service";
 import { AdvisoryAttendanceService } from "./advisory-attendance.service";
+import { AdvisoryBookingsService } from "./advisory-bookings.service";
 import { AdvisoryMeetingService } from "./advisory-meeting.service";
 import { AdvisoryNotifier } from "./advisory-notifier";
 import { MockVideoProvider } from "./video/mock-video-provider";
@@ -124,7 +125,7 @@ suite("Advisory Services — integration (local Postgres)", () => {
       imports: [
         // This suite books many consultations as one founder, so the "2 waiting requests per founder" limit is lifted here; the tests for the limit build
         // their own app with the production default (ADVISORY_MAX_PENDING_REQUESTS: "" means unset).
-        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true, load: [() => ({ JWT_SECRET: SECRET, ADVISORY_ENABLED: enabled ? "true" : undefined, ADVISORY_EMAIL_MODE: "mock", NODE_ENV: "test", ADVISORY_MAX_PENDING_REQUESTS: "1000", ...extra })] }),
+        ConfigModule.forRoot({ isGlobal: true, ignoreEnvFile: true, load: [() => ({ JWT_SECRET: SECRET, ADVISORY_ENABLED: enabled ? "true" : undefined, ADVISORY_EMAIL_MODE: "mock", NODE_ENV: "test", ADVISORY_MAX_PENDING_REQUESTS: "1000", ADVISORY_BOOKINGS_ENABLED: "true", ...extra })] }),
         TypeOrmModule.forRoot({ type: "postgres", url: assertLocalDatabase(LOCAL_DATABASE_URL), ssl: false, autoLoadEntities: true, synchronize: false }),
         PassportModule,
         JwtModule.register({ secret: SECRET, signOptions: { expiresIn: "1h" } }),
@@ -1715,6 +1716,176 @@ suite("Advisory Services — integration (local Postgres)", () => {
         await junk.app.close();
         await one.app.close();
       }
+    });
+  });
+
+  // ---- bookings switched off (the launch default) -----------------------------------------------------------------------------------------
+
+  describe("with ADVISORY_BOOKINGS_ENABLED not set, nothing can be booked, held, confirmed, rescheduled or opened, and everything else still works", () => {
+    let off: { app: INestApplication; jwt: JwtService };
+    const MESSAGE = "Online consultation booking is currently unavailable. Please contact the RUWĀD team to arrange your consultation.";
+    const asOff = (who: string | null) => {
+      const send = (m: "get" | "post" | "put", p: string, body: object = {}) => { const r = request(off.app.getHttpServer())[m](`/api${p}`); return (who ? r.set("Authorization", `Bearer ${tokenOf.get(who)}`) : r).send(body); };
+      return { get: (p: string) => send("get", p), post: (p: string, body: object = {}) => send("post", p, body), put: (p: string, body: object = {}) => send("put", p, body) };
+    };
+    const n = async (sql: string, params: unknown[] = []) => (await db.query(sql, params)).rows[0].n as number;
+    const counts = async () => ({
+      bookings: await n(`SELECT count(*)::int AS n FROM advisory_bookings WHERE "advisorId" = $1`, [advId]),
+      events: await n(`SELECT count(*)::int AS n FROM advisory_booking_events WHERE "bookingId" IN (SELECT id FROM advisory_bookings WHERE "advisorId" = $1)`, [advId]),
+      presence: await n(`SELECT count(*)::int AS n FROM advisory_presence_events WHERE "bookingId" IN (SELECT id FROM advisory_bookings WHERE "advisorId" = $1)`, [advId]),
+    });
+    const refused = (res: request.Response) => {
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({ statusCode: 403, error: "Forbidden", code: "BOOKINGS_DISABLED", message: MESSAGE });
+    };
+
+    let notify: jest.SpyInstance;
+    let ensureRoom: jest.SpyInstance;
+    let createToken: jest.SpyInstance;
+    let pendingId = "";
+    let confirmedId = "";
+    let freeSlot = "";
+
+    beforeAll(async () => {
+      // Two real bookings made while bookings are ON (the main app), so the refusals below are proven against live rows, not against nothing.
+      const s = await slots(advSlug, svc30, day(24));
+      pendingId = (await book("owner", startupA, s[0]!.startsAt)).body.id;
+      confirmedId = (await book("owner", startupA, s[2]!.startsAt)).body.id;
+      expect((await api("advisorUser").post(`/advisory/advisor/bookings/${confirmedId}/approve`)).status).toBe(201);
+      freeSlot = s[6]!.startsAt;
+      off = await buildApp(true, { ADVISORY_BOOKINGS_ENABLED: "" });
+      notify = jest.spyOn(AdvisoryNotifier.prototype, "notify");
+      ensureRoom = jest.spyOn(MockVideoProvider.prototype, "ensureRoom");
+      createToken = jest.spyOn(MockVideoProvider.prototype, "createToken");
+    }, 60_000);
+    afterAll(async () => {
+      notify?.mockRestore(); ensureRoom?.mockRestore(); createToken?.mockRestore();
+      await off?.app.close();
+    });
+    beforeEach(() => { notify.mockClear(); ensureRoom.mockClear(); createToken.mockClear(); sendTransactional.mockClear(); });
+
+    it("the public status endpoint says so, to anyone, and is never cached", async () => {
+      const res = await asOff(null).get("/advisory/status");
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ bookingsEnabled: false });
+      expect(res.headers["cache-control"]).toBe("no-store");
+      expect((await api(null).get("/advisory/status")).body).toEqual({ bookingsEnabled: true }); // the main app, bookings on
+    });
+
+    it("POST /advisory/bookings answers 403 BOOKINGS_DISABLED and creates nothing: no booking, no held slot, no email, no video call", async () => {
+      const before = await counts();
+      const res = await asOff("owner").post("/advisory/bookings", { advisor: advSlug, serviceId: svc30, startupId: startupA, startsAt: freeSlot });
+      refused(res);
+      expect(await counts()).toEqual(before);
+      expect((await slots(advSlug, svc30, day(24))).some((x) => x.startsAt === freeSlot)).toBe(true); // the slot is still free
+      expect(notify).not.toHaveBeenCalled();
+      expect(sendTransactional).not.toHaveBeenCalled();
+      expect(ensureRoom).not.toHaveBeenCalled();
+      expect(createToken).not.toHaveBeenCalled();
+    });
+
+    it("the refusal comes whoever asks and whatever they send: another founder, an administrator, an invalid body, a demonstration advisor", async () => {
+      const before = await counts();
+      refused(await asOff("owner2").post("/advisory/bookings", { advisor: advSlug, serviceId: svc30, startupId: startupB, startsAt: freeSlot }));
+      refused(await asOff("admin").post("/advisory/bookings", { advisor: advSlug, serviceId: svc30, startupId: startupA, startsAt: freeSlot }));
+      refused(await asOff("owner").post("/advisory/bookings", {}));
+      refused(await asOff("owner").post("/advisory/bookings", { advisor: demoSlug, serviceId: demoSvc, startupId: startupA, startsAt: freeSlot }));
+      expect(await counts()).toEqual(before);
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it("a signed-out caller is still told to sign in (the booking switch never leaks past authentication)", async () => {
+      expect((await asOff(null).post("/advisory/bookings", { advisor: advSlug, serviceId: svc30, startupId: startupA, startsAt: freeSlot })).status).toBe(401);
+    });
+
+    it("an advisor cannot confirm a waiting request: it stays PENDING, nobody is emailed", async () => {
+      const before = await counts();
+      refused(await asOff("advisorUser").post(`/advisory/advisor/bookings/${pendingId}/approve`));
+      expect(await n(`SELECT count(*)::int AS n FROM advisory_bookings WHERE id = $1 AND status = 'PENDING'`, [pendingId])).toBe(1);
+      expect(await counts()).toEqual(before);
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it("neither side can propose or accept a new time on a confirmed consultation: no proposal row, no held slot, no email", async () => {
+      const before = await counts();
+      const other = (await slots(advSlug, svc30, day(24))).find((x) => x.startsAt !== freeSlot)!.startsAt;
+      refused(await asOff("owner").post(`/advisory/bookings/${confirmedId}/reschedule`, { startsAt: other, note: "later?" }));
+      refused(await asOff("advisorUser").post(`/advisory/bookings/${confirmedId}/reschedule`, { startsAt: other }));
+      refused(await asOff("owner").post(`/advisory/bookings/${confirmedId}/reschedule/accept`));
+      refused(await asOff("advisorUser").post(`/advisory/bookings/${confirmedId}/reschedule/accept`));
+      expect(await counts()).toEqual(before);
+      expect(await n(`SELECT count(*)::int AS n FROM advisory_bookings WHERE "advisorId" = $1 AND status = 'RESCHEDULE_PROPOSED'`, [advId])).toBe(0);
+      expect(notify).not.toHaveBeenCalled();
+    });
+
+    it("joining a meeting is refused before the booking is even read: no video room is created, no token is issued, nothing is recorded", async () => {
+      const before = await counts();
+      refused(await asOff("owner").post(`/advisory/bookings/${confirmedId}/meeting/join`));
+      refused(await asOff("advisorUser").post(`/advisory/bookings/${confirmedId}/meeting/join`));
+      refused(await asOff("owner").post(`/advisory/bookings/${randomUUID()}/meeting/join`)); // even an unknown booking: the answer is the same
+      expect(ensureRoom).not.toHaveBeenCalled();
+      expect(createToken).not.toHaveBeenCalled();
+      expect(await counts()).toEqual(before);
+    });
+
+    it("the service layer refuses too, so no other caller can get around the routes", async () => {
+      const bookingsService = off.app.get(AdvisoryBookingsService);
+      const meeting = off.app.get(AdvisoryMeetingService);
+      const user = { userId: ids.owner!, email: "x@example.test", role: "USER" } as never;
+      const before = await counts();
+      await expect(bookingsService.create(user, { advisor: advSlug, serviceId: svc30, startupId: startupA, startsAt: freeSlot } as never)).rejects.toMatchObject({ status: 403 });
+      await expect(bookingsService.approve(user, pendingId)).rejects.toMatchObject({ status: 403 });
+      await expect(bookingsService.proposeReschedule(user, confirmedId, { startsAt: freeSlot } as never)).rejects.toMatchObject({ status: 403 });
+      await expect(bookingsService.acceptReschedule(user, confirmedId)).rejects.toMatchObject({ status: 403 });
+      await expect(meeting.join(user, confirmedId)).rejects.toMatchObject({ status: 403 });
+      expect(await counts()).toEqual(before);
+      expect(ensureRoom).not.toHaveBeenCalled();
+    });
+
+    it.each(["", "false", "FALSE", "1", "yes", "on", "truee"])("the switch is off for the value %p (only exactly \"true\" turns it on)", async (value) => {
+      const probe = await buildApp(true, { ADVISORY_BOOKINGS_ENABLED: value });
+      try {
+        const res = await request(probe.app.getHttpServer()).get("/api/advisory/status");
+        expect(res.body).toEqual({ bookingsEnabled: false });
+      } finally {
+        await probe.app.close();
+      }
+    });
+
+    it("everything that is not a booking still works: directory, profile, services, open times, my startups, my consultations, closing an existing request, admin console", async () => {
+      expect((await asOff(null).get("/advisory/advisors")).body.some((a: { id: string }) => a.id === advSlug)).toBe(true);
+      const profile = await asOff(null).get(`/advisory/advisors/${advSlug}`);
+      expect(profile.status).toBe(200);
+      expect(JSON.stringify(profile.body)).toContain("Itest 30"); // the services are shown
+      expect((await asOff(null).get(`/advisory/advisors/${advSlug}/dates?serviceId=${svc30}`)).status).toBe(200);
+      expect((await asOff(null).get(`/advisory/advisors/${advSlug}/slots?serviceId=${svc30}&date=${day(24)}`)).status).toBe(200);
+      expect((await asOff("owner").get("/advisory/my-startups")).status).toBe(200);
+      expect((await asOff("owner").get("/advisory/bookings/mine")).status).toBe(200);
+      expect((await asOff("advisorUser").get("/advisory/advisor/bookings")).status).toBe(200);
+      expect((await asOff("admin").get("/advisory/admin/stats")).status).toBe(200);
+      expect((await asOff("admin").get("/advisory/admin/bookings")).status).toBe(200);
+      expect((await asOff("owner").post(`/advisory/bookings/${pendingId}/cancel`, { reason: "closing a request that already exists is allowed" })).status).toBe(201);
+    });
+
+    it("advisor registration, administrator approval, the advisor's own profile, services and hours, and public discovery all work", async () => {
+      const u = await makeUser("offApplicant");
+      const apply = await request(off.app.getHttpServer()).post("/api/advisory/advisor/apply").set("Authorization", `Bearer ${tokenOf.get("offApplicant")}`)
+        .field("data", JSON.stringify(application(`Dr. Off ${tag}`))).attach("cv", pdf, "cv.pdf");
+      expect(apply.status).toBe(201);
+      const row = (await db.query(`SELECT id, slug FROM advisory_advisors WHERE "userId" = $1`, [u])).rows[0];
+      created.advisors.push(row.id);
+      expect((await asOff(null).get(`/advisory/advisors/${row.slug}`)).status).toBe(404); // not public until approved
+      expect((await asOff("admin").get(`/advisory/admin/applications/${row.id}`)).status).toBe(200);
+      expect((await asOff("admin").post(`/advisory/admin/advisors/${row.id}/approve`, { notes: "ok" })).status).toBe(201);
+      expect((await asOff("offApplicant").put("/advisory/advisor/availability", { windows: [{ weekday: 0, startTime: "09:00", endTime: "12:00" }] })).status).toBe(200);
+      const svc = await asOff("offApplicant").post("/advisory/advisor/services", { typeId: "review", name: "Off review", description: "visible while booking is off", minutes: 30 });
+      expect(svc.status).toBe(201);
+      expect((await asOff("offApplicant").get("/advisory/advisor/me")).status).toBe(200);
+      const pub = await asOff(null).get(`/advisory/advisors/${row.slug}`);
+      expect(pub.status).toBe(200);
+      expect(JSON.stringify(pub.body)).toContain("Off review");
+      expect((await asOff(null).get("/advisory/advisors")).body.some((a: { id: string }) => a.id === row.slug)).toBe(true);
+      expect(await n(`SELECT count(*)::int AS n FROM advisory_bookings WHERE "advisorId" = $1`, [row.id])).toBe(0);
     });
   });
 
