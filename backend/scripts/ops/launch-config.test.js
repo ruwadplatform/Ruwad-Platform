@@ -103,3 +103,25 @@ test("advisory-migrate refuses without DATABASE_URL, refuses a local database wi
   assert.notEqual(remoteLocalFlag.status, 0);
   assert.ok(!(remoteLocalFlag.stdout + remoteLocalFlag.stderr).includes("SuperSecretPw"));
 });
+
+test("lightsail-advisory-env refuses before touching AWS or Daily when the inputs are missing or weak", () => {
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), "ruwad-home-"));
+  const env = { USERPROFILE: empty, HOME: empty };
+  assert.match(run("lightsail-advisory-env.js", ["plan"], env).stderr, /Daily API key is missing/);
+  assert.match(run("lightsail-advisory-env.js", ["plan"], { ...env, DAILY_API_KEY: "k".repeat(30) }).stderr, /webhook secret is missing or weak/);
+  assert.match(run("lightsail-advisory-env.js", ["plan"], { ...env, DAILY_API_KEY: "k".repeat(30), DAILY_WEBHOOK_SECRET: "weak" }).stderr, /missing or weak/);
+  const same = Buffer.alloc(32, 5).toString("base64");
+  assert.match(run("lightsail-advisory-env.js", ["plan"], { ...env, DAILY_API_KEY: same, DAILY_WEBHOOK_SECRET: same }).stderr, /must not be the Daily API key/);
+  assert.notEqual(run("lightsail-advisory-env.js", ["bogus"], env).status, 0);
+  fs.rmSync(empty, { recursive: true, force: true });
+});
+
+test("prod-snapshot refuses a local database without --allow-local, a remote one with it, and never overwrites a snapshot", () => {
+  const f = path.join(os.tmpdir(), `ruwad-snap-${process.pid}.json`);
+  assert.match(run("prod-snapshot.js", ["take", f], { DATABASE_URL: "postgresql://u:SecretPw@127.0.0.1:55432/x" }).stderr, /allow-local/);
+  const r = run("prod-snapshot.js", ["take", f, "--allow-local"], { DATABASE_URL: "postgresql://u:SecretPw@db.example.test:5432/x" });
+  assert.notEqual(r.status, 0);
+  assert.ok(!(r.stdout + r.stderr).includes("SecretPw"));
+  assert.notEqual(run("prod-snapshot.js", ["take"], { DATABASE_URL: "postgresql://u:p@127.0.0.1/x" }).status, 0);
+  assert.notEqual(run("prod-snapshot.js", ["take", f]).status, 0); // no DATABASE_URL
+});

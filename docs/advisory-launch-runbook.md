@@ -56,14 +56,19 @@ Set in **one** call (each call creates a deployment) with `infra/aws/set-lightsa
 | `ADVISORY_MAX_PENDING_REQUESTS` | **absent** | the built-in default is the agreed 2 |
 | `DAILY_API_BASE`, `ADVISORY_INTEGRATION` | **absent** | |
 
-Command template (PowerShell; secrets come from local files kept in the password manager, never typed into the chat or committed):
+Guarded command (PowerShell). The Daily API key and the webhook secret come from local files kept in the password manager (`~/secure/daily-api-key.txt`, `~/secure/daily-webhook-secret.txt`) or from the `DAILY_API_KEY` / `DAILY_WEBHOOK_SECRET` variables of that shell; they are never typed into the chat, printed or committed:
 
 ```powershell
-$k = (Get-Content "$HOME\secure\daily-api-key.txt" -Raw).Trim()
-$s = (Get-Content "$HOME\secure\daily-webhook-secret.txt" -Raw).Trim()
-node infra/aws/set-lightsail-env.js --profile ruwad --dry-run ADVISORY_ENABLED=true ADVISORY_VIDEO_PROVIDER=daily "DAILY_API_KEY=$k" DAILY_DOMAIN=ruwadstudio "DAILY_WEBHOOK_SECRET=$s" ADVISORY_EMAIL_MODE=live ADVISORY_SCHEDULER_ENABLED=true APP_URL=https://www.ruwad.studio
-# check the names it lists, then run the same line without --dry-run
+aws login --profile ruwad                                   # the session expires after a few hours; do this first
+node backend/scripts/ops/lightsail-advisory-env.js plan     # READ ONLY: checks the Daily key and secret, requires Lightsail to be ACTIVE version 10,
+                                                            # and prints which variable NAMES would be added or updated
+# expected output: Changes: ADVISORY_ENABLED added, ADVISORY_VIDEO_PROVIDER added, DAILY_API_KEY added, DAILY_DOMAIN added,
+#   DAILY_WEBHOOK_SECRET added, ADVISORY_EMAIL_MODE added, ADVISORY_SCHEDULER_ENABLED added, APP_URL updated   (and nothing else)
+$env:LIGHTSAIL_ENV_CONFIRM = "SET-ADVISORY-ENV ruwad-backend FROM-VERSION-10"
+node backend/scripts/ops/lightsail-advisory-env.js apply    # PRODUCTION CHANGE: creates deployment 11, waits for ACTIVE and health, runs the audit (must say READY)
 ```
+
+`FRONTEND_URL`, `GOOGLE_REDIRECT_URI` and `PUBLIC_API_URL` are never touched by this command (the script refuses to include them). Verified so far: the underlying helper's dry run, run against the real Lightsail service with placeholder values, listed exactly the 8 changes above and created no deployment (Lightsail stayed on version 10); the wrapper's own checks that come before AWS (missing or weak secret, Daily key accepted for the domain `ruwadstudio`, no secret in any output) were tested. The wrapper's `plan` against Lightsail and its refusal paths (wrong version, missing confirmation phrase) must be re-run once after `aws login`, because the AWS session had expired; `apply` is written to refuse without the exact confirmation phrase and when Lightsail is not ACTIVE version 10.
 
 ### 3.2 Frontend (Vercel)
 
@@ -95,8 +100,9 @@ Daily: production API key and the webhook (section 6). Resend: confirm in the da
 | # | Step | Who | Done when |
 | --- | --- | --- | --- |
 | P1 | Final approval of the release candidate commit. Merge happens only at step 5, by the owner. | owner | explicit "go" |
-| P2 | **Backup.** Supabase dashboard, Database, Backups: note the latest backup time or the point-in-time-recovery timestamp, **and** take a manual dump from the direct connection: `pg_dump --format=custom --no-owner "<direct connection string>" -f ruwad-pre-advisory-YYYYMMDD.dump`. Verify it: `pg_restore --list ruwad-pre-advisory-YYYYMMDD.dump` lists the tables. Store it off this machine. | owner | dump listed OK; reference written down for `BACKUP_REFERENCE` |
-| P3 | **Install `btree_gist`:** Supabase dashboard, Database, Extensions, enable `btree_gist` (or run `CREATE EXTENSION IF NOT EXISTS btree_gist;` in the SQL editor). Harmless to the existing app; it removes the only privilege risk from the migration (the role is not a superuser). | owner | the migration guard `plan` says READY |
+| P2 | **Backup: DEFERRED by the owner (2026-10-29), an explicitly accepted operational risk (section 12).** No recoverable copy of the database is assumed to exist; the Supabase plan's automatic backups were not verified and are not relied on. Compensating evidence instead: **P2b**. If the owner changes their mind before the window, the dump procedure is `pg_dump --format=custom --no-owner "<connection string>" -f ruwad-pre-advisory-YYYYMMDD.dump`, `pg_restore --list`, and a restore into a scratch database (needs PostgreSQL client tools 17 or newer; none are installed on the working machine). | owner | decision recorded; the migration command carries `BACKUP_REFERENCE="NO-BACKUP-OWNER-ACCEPTED-RISK-<date>"` |
+| P3 | ~~**Install `btree_gist`**~~ **DONE and verified read-only 2026-10-29:** `btree_gist` 1.7 is installed (schema `extensions`, which is on the role's `search_path`; the booking constraint uses the default operator classes). The migration's `CREATE EXTENSION IF NOT EXISTS` is therefore a no-op, and the migration plan reports READY. | owner | done |
+| P2b | **Before/after evidence (read-only, replaces the backup as the safety net):** immediately before step 1 run `DATABASE_URL=<connection string> node backend/scripts/ops/prod-snapshot.js take <file.json>` (row counts and a schema fingerprint per table; no row data). After step 1 run the same tool with `compare <file.json>`: it must print `EXISTING SCHEMA UNCHANGED` (every pre-existing table identical; only `advisory_*` tables added). A baseline taken 2026-10-29 exists (66 tables, 1536 rows); take a fresh one on the day. This proves the migrations did not alter existing tables; it cannot restore anything. | Claude / owner | `take` file saved off the working machine too |
 | P4 | **AWS login and baseline:** `aws login --profile ruwad`, then `node backend/scripts/ops/lightsail-env-audit.js` and record the current deployment **version number** (the rollback target). Expected today: only the Advisory rows say FIX. | owner / Claude | version number written down |
 | P5 | **Render:** confirm in the Render dashboard that the service is suspended and auto-deploy is off. (Even if it woke up, it could not apply the Advisory migrations: they are opt-in, and no other migration is pending.) | owner | confirmed |
 | P6 | **Daily webhook secret:** `node backend/scripts/ops/daily-webhook-production.js gen-secret "$HOME\secure\daily-webhook-secret.txt"`; keep it in the password manager. Confirm the Daily key file. | owner | file exists |
@@ -111,8 +117,8 @@ Gate rule: **do not start a step until the previous gate passed.** If a gate fai
 
 | Step | Action | Gate (must be true to continue) |
 | --- | --- | --- |
-| 1 | **Migrations, once.** From a shell that has the direct connection string: `node backend/scripts/ops/advisory-migrate.js plan` and read it. Then `BACKUP_REFERENCE="<text from P2>"`, `ADVISORY_MIGRATION_CONFIRM="APPLY-ADVISORY-MIGRATIONS-TO <host shown by plan>"`, `node backend/scripts/ops/advisory-migrate.js apply`. All four run in one transaction: all apply or none. | **G1:** the script prints `DONE` and "migrations recorded 4/4; Advisory tables present 11/11"; `https://www.ruwad.studio/dashboard` and `<backend>/api/health` still fine (the old code does not use the new tables). Never run `apply` again. |
-| 2 | **Backend configuration** (section 3.1): one `set-lightsail-env.js` call (dry run first). This redeploys the *current* image with the new settings; the old image ignores them. | **G2:** the Lightsail deployment is ACTIVE and `/api/health` is 200; `lightsail-env-audit.js` prints `READY`. |
+| 1 | **Migrations, once.** From a shell that has the direct connection string: `node backend/scripts/ops/advisory-migrate.js plan` and read it. Then `BACKUP_REFERENCE="NO-BACKUP-OWNER-ACCEPTED-RISK-<date>"` (the owner deferred the backup; the guard records this text in its output), `ADVISORY_MIGRATION_CONFIRM="APPLY-ADVISORY-MIGRATIONS-TO <host shown by plan>"`, `node backend/scripts/ops/advisory-migrate.js apply`. All four run in one transaction: all apply or none. | **G1:** after the script prints `DONE`, run `prod-snapshot.js compare` (P2b): it must print `EXISTING SCHEMA UNCHANGED`. Also: the script prints `DONE` and "migrations recorded 4/4; Advisory tables present 11/11"; `https://www.ruwad.studio/dashboard` and `<backend>/api/health` still fine (the old code does not use the new tables). Never run `apply` again. |
+| 2 | **Backend configuration** (section 3.1): `lightsail-advisory-env.js plan`, then `apply` (one deployment; see the guarded command). This redeploys the *current* image with the new settings; the old image ignores them. | **G2:** the Lightsail deployment is ACTIVE and `/api/health` is 200; `lightsail-env-audit.js` prints `READY`. |
 | 3 | **Backend code.** The owner merges the release candidate into `master`. The workflow builds the image, deploys it (Lightsail keeps serving the old version until the new one is healthy) and waits for `/api/health`. Vercel also builds the new commit automatically, **with the Advisory flag still unset**, so the website looks and behaves exactly as today. | **G3:** the workflow is green; then, with the commands in 5.1, all of: health 200; `GET /api/advisory/advisors` returns `[]` with 200; an unauthenticated admin route returns 401; the webhook probe returns **401** (ready: Advisory on, secret set, signatures enforced); `/api/startups?limit=1` returns 200. |
 | 4 | **Daily webhook** (section 6), only now that the endpoint answers 401. | **G4:** `register` prints "the webhook is ACTIVE"; `list` shows exactly one webhook pointing at the production URL. |
 | 5 | **Frontend switch.** Vercel, Settings, Environment Variables: add `NEXT_PUBLIC_ADVISORY_ENABLED=true` (Production). Deployments: **Redeploy** the latest production deployment (a rebuild, not a promotion of an older build). | **G5:** the new deployment is Ready and Current; `https://www.ruwad.studio/discover/advisory-services` is 200 and lists no advisors yet; the Discover menu shows Advisory Services; `/dashboard`, `/startups`, `/investors` load as before. |
@@ -205,7 +211,7 @@ Fastest and safest first. None of levels 1 to 3 deletes any row.
 | 4. Remove the webhook | `daily-webhook-production.js delete <uuid>` | Daily stops calling the backend |
 | 5. Schema (last resort, only if nobody has used the feature) | four times, from a controlled shell with the direct connection string: `$env:ADVISORY_MIGRATIONS="true"; $env:DATABASE_SSL="true"; $env:DATABASE_URL="<direct connection string>"; npm run migration:revert --workspace backend` (each run reverts the newest applied migration; check with `advisory-migrate.js plan` between runs). **Always set `DATABASE_URL` explicitly: if it is missing the CLI falls back to `backend/.env`.** | drops the advisory tables **and their data**; after real use, prefer levels 1 to 4 |
 
-Restoring the database from the P2 backup is a last resort and would also discard anything written since: it is not part of a normal rollback.
+**No backup exists (accepted risk).** If something damaged existing data there would be no copy to restore from other than whatever the Supabase plan holds, which has not been verified. The release is built so that this cannot happen through the migrations (additive only, one transaction, rehearsed on a production-equivalent copy, proven unchanged by P2b), but a mistake made by hand in the database would not be recoverable. Nothing in the rollback levels above depends on a backup.
 
 ## 12. Downtime and residual risk
 
@@ -213,6 +219,7 @@ Restoring the database from the P2 backup is a last resort and would also discar
 
 | Risk | Likelihood | Mitigation |
 | --- | --- | --- |
+| **No separate database backup (accepted by the owner, 2026-10-29)** | the migrations are additive and rehearsed, so low; but if existing data were harmed there is no verified copy to restore | P2b before/after snapshot; migrations in one transaction; no manual edits in the database during the window; the owner can still take a dump at any time before step 1 |
 | `btree_gist` cannot be installed by the role | low | P3 pre-install; the guard blocks the migration until it is installed |
 | Resend sender domain not verified | unknown | P7; emails would be skipped and logged, never blocking a booking |
 | `APP_URL` left at its localhost default | would break email links | audit rule; step 2 gate |
@@ -229,7 +236,7 @@ Restoring the database from the P2 backup is a last resort and would also discar
 | # | Blocker (must be done before step 1) | Why it is not done here |
 | --- | --- | --- |
 | B1 | Install `btree_gist` in Supabase (P3) | production changes are not allowed in this phase; the migration guard reports BLOCKED until it is done |
-| B2 | Take and verify the database backup (P2) | same |
+| B2 | ~~Take and verify the database backup (P2)~~ **Deferred by the owner and recorded as an accepted risk (section 12).** Compensating evidence P2b replaces it. | none (decision made) |
 | B3 | ~~AWS login and Lightsail audit~~ **done 2026-10-28**; `APP_URL` decided (www); audit rules relaxed. Left for the release itself: the 7 Advisory variables and `APP_URL` are set in step 2, after which the audit must print READY. | |
 | B4 | Confirm the Resend sender domain `karama.tech` is verified (P7) | the Resend key is send-only |
 | B5 | Confirm Render is suspended with auto-deploy off (P5) and the Vercel settings (P9) | not readable from here |
