@@ -66,9 +66,7 @@ git diff --name-only 2998868 <tip> | Select-String -NotMatch '^(docs/|backend/sc
 
 ## 8. Reconciliation with the launch checklist
 
-- The residency row is changed from "approved" to **owner decision: REGION, open** (checklist section 1).
-- **New gate G-DAILY (before Stage 6, public activation):** the owner has (a) chosen the region and mechanism, (b) had counsel re-review the arrangement against section 3 and section 5, and (c) authorised the domain `geo` change.
-- **New Stage 4b (before the webhook, no rooms exist yet):** apply the domain `geo` and read it back.
+- **Superseded by the owner's approval of Frankfurt (domain-level `geo`) as a technical choice; see `advisory-daily-frankfurt-config.md` and the 12-step order in `advisory-execution-checklist.md`.** In that order the Daily region is **step 8** (after the webhook, before any room exists), the responsible team's review of cross-border processing and PDPL is the **step 9 gate**, and public activation is **step 10**; steps 9 and 10 stay NO-GO until the review is recorded.
 - The no-backup risk is unchanged and tracked **separately** (checklist section 2).
 
 ## Sources

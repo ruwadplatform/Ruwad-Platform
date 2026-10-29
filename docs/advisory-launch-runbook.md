@@ -113,6 +113,8 @@ Daily: production API key and the webhook (section 6). Resend: confirm in the da
 
 ## 5. The release, step by step
 
+> **Superseded ordering (2026-10-29):** the authoritative 12-step order, with the Daily.co Frankfurt region (step 8) and the responsible team's cross-border and PDPL confirmation (step 9) before public activation (step 10), is in `advisory-execution-checklist.md`. The table below is the earlier 7-step version and is kept for reference.
+
 Gate rule: **do not start a step until the previous gate passed.** If a gate fails, go to section 9, not forward.
 
 | Step | Action | Gate (must be true to continue) |

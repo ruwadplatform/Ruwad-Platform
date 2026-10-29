@@ -130,3 +130,18 @@ test("lightsail-rollback needs a mode and a numeric version before it does anyth
   for (const args of [[], ["plan"], ["plan", "abc"], ["apply"], ["bogus", "10"]]) assert.notEqual(run("lightsail-rollback.js", args).status, 0, args.join(" "));
   assert.match(run("lightsail-rollback.js", ["plan"]).stderr, /Usage/);
 });
+
+test("daily-domain-geo refuses every change before any network call: bad region, no key, no or wrong confirmation phrase", () => {
+  const empty = fs.mkdtempSync(path.join(os.tmpdir(), "ruwad-home-"));
+  const env = { USERPROFILE: empty, HOME: empty };
+  const ok = "SET-DAILY-GEO eu-central-1 ON ruwadstudio";
+  assert.match(run("daily-domain-geo.js", ["set", "mars-1"], { ...env, DAILY_GEO_CONFIRM: ok }).stderr, /documented regions/);
+  assert.match(run("daily-domain-geo.js", ["set"], env).stderr, /documented regions/);
+  assert.match(run("daily-domain-geo.js", ["set", "eu-central-1"], { ...env, DAILY_API_KEY: "k".repeat(30) }).stderr, /DAILY_GEO_CONFIRM/);
+  assert.match(run("daily-domain-geo.js", ["set", "eu-central-1"], { ...env, DAILY_API_KEY: "k".repeat(30), DAILY_GEO_CONFIRM: "yes" }).stderr, /DAILY_GEO_CONFIRM/);
+  assert.match(run("daily-domain-geo.js", ["set", "us-east-1"], { ...env, DAILY_API_KEY: "k".repeat(30), DAILY_GEO_CONFIRM: ok }).stderr, /DAILY_GEO_CONFIRM/); // phrase is bound to the region
+  assert.match(run("daily-domain-geo.js", ["set", "eu-central-1"], { ...env, DAILY_GEO_CONFIRM: ok }).stderr, /API key is missing/);
+  assert.match(run("daily-domain-geo.js", ["restore"], { ...env, DAILY_API_KEY: "k".repeat(30) }).stderr, /DAILY_GEO_CONFIRM/);
+  assert.match(run("daily-domain-geo.js", ["bogus"], env).stderr, /Usage/);
+  fs.rmSync(empty, { recursive: true, force: true });
+});
