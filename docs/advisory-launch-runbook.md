@@ -207,11 +207,26 @@ Fastest and safest first. None of levels 1 to 3 deletes any row.
 | --- | --- | --- |
 | 1. Hide the feature | Vercel: delete `NEXT_PUBLIC_ADVISORY_ENABLED` and redeploy (or promote the previous deployment: instant) | nav entries gone, all 7 Advisory pages 404; backend still running |
 | 2. Switch the API off | `node infra/aws/set-lightsail-env.js --profile ruwad --unset ADVISORY_ENABLED --unset ADVISORY_SCHEDULER_ENABLED` (and optionally `--unset ADVISORY_EMAIL_MODE`) | every Advisory route is a 404; no scheduler, no emails; **all data kept** |
-| 3. Previous backend code | Lightsail console, container service, Deployments: deploy the version recorded in P4. The migrations stay (additive; old code ignores them). | existing behaviour as before the release |
+| 3. Previous backend code | `node backend/scripts/ops/lightsail-rollback.js plan 10` (read-only: shows which variable names would be removed or added), then `$env:LIGHTSAIL_ROLLBACK_CONFIRM="ROLLBACK-LIGHTSAIL ruwad-backend TO-VERSION-10"; node backend/scripts/ops/lightsail-rollback.js apply 10`. It creates a new deployment from version 10's exact configuration (image `api.8`, the original environment) and waits for ACTIVE and health. To keep the Advisory environment but run the old code, roll back to version 11 instead (the environment-only deployment). The migrations stay (additive; old code ignores them). | existing behaviour as before the release |
 | 4. Remove the webhook | `daily-webhook-production.js delete <uuid>` | Daily stops calling the backend |
 | 5. Schema (last resort, only if nobody has used the feature) | four times, from a controlled shell with the direct connection string: `$env:ADVISORY_MIGRATIONS="true"; $env:DATABASE_SSL="true"; $env:DATABASE_URL="<direct connection string>"; npm run migration:revert --workspace backend` (each run reverts the newest applied migration; check with `advisory-migrate.js plan` between runs). **Always set `DATABASE_URL` explicitly: if it is missing the CLI falls back to `backend/.env`.** | drops the advisory tables **and their data**; after real use, prefer levels 1 to 4 |
 
 **No backup exists (accepted risk).** If something damaged existing data there would be no copy to restore from other than whatever the Supabase plan holds, which has not been verified. The release is built so that this cannot happen through the migrations (additive only, one transaction, rehearsed on a production-equivalent copy, proven unchanged by P2b), but a mistake made by hand in the database would not be recoverable. Nothing in the rollback levels above depends on a backup.
+
+### 11.1 Rollback, stage by stage
+
+Reverse order of the release. Every row can be done on its own; none deletes a row of data.
+
+| Stage that was completed | What to undo | Command | Result |
+| --- | --- | --- | --- |
+| 5. Vercel flag on | hide the feature | Vercel: remove `NEXT_PUBLIC_ADVISORY_ENABLED` and redeploy, or promote the production deployment noted before the release (instant) | Advisory pages 404, nav entries gone; backend untouched |
+| 4. Daily webhook registered | stop attendance callbacks | `$env:DAILY_WEBHOOK_CONFIRM="DELETE <uuid>"; node backend/scripts/ops/daily-webhook-production.js delete <uuid>` | Daily no longer calls the backend; Needs Review covers attendance |
+| 3. Backend code merged and deployed (deployment 12) | previous code, keep or drop the Advisory settings | `lightsail-rollback.js apply 11` (old image, Advisory environment kept) or `apply 10` (old image, original environment) | the old backend runs; Advisory API is off with `apply 10` |
+| 2. Environment set (deployment 11) | original environment, including `APP_URL` | `lightsail-rollback.js apply 10`, or `set-lightsail-env.js --unset ADVISORY_ENABLED --unset ADVISORY_SCHEDULER_ENABLED` for a partial switch-off | Advisory API off, no scheduler, no emails; `apply 10` also restores `APP_URL=https://ruwad-platform.vercel.app` |
+| 1. Migrations applied | normally nothing: leave the tables in place | (only if nobody has used the feature) four `migration:revert` runs, section 11 level 5 | additive tables disappear with their data; no backup exists, so prefer leaving them |
+| 6. Smoke test records | neutralise the canary | Admin, Advisory Management, Suspend the canary advisor; cancel open bookings | the advisor disappears from the directory; history kept |
+
+A failed step before it completes needs no rollback: a failed migration leaves nothing (one transaction); a failed Lightsail deployment keeps the previous one serving; a failed Vercel build keeps the previous production deployment.
 
 ## 12. Downtime and residual risk
 

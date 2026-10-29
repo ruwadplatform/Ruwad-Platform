@@ -125,3 +125,8 @@ test("prod-snapshot refuses a local database without --allow-local, a remote one
   assert.notEqual(run("prod-snapshot.js", ["take"], { DATABASE_URL: "postgresql://u:p@127.0.0.1/x" }).status, 0);
   assert.notEqual(run("prod-snapshot.js", ["take", f]).status, 0); // no DATABASE_URL
 });
+
+test("lightsail-rollback needs a mode and a numeric version before it does anything", () => {
+  for (const args of [[], ["plan"], ["plan", "abc"], ["apply"], ["bogus", "10"]]) assert.notEqual(run("lightsail-rollback.js", args).status, 0, args.join(" "));
+  assert.match(run("lightsail-rollback.js", ["plan"]).stderr, /Usage/);
+});
