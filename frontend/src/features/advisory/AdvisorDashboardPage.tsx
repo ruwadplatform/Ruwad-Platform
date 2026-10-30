@@ -23,7 +23,9 @@ import { ResolveOutcomeModal } from "./AttendanceParts";
 import { NoteModal } from "./booking-modals";
 import { BookingStatusBadge, errText, expiryLine, formatWhen, outcomeLabel } from "./booking-format";
 import type { AvailabilityState, BookingView, MyAdvisorProfile } from "./advisory-types";
+import { ADVISOR_BOOKING_NOT_OPEN_NOTE, PENDING_REVIEW_COPY, SUSPENDED_COPY } from "./advisor-notices";
 import { useAsync } from "./use-async";
+import { useBookingsStatus } from "./use-bookings-status";
 
 type Tab = "requests" | "upcoming" | "review" | "completed" | "availability" | "services" | "profile";
 const TABS: { id: Tab; label: string }[] = [
@@ -116,9 +118,9 @@ function ReviewStatus({ advisor, reload }: { advisor: MyAdvisorProfile; reload: 
   if (reapplying && advisor.application?.canReapply) return <Reapply advisor={advisor} onDone={reload} onCancel={() => setReapplying(false)} />;
   const copy = {
     DRAFT: { title: "Your profile is a draft", body: "Finish your profile and submit it for review." },
-    PENDING_REVIEW: { title: "Your application is being reviewed", body: "A RUWĀD administrator will review your profile. You'll be able to set your hours and receive requests as soon as it is approved. You can still edit your profile meanwhile." },
+    PENDING_REVIEW: { title: "Your application is being reviewed", body: PENDING_REVIEW_COPY },
     REJECTED: { title: "Your application wasn't approved", body: "You can update your profile below. Contact RUWĀD if you'd like it looked at again." },
-    SUSPENDED: { title: "Your advisor profile is suspended", body: "Your profile is hidden from the directory and can't take new bookings. Contact RUWĀD for details." },
+    SUSPENDED: { title: "Your advisor profile is suspended", body: SUSPENDED_COPY },
   }[advisor.status as "DRAFT" | "PENDING_REVIEW" | "REJECTED" | "SUSPENDED"];
   return (
     <>
@@ -143,6 +145,7 @@ function ReviewStatus({ advisor, reload }: { advisor: MyAdvisorProfile; reload: 
 
 function Dashboard({ advisor, reload }: { advisor: MyAdvisorProfile; reload: () => void }) {
   const [tab, setTab] = useState<Tab>("requests");
+  const bookingStatus = useBookingsStatus(); // requests can only arrive once the server has opened online booking
   const [tick, setTick] = useState(0);
   const bookings = useAsync(`advbookings|${tick}`, fetchAdvisorBookings);
   const [now] = useState(() => new Date());
@@ -160,6 +163,7 @@ function Dashboard({ advisor, reload }: { advisor: MyAdvisorProfile; reload: () 
 
   return (
     <>
+      {bookingStatus !== "open" && <p className="adv-review-note"><RuwadIcon name="info" size={14} /> {ADVISOR_BOOKING_NOT_OPEN_NOTE}</p>}
       <div className="profile-tabs-wrap adv-tabs-wrap">
         <div className="tabs" role="tablist" aria-label="Advisor dashboard">
           {TABS.map((t) => (

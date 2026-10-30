@@ -11,7 +11,7 @@
     "start:local": "node scripts/dev/local-frontend.js start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test:unit": "node --experimental-strip-types --test src/lib/resource-cache-core.test.ts src/features/submissions/validate.test.ts src/features/submissions/edit-schema.test.ts src/lib/linkedin.test.ts src/features/advisory/advisory-filter.test.ts src/features/advisory/consultation-tabs.test.ts src/features/advisory/application-form.test.ts src/features/advisory/booking-availability.test.ts src/lib/seo/seo.test.ts src/lib/api/session-cookie.test.ts scripts/dev/local-env.test.js"
+    "test:unit": "node --experimental-strip-types --test src/lib/resource-cache-core.test.ts src/features/submissions/validate.test.ts src/features/submissions/edit-schema.test.ts src/lib/linkedin.test.ts src/features/advisory/advisory-filter.test.ts src/features/advisory/consultation-tabs.test.ts src/features/advisory/application-form.test.ts src/features/advisory/booking-availability.test.ts src/features/advisory/advisor-notices.test.ts src/lib/seo/seo.test.ts src/lib/api/session-cookie.test.ts scripts/dev/local-env.test.js"
   },
   "dependencies": {
     "@daily-co/daily-js": "0.87.0",

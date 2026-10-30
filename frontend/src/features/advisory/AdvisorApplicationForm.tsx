@@ -8,6 +8,7 @@ import {
   DECLARATION_TEXT, DURATIONS, EMPTY_APPLICATION, FIELD_ORDER, MAX_CERTIFICATES, validateApplication, toPayload,
   type ApplicationFiles, type ApplicationValues, type FieldErrors, type FieldKey, type OnFile,
 } from "./application-form";
+import { DATA_NOTICE_POINTS, DATA_NOTICE_TITLE } from "./advisor-notices";
 import { errText } from "./booking-format";
 
 const DRAFT_KEY = "ruwad.advisorApplicationDraft.v1";
@@ -224,6 +225,12 @@ export function AdvisorApplicationForm({ prefill, onSubmitted, reapply }: { pref
 
       <fieldset className="adv-fieldset">
         <legend>Declaration</legend>
+        <div className="adv-data-notice" role="note" aria-label={DATA_NOTICE_TITLE}>
+          <b>{DATA_NOTICE_TITLE}</b>
+          <ul>
+            {DATA_NOTICE_POINTS.map((p) => <li key={p}>{p}</li>)}
+          </ul>
+        </div>
         <div className={`adv-check${errors.declaration ? " has-error" : ""}`}>
           <input id={idOf("declaration")} type="checkbox" checked={v.declaration} aria-invalid={errors.declaration ? true : undefined} aria-describedby={errors.declaration ? `${idOf("declaration")}-err` : undefined}
             onChange={(e) => set("declaration", e.target.checked)} onBlur={() => blur("declaration")} />
