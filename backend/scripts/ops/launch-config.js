@@ -43,6 +43,8 @@ const RULES = [
   { name: "ADVISORY_MAX_PENDING_REQUESTS", why: "the agreed limit is the built-in 2", check: (v) => !isSet(v) || v.trim() === "2", expect: "absent (or 2)", forbidden: true },
   { name: "DAILY_API_BASE", why: "must be Daily's real API", check: (v) => !isSet(v) || /^https:\/\/api\.daily\.co\/v1\/?$/.test(v.trim()), expect: "absent", forbidden: true },
   { name: "ADVISORY_INTEGRATION", why: "a test-only switch", check: (v) => !isSet(v), expect: "absent", forbidden: true },
+  { name: "EMAIL_DEV_OUTBOX_FILE", why: "a development-only file that receives email instead of Resend: it must never exist in production (the service also refuses to start with it)", check: (v) => !isSet(v), expect: "absent", forbidden: true },
+  { name: "EMAIL_OTP_SECRET", why: "required only while EMAIL_VERIFICATION_REQUIRED is on, then it must be base64 of at least 32 random bytes (never derived from JWT_SECRET)", check: (v, env) => (env.EMAIL_VERIFICATION_REQUIRED || "").trim() !== "true" || isBase64Secret(v), expect: "a strong secret when verification is on, otherwise optional" },
 ];
 
 /** @param {Record<string, string | undefined>} env the backend container's environment

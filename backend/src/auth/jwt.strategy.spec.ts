@@ -48,3 +48,33 @@ describe("JwtStrategy.validate: a session lasts only as long as its account is a
     expect((await s.validate(payload({ role: "USER" }))).role).toBe("USER");
   });
 });
+
+describe("JwtStrategy.validate with EMAIL_VERIFICATION_REQUIRED", () => {
+  function make(required: boolean, active: boolean, activeAndVerified: boolean) {
+    const users = { isActive: jest.fn(async () => active), isActiveAndVerified: jest.fn(async () => activeAndVerified) };
+    const config = { get: (k: string) => (k === "EMAIL_VERIFICATION_REQUIRED" ? (required ? "true" : undefined) : "unit-test-secret-not-a-real-one") };
+    return { s: new JwtStrategy(config as never, users as never), users };
+  }
+
+  it("off: an active account keeps its session and verification is never consulted (unchanged behaviour)", async () => {
+    const { s, users } = make(false, true, false);
+    await expect(s.validate(payload())).resolves.toMatchObject({ userId: ID });
+    expect(users.isActiveAndVerified).not.toHaveBeenCalled();
+  });
+
+  it("on: an active but UNVERIFIED account is refused with 401, however valid its token is", async () => {
+    const { s } = make(true, true, false);
+    await expect(s.validate(payload())).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("on: an active and verified account keeps its session", async () => {
+    const { s, users } = make(true, true, true);
+    await expect(s.validate(payload())).resolves.toMatchObject({ userId: ID, role: "RUWAD_ADMIN" });
+    expect(users.isActive).not.toHaveBeenCalled();
+  });
+
+  it("on: a suspended account is still refused", async () => {
+    const { s } = make(true, false, false);
+    await expect(s.validate(payload())).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+});

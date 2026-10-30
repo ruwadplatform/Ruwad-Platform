@@ -9,12 +9,14 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { UsersModule } from "../users/users.module";
 import { EmailModule } from "../email/email.module";
 import { PasswordResetToken } from "./password-reset-token.entity";
+import { EmailVerificationCode } from "./email-verification-code.entity";
+import { EmailVerificationService } from "./email-verification.service";
 
 @Module({
   imports: [
     UsersModule,
     EmailModule,
-    TypeOrmModule.forFeature([PasswordResetToken]),
+    TypeOrmModule.forFeature([PasswordResetToken, EmailVerificationCode]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -25,8 +27,8 @@ import { PasswordResetToken } from "./password-reset-token.entity";
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, EmailVerificationService],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, EmailVerificationService],
 })
 export class AuthModule {}

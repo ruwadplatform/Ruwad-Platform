@@ -28,7 +28,7 @@ export const INDEXABLE_ROUTES = ["", "dashboard", "startups", "investors", "hubs
 /** Top-level routes that are never indexed. */
 export const PRIVATE_ROUTES = [
   "admin", "workspace", "my-ndas", "my-organizations", "my-reports", "profile", "settings", "introductions", "watchlist", "saved-searches", "submissions", "submit",
-  "report-review", "analytics", "screener", "search", "login", "signup", "forgot-password", "reset-password", "api",
+  "report-review", "analytics", "screener", "search", "login", "signup", "forgot-password", "verify-email", "reset-password", "api",
 ];
 
 /** Disallowed in robots.txt: never public, never indexed, nothing to gain from being crawled. (Not /login, /signup or /forgot-password: see the note above.) */

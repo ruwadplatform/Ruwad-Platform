@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { IsNull, Not, Repository } from "typeorm";
 import { User } from "./user.entity";
 import { UserSettings } from "./user-settings.entity";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -36,6 +36,28 @@ export class UsersService {
   /** Whether the account behind a session token still exists and is ACTIVE. Called on every authenticated request, so it reads one indexed row and nothing else. */
   async isActive(id: string): Promise<boolean> {
     return (await this.users.count({ where: { id, status: UserStatus.ACTIVE } })) > 0;
+  }
+
+  /** Like isActive, and the address must also be verified. Used for every authenticated request while EMAIL_VERIFICATION_REQUIRED is on. */
+  async isActiveAndVerified(id: string): Promise<boolean> {
+    return (await this.users.count({ where: { id, status: UserStatus.ACTIVE, emailVerifiedAt: Not(IsNull()) } })) > 0;
+  }
+
+  /** Replaces the sign-up details of an account that is STILL unverified (a fresh sign-up for the same address). Conditional on it being unverified at the moment
+   * of the write, so it can never overwrite an account that was verified a moment ago. Returns the account, or null when it was no longer unverified. */
+  async overwriteUnverified(id: string, data: Partial<User>): Promise<User | null> {
+    const res = await this.users.update({ id, emailVerifiedAt: IsNull() }, data);
+    return res.affected ? this.users.findOne({ where: { id } }) : null;
+  }
+
+  /** Marks an address verified once. A no-op (false) when it already was. */
+  async markVerified(id: string, via: "OTP" | "ADMIN"): Promise<boolean> {
+    const res = await this.users.update({ id, emailVerifiedAt: IsNull() }, { emailVerifiedAt: new Date(), emailVerifiedVia: via });
+    return (res.affected ?? 0) > 0;
+  }
+
+  findById(id: string): Promise<User | null> {
+    return this.users.findOne({ where: { id } });
   }
 
   async findByIdOrThrow(id: string): Promise<User> {

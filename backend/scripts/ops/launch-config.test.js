@@ -147,3 +147,16 @@ test("daily-domain-geo refuses every change before any network call: bad region,
   assert.match(run("daily-domain-geo.js", ["bogus"], env).stderr, /Usage/);
   fs.rmSync(empty, { recursive: true, force: true });
 });
+
+test("email verification settings: the dev outbox must be absent, and the OTP secret must be strong whenever verification is on", () => {
+  const bad = (over) => evaluateEnv({ ...GOOD, ...over }).failing;
+  const strong = require("node:crypto").randomBytes(32).toString("base64");
+  assert.deepEqual(bad({}), []); // verification off and no secret: fine (the default)
+  assert.deepEqual(bad({ EMAIL_DEV_OUTBOX_FILE: "C:\\temp\\outbox.jsonl" }), ["EMAIL_DEV_OUTBOX_FILE"]);
+  assert.deepEqual(bad({ EMAIL_VERIFICATION_REQUIRED: "true" }), ["EMAIL_OTP_SECRET"]);
+  assert.deepEqual(bad({ EMAIL_VERIFICATION_REQUIRED: "true", EMAIL_OTP_SECRET: "weak" }), ["EMAIL_OTP_SECRET"]);
+  assert.deepEqual(bad({ EMAIL_VERIFICATION_REQUIRED: "true", EMAIL_OTP_SECRET: strong }), []);
+  assert.deepEqual(bad({ EMAIL_VERIFICATION_REQUIRED: "false" }), []);
+  const row = evaluateEnv({ ...GOOD, EMAIL_OTP_SECRET: strong }).rows.find((r) => r.name === "EMAIL_OTP_SECRET");
+  assert.equal(row.shown, undefined); // a secret's value is never shown by the audit
+});

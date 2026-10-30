@@ -3,6 +3,7 @@
  *
  *   npm run build && node scripts/dev/local-backend.js        (npm run start:local)
  *   node scripts/dev/local-backend.js --real-daily            (npm run start:local -- --real-daily)   explicit opt-in, see below
+ *   node scripts/dev/local-backend.js --email-verification   (npm run start:local -- --email-verification)   switch 6-digit email verification ON, with a local email outbox file
  *   node scripts/dev/local-backend.js --bookings              (npm run start:local -- --bookings)     switch consultation bookings ON (they are OFF by default, as in production)
  *
  * backend/.env holds production credentials. This runner never lets them reach the local process (see local-env.js):
@@ -30,7 +31,7 @@ if (!fs.existsSync(main)) {
 
 let plan;
 try {
-  plan = localBackendEnv({ realDaily: process.argv.includes("--real-daily"), bookings: process.argv.includes("--bookings") });
+  plan = localBackendEnv({ realDaily: process.argv.includes("--real-daily"), bookings: process.argv.includes("--bookings"), emailVerification: process.argv.includes("--email-verification") });
 } catch (e) {
   console.error(`[local-backend] ${e.message.replace(/^local-backend: /, "")}`);
   process.exit(1);

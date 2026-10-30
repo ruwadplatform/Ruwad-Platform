@@ -1,5 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { appendFileSync } from "fs";
+import { isAbsolute } from "path";
 import { Resend } from "resend";
 import { EntityKind } from "../common/enums";
 import {
@@ -9,6 +11,8 @@ import {
   dataRoomReviewedTemplate,
   introductionStatusChangedTemplate,
   passwordResetTemplate,
+  emailVerificationCodeTemplate,
+  existingAccountTemplate,
   reportSubmissionReviewTemplate,
   reportPublishedTemplate,
   reportRejectedTemplate,
@@ -42,6 +46,8 @@ export class EmailService {
   private readonly adminEmail: string;
   private readonly apiUrl: string;
   private readonly actionSecret: string;
+  /** Development only: every email is appended to this local file instead of being sent. Null everywhere else (see the constructor). */
+  private readonly outbox: string | null;
 
   constructor(config: ConfigService) {
     const apiKey = config.get<string>("RESEND_API_KEY");
@@ -54,6 +60,13 @@ export class EmailService {
     // Render injects RENDER_EXTERNAL_URL for every web service; PUBLIC_API_URL overrides it.
     this.apiUrl = (config.get<string>("PUBLIC_API_URL") ?? config.get<string>("RENDER_EXTERNAL_URL") ?? "http://localhost:4000").replace(/\/+$/, "").replace(/\/api$/, "");
     this.actionSecret = config.get<string>("JWT_SECRET") ?? "";
+    // A local file that receives every email INSTEAD of Resend, so a person can read the verification code during a local walkthrough. It must be impossible to
+    // switch on where real mail can be sent: the service refuses to start with it in production, with a Resend key present, or with anything but an absolute .jsonl path.
+    const outbox = (config.get<string>("EMAIL_DEV_OUTBOX_FILE") ?? "").trim();
+    if (outbox && (config.get<string>("NODE_ENV") === "production" || apiKey || !isAbsolute(outbox) || !/\.jsonl$/i.test(outbox))) {
+      throw new Error("EMAIL_DEV_OUTBOX_FILE is for local development only: it cannot be used in production or together with a Resend key, and it must be an absolute path ending in .jsonl.");
+    }
+    this.outbox = outbox || null;
     if (!apiKey) this.logger.warn("RESEND_API_KEY not set — email notifications are disabled (attempts will be logged only).");
     if (!this.from) this.logger.warn("EMAIL_FROM not set — email notifications are disabled until a verified sender is configured.");
   }
@@ -63,6 +76,15 @@ export class EmailService {
     if (!to) {
       this.logger.warn(`Email skipped (no recipient resolved): "${subject}"`);
       return false;
+    }
+    if (this.outbox) {
+      try {
+        appendFileSync(this.outbox, JSON.stringify({ at: new Date().toISOString(), to, subject, html }) + "\n");
+        return true;
+      } catch {
+        this.logger.error(`Email outbox write failed: "${subject}"`);
+        return false;
+      }
     }
     if (!this.client || !this.from) {
       this.logger.warn(`Email skipped (${!this.client ? "Resend not configured" : "EMAIL_FROM not set"}): "${subject}" -> ${to}`);
@@ -91,6 +113,16 @@ export class EmailService {
    * only when the provider accepted it, and never throws. Callers decide WHETHER to send; this only sends. */
   async sendTransactional(to: string, subject: string, html: string): Promise<boolean> {
     return this.send(to, subject, html);
+  }
+
+  /** The 6-digit verification code. Resolves true only when the provider accepted it. The code is in the body only; nothing here logs it (send() logs the subject and recipient). */
+  async sendEmailVerificationCode(p: { to: string; firstName: string; code: string; minutes: number }): Promise<boolean> {
+    return this.send(p.to, "Your RUWĀD verification code", emailVerificationCodeTemplate({ firstName: p.firstName, code: p.code, minutes: p.minutes }));
+  }
+
+  /** Sent instead of a code when someone signs up with an address that already has a verified account. */
+  async sendExistingAccountNotice(p: { to: string; firstName: string }): Promise<boolean> {
+    return this.send(p.to, "You already have a RUWĀD account", existingAccountTemplate({ firstName: p.firstName, signInUrl: `${this.appUrl}/login` }));
   }
 
   /** Startup submission received — always sent to ADMIN_NOTIFICATION_EMAIL,

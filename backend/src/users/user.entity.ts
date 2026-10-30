@@ -68,4 +68,12 @@ export class User extends BaseEntity {
 
   @Column({ type: "enum", enum: UserStatus, default: UserStatus.ACTIVE })
   status!: UserStatus;
+
+  /** When this address was proven to belong to the person (null = not verified). Set by the 6-digit code, by the grandfathering backfill (LEGACY), or by the guarded
+   * recovery script (ADMIN). Only enforced while EMAIL_VERIFICATION_REQUIRED is on. */
+  @Column({ type: "timestamptz", nullable: true })
+  emailVerifiedAt?: Date | null;
+
+  @Column({ type: "varchar", length: 16, nullable: true })
+  emailVerifiedVia?: "OTP" | "LEGACY" | "ADMIN" | null;
 }

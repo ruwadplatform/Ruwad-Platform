@@ -89,7 +89,7 @@ function readEnvFileValue(file, key) {
  * `realDaily` is the explicit opt-in for real Daily.co testing; it needs LOCAL_DAILY_DOMAIN and a DAILY_API_KEY in backend/.env.
  * Returns { env, facts } where `facts` is safe to print.
  */
-function localBackendEnv({ shellEnv = process.env, realDaily = false, bookings = false, envFile = path.join(__dirname, "..", "..", ".env") } = {}) {
+function localBackendEnv({ shellEnv = process.env, realDaily = false, bookings = false, emailVerification = false, envFile = path.join(__dirname, "..", "..", ".env") } = {}) {
   const who = "local-backend";
   refuseIfProductionDetected(shellEnv, who);
   const url = assertLocalDatabase(LOCAL_DATABASE_URL);
@@ -129,15 +129,23 @@ function localBackendEnv({ shellEnv = process.env, realDaily = false, bookings =
   // Consultation bookings follow the production default (OFF). `--bookings` switches them on locally so the full booking flow can still be exercised.
   if (bookings) env.ADVISORY_BOOKINGS_ENABLED = "true";
 
+  // Email verification follows the production default (OFF). `--email-verification` switches it on locally with a throwaway secret and a LOCAL email outbox (a file in the
+  // temp folder that receives every email instead of Resend), so the 6-digit code can be read during a walkthrough. The outbox is refused by the backend in production.
+  if (emailVerification) {
+    env.EMAIL_VERIFICATION_REQUIRED = "true";
+    env.EMAIL_OTP_SECRET = crypto.randomBytes(32).toString("base64");
+    env.EMAIL_DEV_OUTBOX_FILE = path.join(os.tmpdir(), "ruwad-local-email-outbox.jsonl");
+  }
+
   refuseIfProductionDetected(env, who); // belt and braces: the environment we are about to hand over is clean too
   return {
     env,
-    facts: { bookings: env.ADVISORY_BOOKINGS_ENABLED === "true", database: assertLocalDatabase(env.DATABASE_URL) && "127.0.0.1:55432", port, email: env.ADVISORY_EMAIL_MODE, video: env.ADVISORY_VIDEO_PROVIDER === "daily" ? `REAL Daily (domain ${env.DAILY_DOMAIN}, opt-in)` : "mock", variables: Object.keys(env).filter((k) => !SYSTEM_VARS.includes(k)).sort() },
+    facts: { emailVerification: env.EMAIL_VERIFICATION_REQUIRED === "true", outbox: env.EMAIL_DEV_OUTBOX_FILE ?? null, bookings: env.ADVISORY_BOOKINGS_ENABLED === "true", database: assertLocalDatabase(env.DATABASE_URL) && "127.0.0.1:55432", port, email: env.ADVISORY_EMAIL_MODE, video: env.ADVISORY_VIDEO_PROVIDER === "daily" ? `REAL Daily (domain ${env.DAILY_DOMAIN}, opt-in)` : "mock", variables: Object.keys(env).filter((k) => !SYSTEM_VARS.includes(k)).sort() },
   };
 }
 
 /** Settings a test or migration process must never inherit. Unset means the app default, which is mock email, mock video and no refresh job. */
-const UNSET_FOR_TESTS = ["ADVISORY_EMAIL_MODE", "ADVISORY_VIDEO_PROVIDER", "CONTENT_REFRESH_INTERNAL", "ADVISORY_BOOKINGS_ENABLED"];
+const UNSET_FOR_TESTS = ["ADVISORY_EMAIL_MODE", "ADVISORY_VIDEO_PROVIDER", "CONTENT_REFRESH_INTERNAL", "ADVISORY_BOOKINGS_ENABLED", "EMAIL_VERIFICATION_REQUIRED", "EMAIL_DEV_OUTBOX_FILE"];
 
 /**
  * The shell environment for TEST and MIGRATION runners: every secret removed, the mock-mode switches UNSET, local database only. Refuses if the

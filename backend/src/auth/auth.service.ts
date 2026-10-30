@@ -13,6 +13,7 @@ import { PasswordResetToken } from "./password-reset-token.entity";
 import { ResetPasswordDto } from "./dto/password-reset.dto";
 import { EmailService } from "../email/email.service";
 import { isStrongPassword } from "./password-policy";
+import { EmailVerificationService } from "./email-verification.service";
 
 const SALT_ROUNDS = 12;
 const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
@@ -22,6 +23,15 @@ const RESET_TOKEN_TTL_MS = 30 * 60 * 1000;
 const RESET_RESEND_COOLDOWN_MS = 60 * 1000;
 
 const hashResetToken = (raw: string) => createHash("sha256").update(raw).digest("hex");
+
+/** The password was right but the email address has not been verified yet (only while EMAIL_VERIFICATION_REQUIRED is on). The controller turns this into a 403 with a code. */
+export class EmailNotVerifiedError extends Error {
+  constructor(public readonly user: User) {
+    super("Email not verified");
+  }
+}
+
+const isUniqueViolation = (e: unknown) => (e as { code?: string; driverError?: { code?: string } })?.code === "23505" || (e as { driverError?: { code?: string } })?.driverError?.code === "23505";
 
 @Injectable()
 export class AuthService {
@@ -33,6 +43,7 @@ export class AuthService {
     private readonly email: EmailService,
     @InjectRepository(PasswordResetToken) private readonly resetTokens: Repository<PasswordResetToken>,
     @InjectDataSource() private readonly dataSource: DataSource,
+    private readonly verification: EmailVerificationService,
   ) {}
 
   async register(dto: RegisterDto): Promise<User> {
@@ -40,7 +51,14 @@ export class AuthService {
     if (existing) throw new ConflictException("An account with this email already exists");
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
-    const user = await this.users.create({
+    const user = await this.users.create(this.userData(dto, passwordHash));
+    await this.users.getOrCreateSettings(user.id);
+    return user;
+  }
+
+  /** What a sign-up form becomes in the users table (shared by both sign-up paths). */
+  private userData(dto: RegisterDto, passwordHash: string): Partial<User> {
+    return {
       firstName: dto.firstName,
       lastName: dto.lastName,
       email: dto.email,
@@ -57,9 +75,42 @@ export class AuthService {
       city: dto.city,
       phone: dto.phone,
       interests: dto.interests ?? [],
-    });
-    await this.users.getOrCreateSettings(user.id);
-    return user;
+    };
+  }
+
+  /** Sign-up while EMAIL_VERIFICATION_REQUIRED is on. It signs nobody in and answers the same way whatever the address is:
+   *   - a new address: the account is created UNVERIFIED and a code is emailed;
+   *   - an address whose account is still unverified: that account is OVERWRITTEN with these details (so someone who registered another person's address earlier
+   *     cannot keep a password they know) and a fresh code is emailed;
+   *   - an address that already has a verified account: nothing changes and a "you already have an account" email is sent instead.
+   * Returns the account the code belongs to, or null for the third case (the caller then puts a made-up id in the pending cookie so it looks the same). */
+  async registerWithVerification(dto: RegisterDto, ip: string | undefined): Promise<{ userId: string | null }> {
+    const email = dto.email.trim().toLowerCase();
+    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS); // the same cost on every path
+    const data = this.userData({ ...dto, email }, passwordHash);
+    let existing = await this.users.findByEmail(email);
+    if (!existing) {
+      try {
+        const created = await this.users.create(data);
+        await this.users.getOrCreateSettings(created.id);
+        await this.verification.issueCode(created, ip);
+        return { userId: created.id };
+      } catch (e) {
+        if (!isUniqueViolation(e)) throw e;
+        existing = await this.users.findByEmail(email); // lost a race with a simultaneous sign-up for the same address
+        if (!existing) throw e;
+      }
+    }
+    if (!existing.emailVerifiedAt && existing.status === UserStatus.ACTIVE) {
+      const { email: _same, ...rest } = data;
+      const updated = await this.users.overwriteUnverified(existing.id, rest);
+      if (updated) {
+        await this.verification.issueCode(updated, ip);
+        return { userId: updated.id };
+      }
+    }
+    await this.verification.sendExistingAccountNotice(existing);
+    return { userId: null };
   }
 
   async validateCredentials(dto: LoginDto): Promise<User> {
@@ -69,6 +120,8 @@ export class AuthService {
     if (!ok) throw new UnauthorizedException("Invalid email or password");
     // Only after the password is right, so this reveals nothing to someone who does not know it.
     if (user.status !== UserStatus.ACTIVE) throw new UnauthorizedException("This account is not active. Please contact RUWĀD support.");
+    // Only after the password is right, so a stranger learns nothing about an address from this. With verification off the account is simply signed in, as before.
+    if (this.verification.required && !user.emailVerifiedAt) throw new EmailNotVerifiedError(user);
     return user;
   }
 

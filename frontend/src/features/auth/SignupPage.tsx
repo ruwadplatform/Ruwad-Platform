@@ -7,6 +7,7 @@ import { RuwadIcon, type RuwadIconName } from "@/components/icons/ruwad-icon";
 import { PasswordInput } from "@/components/shared/PasswordInput";
 import { PhoneInput } from "@/components/shared/PhoneInput";
 import { registerAccount, consumePendingAction, ApiError } from "@/lib/store";
+import { markCodeSent } from "./verify-email-session";
 import { parseResume } from "@/lib/api/resume-parse";
 import { ALL_COUNTRIES } from "@/data/reference";
 import { dialCodeForCountry } from "@/data/phone-codes";
@@ -235,7 +236,7 @@ export function SignupPage() {
           : accountType === "investor"
             ? { organizationType: org.type, organizationStage: org.stage, organizationCity: org.city }
             : { organizationType: org.type, organizationWebsite: org.website };
-      await registerAccount({
+      const created = await registerAccount({
         email: email.trim(), password, firstName: firstName.trim(), lastName: lastName.trim(),
         role: accountType ? ACCOUNT_TYPE_TO_ROLE[accountType] : "USER",
         jobTitle: jobTitle.trim() || undefined, organization: org.name.trim() || undefined,
@@ -244,6 +245,12 @@ export function SignupPage() {
         phone: toE164(phoneIso2, phoneNumber) ?? undefined,
         interests: interests.length ? interests : undefined,
       });
+      // Email verification is on: a code was emailed and nobody is signed in yet, so go and enter it instead of showing the welcome screen.
+      if ("verificationRequired" in created) {
+        markCodeSent();
+        router.push("/verify-email");
+        return;
+      }
       setStep(5);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Something went wrong — please try again.");

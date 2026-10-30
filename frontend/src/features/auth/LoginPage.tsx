@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useToast } from "@/components/shell/ToastProvider";
 import { PasswordInput } from "@/components/shared/PasswordInput";
 import { login, consumePendingAction, ApiError } from "@/lib/store";
+import { markCodeSent } from "./verify-email-session";
 
 /** Ported from authShell()/loginHtml()/doLogin() (js/auth.js:38-139) — same
  * `.auth-shell`/`.auth-card`/`.auth-card-brand`/`.auth-card-form` markup,
@@ -28,6 +29,13 @@ export function LoginPage() {
       const pending = consumePendingAction();
       router.push(pending?.route && pending.route !== "/login" ? pending.route : "/dashboard");
     } catch (e) {
+      // The password was right but the address is not verified yet: the server has sent a fresh code (if its limits allow) and this browser may now enter it.
+      if (e instanceof ApiError && e.code === "EMAIL_NOT_VERIFIED") {
+        markCodeSent();
+        toast("Please verify your email address to continue.");
+        router.push("/verify-email");
+        return;
+      }
       toast(e instanceof ApiError ? e.message : "Invalid email or password");
     } finally {
       setSubmitting(false);

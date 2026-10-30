@@ -8,6 +8,7 @@
 import { createResourceCacheCore } from "./resource-cache-core";
 import { flushSync } from "react-dom";
 import * as authApi from "./api/auth";
+import { isVerificationRequired } from "../features/auth/verify-email-logic";
 import * as watchlistApi from "./api/watchlist";
 import * as savedSearchesApi from "./api/saved-searches";
 import * as introductionsApi from "./api/introductions";
@@ -245,13 +246,28 @@ export async function registerAccount(input: {
   organizationWebsite?: string; organizationStage?: string; organizationCategory?: string;
   organizationCity?: string; organizationType?: string;
   country?: string; city?: string; phone?: string; interests?: string[];
-}): Promise<Account> {
+}): Promise<Account | { verificationRequired: true }> {
   const u = await authApi.register(input);
+  // Email verification is on: nobody is signed in until the code is entered, so no session is started here.
+  if (isVerificationRequired(u)) return { verificationRequired: true };
   sessionUser = u;
   sessionHydrated = true;
   resetUserScopedCaches();
   notifyStoreChange();
   return toAccount(u);
+}
+
+/** Checks the 6-digit code. When the server signs this browser in (the one that signed up), the session starts here exactly as after a login. */
+export async function verifyEmailCode(code: string, email?: string): Promise<{ signedIn: boolean; firstName?: string }> {
+  const res = await authApi.verifyEmail(code, email);
+  if (res.signedIn && res.user) {
+    sessionUser = res.user;
+    sessionHydrated = true;
+    resetUserScopedCaches();
+    notifyStoreChange();
+    return { signedIn: true, firstName: res.user.firstName };
+  }
+  return { signedIn: false };
 }
 
 export async function clearSession(): Promise<void> {

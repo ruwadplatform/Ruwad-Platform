@@ -166,6 +166,26 @@ export function passwordResetTemplate(p: { firstName: string; resetUrl: string }
   return layout("Reset your RUWĀD password", body, { text: "Reset Password", url: p.resetUrl });
 }
 
+/** The 6-digit verification code. The code appears in the body only (never in the subject, which is logged). */
+export function emailVerificationCodeTemplate(p: { firstName: string; code: string; minutes: number }): string {
+  const body =
+    `<p>Hi ${escapeHtml(p.firstName)},</p>` +
+    `<p>Use this code to verify your email address and finish creating your RUWĀD account:</p>` +
+    `<p style="margin:20px 0;text-align:center;"><span style="display:inline-block;font-family:SFMono-Regular,Menlo,Consolas,monospace;font-size:32px;font-weight:700;letter-spacing:8px;background:#F2F6F3;border:1px solid #D8E2DB;border-radius:8px;padding:12px 18px;">${escapeHtml(p.code)}</span></p>` +
+    `<p><b>This code expires in ${p.minutes} minutes</b> and can be used once. RUWĀD will never ask you to share it with anyone.</p>` +
+    `<p style="color:#5C6B62;">If you did not try to create a RUWĀD account, you can ignore this email.</p>`;
+  return layout("Verify your email address", body);
+}
+
+/** Sent when someone signs up with an address that already has a verified account, so the sign-up screen can answer the same way for every address. */
+export function existingAccountTemplate(p: { firstName: string; signInUrl: string }): string {
+  const body =
+    `<p>Hi ${escapeHtml(p.firstName)},</p>` +
+    `<p>Someone tried to create a RUWĀD account with this email address, but you already have one. If that was you, sign in, or reset your password if you have forgotten it.</p>` +
+    `<p style="color:#5C6B62;">If it was not you, no action is needed and nothing has changed.</p>`;
+  return layout("You already have a RUWĀD account", body, { text: "Sign In", url: p.signInUrl });
+}
+
 /** Only http(s) links are ever placed in an href; anything else (javascript:, data:, …) is dropped. */
 function safeHref(url: string | null | undefined): string | null {
   if (!url) return null;

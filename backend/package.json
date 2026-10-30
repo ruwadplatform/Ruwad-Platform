@@ -22,11 +22,12 @@
     "migration:run:local": "node scripts/dev/local-migrate.js run",
     "migration:revert:local": "node scripts/dev/local-migrate.js revert",
     "test:advisory": "node scripts/dev/run-advisory-integration.js",
+    "test:auth": "node scripts/dev/run-auth-integration.js",
     "start:local": "node scripts/dev/local-backend.js",
     "daily:webhook": "node scripts/dev/daily-webhook-live.js",
     "test:visibility": "node scripts/dev/run-visibility-integration.js",
 
-    "test:ops": "node --test scripts/ops/launch-config.test.js",
+    "test:ops": "node --test scripts/ops/launch-config.test.js scripts/ops/verify-user-email.test.js scripts/ops/email-verification-migrate.test.js",
     "deploy:start": "npm run migration:run && npm run start:prod",
     "content:refresh": "node scripts/ops/content-refresh.js"
   },
